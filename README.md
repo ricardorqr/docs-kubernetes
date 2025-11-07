@@ -35,4 +35,4 @@ python kubernetes-doc.py
 
 # References:
 
-This project is an update of [Kubernetes PDF Documentation](https://github.com/dohsimpson/kubernetes-doc-pdf)
+This project is an updated version of [Kubernetes PDF Documentation](https://github.com/dohsimpson/kubernetes-doc-pdf)

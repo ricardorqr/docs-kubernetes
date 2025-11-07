@@ -20,6 +20,7 @@ def generate_directory_pdf(url, name, s=None):
 
     print("downloading...")
     cwd = os.getcwd()
+    html = "<meta charset='UTF-8'>\n" + html
     for l1 in links:
         r2 = s.get(l1)
         # r2.html.render()
