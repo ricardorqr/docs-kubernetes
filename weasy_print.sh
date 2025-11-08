@@ -5,10 +5,15 @@ set -x
 PDF_DIR=PDFs
 
 # Replace smart quotes and normalize punctuation
-sed -i -e "s/’/\'/g" -e "s/–/-/g" -e "s/“/\"/g" -e "s/”/\"/g" "$1.html"
+sed -i '' \
+  -e "s/’/'/g" \
+  -e "s/–/-/g" \
+  -e "s/“/\"/g" \
+  -e "s/”/\"/g" \
+  "$1.html"
 
 # Re-encode file to proper UTF-8 (drop any bad bytes)
-iconv -f utf-8 -t utf-8 -c "$1.html" -o "$1.html.utf8"
+iconv -f utf-8 -t utf-8 -c "$1.html" > "$1.html.utf8"
 mv "$1.html.utf8" "$1.html"
 
 docker run -it --name weasy -d 4teamwork/weasyprint:latest

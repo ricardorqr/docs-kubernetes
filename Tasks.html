@@ -11379,7 +11379,7 @@ Here, create a YAML format file named <code>custom-profile.yaml</code>:</p><div 
 </span></span></span><span><span><span>    </span>- NET_ADMIN<span>
 </span></span></span><span><span><span>    </span>- SYS_TIME<span>
 </span></span></span></code></pre></div><p>Run this command to debug the Pod using an ephemeral container with the custom profile:</p><div class="highlight"><pre tabindex="0"><code class="language-shell"><span><span>kubectl debug -it myapp --image<span>=</span>busybox:1.28 --target<span>=</span>myapp --profile<span>=</span>general --custom<span>=</span>custom-profile.yaml
-</span></span></code></pre></div><p>You can check that the ephemeral container has been added to the target Pod with the custom profile applied:</p><div class="highlight"><pre tabindex="0"><code class="language-shell"><span><span>kubectl get pod <span>m</span>yapp -o <span>jsonpath</span><span>=</span><span>'{.spec.ephemeralContainers[0].env}'</span>
+</span></span></code></pre></div><p>You can check that the ephemeral container has been added to the target Pod with the custom profile applied:</p><div class="highlight"><pre tabindex="0"><code class="language-shell"><span><span>kubectl get pod myapp -o <span>jsonpath</span><span>=</span><span>'{.spec.ephemeralContainers[0].env}'</span>
 </span></span></code></pre></div><pre tabindex="0"><code>[{"name":"ENV_VAR_1","value":"value_1"},{"name":"ENV_VAR_2","value":"value_2"}]
 </code></pre><div class="highlight"><pre tabindex="0"><code class="language-shell"><span><span>kubectl get pod myapp -o <span>jsonpath</span><span>=</span><span>'{.spec.ephemeralContainers[0].securityContext}'</span>
 </span></span></code></pre></div><pre tabindex="0"><code>{"capabilities":{"add":["NET_ADMIN","SYS_TIME"]}}

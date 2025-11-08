@@ -357,7 +357,7 @@ and only <em>equality-based</em> requirement selectors are supported:</p><div cl
 </span></span><span><span>    <span>"component"</span> : <span>"redis"</span>,
 </span></span><span><span>}
 </span></span></code></pre></div><p>or</p><div class="highlight"><pre tabindex="0"><code class="language-yaml"><span><span><span>selector</span>:<span>
-</span></span></span><span><span><span>  </span><span>component</span>:<span> </span>redis<span>
+</span></span></span><span><span><span>  </span>component: redis<span>
 </span></span></span></code></pre></div><p>This selector (respectively in <code>json</code> or <code>yaml</code> format) is equivalent to
 <code>component=redis</code> or <code>component in (redis)</code>.</p><h4 id="resources-that-support-set-based-requirements">Resources that support set-based requirements</h4><p>Newer resources, such as <a href="/docs/concepts/workloads/controllers/job/"><code>Job</code></a>,
 <a href="/docs/concepts/workloads/controllers/deployment/"><code>Deployment</code></a>,
@@ -1848,10 +1848,10 @@ RuntimeClass does not exist, or the CRI cannot run the corresponding handler, th
 <code>Failed</code> terminal <a href="/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase">phase</a>. Look for a
 corresponding <a href="/docs/tasks/debug/debug-application/debug-running-pod/">event</a> for an
 error message.</p><p>If no <code>runtimeClassName</code> is specified, the default RuntimeHandler will be used, which is equivalent
-to the behavior when the RuntimeClass feature is disabled.</p><h3 id="cri-configuration">CRI Configuration</h3><p>For more details on setting up CRI runtimes, see <a href="/docs/setup/production-environment/container-runtimes/">CRI installation</a>.</p><h4 id="hahahugoshortcode1748s3hbhb"><a class="glossary-tooltip" title="A container runtime with an emphasis on simplicity, robustness and portability" href="https://containerd.io/docs/" target="_blank">containerd</a></h4><p>Runtime handlers are configured through containerd's configuration at
+to the behavior when the RuntimeClass feature is disabled.</p><h3 id="cri-configuration">CRI Configuration</h3><p>For more details on setting up CRI runtimes, see <a href="/docs/setup/production-environment/container-runtimes/">CRI installation</a>.</p><h4 id="hahahugoshortcode1733s3hbhb"><a class="glossary-tooltip" title="A container runtime with an emphasis on simplicity, robustness and portability" href="https://containerd.io/docs/" target="_blank">containerd</a></h4><p>Runtime handlers are configured through containerd's configuration at
 <code>/etc/containerd/config.toml</code>. Valid handlers are configured under the runtimes section:</p><pre tabindex="0"><code>[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.${HANDLER_NAME}]
 </code></pre><p>See containerd's <a href="https://github.com/containerd/containerd/blob/main/docs/cri/config.md">config documentation</a>
-for more details:</p><h4 id="hahahugoshortcode1748s4hbhb"><a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" href="https://cri-o.io/#what-is-cri-o" target="_blank">CRI-O</a></h4><p>Runtime handlers are configured through CRI-O's configuration at <code>/etc/crio/crio.conf</code>. Valid
+for more details:</p><h4 id="hahahugoshortcode1733s4hbhb"><a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" href="https://cri-o.io/#what-is-cri-o" target="_blank">CRI-O</a></h4><p>Runtime handlers are configured through CRI-O's configuration at <code>/etc/crio/crio.conf</code>. Valid
 handlers are configured under the
 <a href="https://github.com/cri-o/cri-o/blob/master/docs/crio.conf.5.md#crioruntime-table">crio.runtime table</a>:</p><pre tabindex="0"><code>[crio.runtime.runtimes.${HANDLER_NAME}]
   runtime_path = "${PATH_TO_BINARY}"
@@ -2406,7 +2406,7 @@ but also keep running once the initialization succeeds:</p><div class="highlight
 </span></span></span></code></pre></div><p>A Pod with Never restart policy with a container that ignores and restarts on specific exit codes.
 This is useful to differentiate between restartable errors and non-restartable errors:</p><div class="highlight"><pre tabindex="0"><code class="language-yaml"><span><span><span>apiVersion</span>:<span> </span>v1<span>
 </span></span></span><span><span><span></span><span>kind</span>:<span> </span>Pod<span>
-</span></span></span><span><span><span></span>metadata:<span>
+</span></span></span><span><span><span></span><span>metadata</span>:<span>
 </span></span></span><span><span><span>  </span><span>name</span>:<span> </span>restart-on-exit-codes<span>
 </span></span></span><span><span><span></span><span>spec</span>:<span>
 </span></span></span><span><span><span>  </span><span>restartPolicy</span>:<span> </span>Never<span>
