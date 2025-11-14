@@ -1,6 +1,9 @@
 # Kubernetes Documentation PDF Generator
 
-This Python tool automatically crawls the Kubernetes official documentation sidebar (`https://kubernetes.io/docs/home/`), extracts every page contained in `<div class="td-content">`, saves each as an individual HTML file, merges related files by alphabetical grouping, and finally converts each merged HTML file into a PDF using Playwright. All PDFs will be used in NotebookLM.
+This Python tool automatically crawls the Kubernetes official documentation sidebar (`https://kubernetes.io/docs/home/`), extracts every page contained in `<div class="td-content">`, saves each as an individual HTML file, merges related files by alphabetical grouping, and finally converts each merged HTML file into a PDF using Playwright.
+
+All generated PDFs can be imported into **NotebookLM / Gemini** for offline study, search, and summarization.
+
 
 ---
 
