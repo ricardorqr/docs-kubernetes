@@ -1,0 +1,46 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Content organization</h1><p>This site uses Hugo. In Hugo, <a href="https://gohugo.io/content-management/organization/">content organization</a> is a core concept.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><strong>Hugo Tip:</strong> Start Hugo with <code>hugo server --navigateToChanged</code> for content edit-sessions.</div><h2 id="page-lists">Page Lists</h2><h3 id="page-order">Page Order</h3><p>The documentation side menu, the documentation page browser etc. are listed using
+Hugo's default sort order, which sorts by weight (from 1), date (newest first),
+and finally by the link title.</p><p>Given that, if you want to move a page or a section up, set a weight in the page's front matter:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">title</span>:<span style="color:#bbb"> </span>My Page<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">10</span><span style="color:#bbb">
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>For page weights, it can be smart not to use 1, 2, 3 ..., but some other interval,
+say 10, 20, 30... This allows you to insert pages where you want later.
+Additionally, each weight within the same directory (section) should not be
+overlapped with the other weights. This makes sure that content is always
+organized correctly, especially in localized content.</div><h3 id="documentation-main-menu">Documentation Main Menu</h3><p>The <code>Documentation</code> main menu is built from the sections below <code>docs/</code> with
+the <code>main_menu</code> flag set in front matter of the <code>_index.md</code> section content file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">main_menu</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Note that the link title is fetched from the page's <code>linkTitle</code>, so if you want
+it to be something different than the title, change it in the content file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">main_menu</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">title</span>:<span style="color:#bbb"> </span>Page Title<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">linkTitle</span>:<span style="color:#bbb"> </span>Title used in links<span style="color:#bbb">
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The above needs to be done per language. If you don't see your section in the menu,
+it is probably because it is not identified as a section by Hugo. Create a
+<code>_index.md</code> content file in the section folder.</div><h3 id="documentation-side-menu">Documentation Side Menu</h3><p>The documentation side-bar menu is built from the <em>current section tree</em> starting below <code>docs/</code>.</p><p>It will show all sections and their pages.</p><p>If you don't want to list a section or page, set the <code>toc_hide</code> flag to <code>true</code> in front matter:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">toc_hide</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>When you navigate to a section that has content, the specific section or page
+(e.g. <code>_index.md</code>) is shown. Else, the first page inside that section is shown.</p><h3 id="documentation-browser">Documentation Browser</h3><p>The page browser on the documentation home page is built using all the sections
+and pages that are directly below the <code>docs section</code>.</p><p>If you don't want to list a section or page, set the <code>toc_hide</code> flag to <code>true</code> in front matter:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">toc_hide</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h3 id="the-main-menu">The Main Menu</h3><p>The site links in the top-right menu -- and also in the footer -- are built by
+page-lookups. This is to make sure that the page actually exists. So, if the
+<code>case-studies</code> section does not exist in a site (language), it will not be linked to.</p><h2 id="page-bundles">Page Bundles</h2><p>In addition to standalone content pages (Markdown files), Hugo supports
+<a href="https://gohugo.io/content-management/page-bundles/">Page Bundles</a>.</p><p>One example is <a href="/docs/contribute/style/hugo-shortcodes/">Custom Hugo Shortcodes</a>.
+It is considered a <code>leaf bundle</code>. Everything below the directory, including the <code>index.md</code>,
+will be part of the bundle. This also includes page-relative links, images that can be processed etc.:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>en/docs/home/contribute/includes
+</span></span><span style="display:flex"><span>├── example1.md
+</span></span><span style="display:flex"><span>├── example2.md
+</span></span><span style="display:flex"><span>├── index.md
+</span></span><span style="display:flex"><span>└── podtemplate.json
+</span></span></code></pre></div><p>Another widely used example is the <code>includes</code> bundle. It sets <code>headless: true</code> in
+front matter, which means that it does not get its own URL. It is only used in other pages.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>en/includes
+</span></span><span style="display:flex"><span>├── default-storage-class-prereqs.md
+</span></span><span style="display:flex"><span>├── index.md
+</span></span><span style="display:flex"><span>├── partner-script.js
+</span></span><span style="display:flex"><span>├── partner-style.css
+</span></span><span style="display:flex"><span>├── task-tutorial-prereqs.md
+</span></span><span style="display:flex"><span>├── user-guide-content-moved.md
+</span></span><span style="display:flex"><span>└── user-guide-migration-notice.md
+</span></span></code></pre></div><p>Some important notes to the files in the bundles:</p><ul><li>For translated bundles, any missing non-content files will be inherited from
+languages above. This avoids duplication.</li><li>All the files in a bundle are what Hugo calls <code>Resources</code> and you can provide
+metadata per language, such as parameters and title, even if it does not supports
+front matter (YAML files etc.).
+See <a href="https://gohugo.io/content-management/page-resources/#page-resources-metadata">Page Resources Metadata</a>.</li><li>The value you get from <code>.RelPermalink</code> of a <code>Resource</code> is page-relative.
+See <a href="https://gohugo.io/content-management/urls/#permalinks">Permalinks</a>.</li></ul><h2 id="styles">Styles</h2><p>The <a href="https://sass-lang.com/">SASS</a> source of the stylesheets for this site is
+stored in <code>assets/sass</code> and is automatically built by Hugo.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn about <a href="/docs/contribute/style/hugo-shortcodes/">custom Hugo shortcodes</a></li><li>Learn about the <a href="/docs/contribute/style/style-guide/">Style guide</a></li><li>Learn about the <a href="/docs/contribute/style/content-guide/">Content guide</a></li></ul></div>

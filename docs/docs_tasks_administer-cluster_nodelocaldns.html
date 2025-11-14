@@ -1,0 +1,74 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Using NodeLocal DNSCache in Kubernetes Clusters</h1><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.18 [stable]</code></div><p>This page provides an overview of NodeLocal DNSCache feature in Kubernetes.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="introduction">Introduction</h2><p>NodeLocal DNSCache improves Cluster DNS performance by running a DNS caching agent
+on cluster nodes as a DaemonSet. In today's architecture, Pods in 'ClusterFirst' DNS mode
+reach out to a kube-dns <code>serviceIP</code> for DNS queries. This is translated to a
+kube-dns/CoreDNS endpoint via iptables rules added by kube-proxy.
+With this new architecture, Pods will reach out to the DNS caching agent
+running on the same node, thereby avoiding iptables DNAT rules and connection tracking.
+The local caching agent will query kube-dns service for cache misses of cluster
+hostnames ("<code>cluster.local</code>" suffix by default).</p><h2 id="motivation">Motivation</h2><ul><li><p>With the current DNS architecture, it is possible that Pods with the highest DNS QPS
+have to reach out to a different node, if there is no local kube-dns/CoreDNS instance.
+Having a local cache will help improve the latency in such scenarios.</p></li><li><p>Skipping iptables DNAT and connection tracking will help reduce
+<a href="https://github.com/kubernetes/kubernetes/issues/56903">conntrack races</a>
+and avoid UDP DNS entries filling up conntrack table.</p></li><li><p>Connections from the local caching agent to kube-dns service can be upgraded to TCP.
+TCP conntrack entries will be removed on connection close in contrast with
+UDP entries that have to timeout
+(<a href="https://www.kernel.org/doc/Documentation/networking/nf_conntrack-sysctl.txt">default</a>
+<code>nf_conntrack_udp_timeout</code> is 30 seconds)</p></li><li><p>Upgrading DNS queries from UDP to TCP would reduce tail latency attributed to
+dropped UDP packets and DNS timeouts usually up to 30s (3 retries + 10s timeout).
+Since the nodelocal cache listens for UDP DNS queries, applications don't need to be changed.</p></li><li><p>Metrics &amp; visibility into DNS requests at a node level.</p></li><li><p>Negative caching can be re-enabled, thereby reducing the number of queries for the kube-dns service.</p></li></ul><h2 id="architecture-diagram">Architecture Diagram</h2><p>This is the path followed by DNS Queries after NodeLocal DNSCache is enabled:</p><figure class="diagram-medium"><img src="/images/docs/nodelocaldns.svg" alt="NodeLocal DNSCache flow"/><figcaption><h4>Nodelocal DNSCache flow</h4><p>This image shows how NodeLocal DNSCache handles DNS queries.</p></figcaption></figure><h2 id="configuration">Configuration</h2><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The local listen IP address for NodeLocal DNSCache can be any address that
+can be guaranteed to not collide with any existing IP in your cluster.
+It's recommended to use an address with a local scope, for example,
+from the 'link-local' range '169.254.0.0/16' for IPv4 or from the
+'Unique Local Address' range in IPv6 'fd00::/8'.</div><p>This feature can be enabled using the following steps:</p><ul><li><p>Prepare a manifest similar to the sample
+<a href="https://github.com/kubernetes/kubernetes/blob/master/cluster/addons/dns/nodelocaldns/nodelocaldns.yaml"><code>nodelocaldns.yaml</code></a>
+and save it as <code>nodelocaldns.yaml</code>.</p></li><li><p>If using IPv6, the CoreDNS configuration file needs to enclose all the IPv6 addresses
+into square brackets if used in 'IP:Port' format.
+If you are using the sample manifest from the previous point, this will require you to modify
+<a href="https://github.com/kubernetes/kubernetes/blob/b2ecd1b3a3192fbbe2b9e348e095326f51dc43dd/cluster/addons/dns/nodelocaldns/nodelocaldns.yaml#L70">the configuration line L70</a>
+like this: "<code>health [__PILLAR__LOCAL__DNS__]:8080</code>"</p></li><li><p>Substitute the variables in the manifest with the right values:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">kubedns</span><span style="color:#666">=</span><span style="color:#b44">`</span>kubectl get svc kube-dns -n kube-system -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">={</span>.spec.clusterIP<span style="color:#666">}</span><span style="color:#b44">`</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">domain</span><span style="color:#666">=</span>&lt;cluster-domain&gt;
+</span></span><span style="display:flex"><span><span style="color:#b8860b">localdns</span><span style="color:#666">=</span>&lt;node-local-address&gt;
+</span></span></code></pre></div><p><code>&lt;cluster-domain&gt;</code> is "<code>cluster.local</code>" by default. <code>&lt;node-local-address&gt;</code> is the
+local listen IP address chosen for NodeLocal DNSCache.</p><ul><li><p>If kube-proxy is running in IPTABLES mode:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>sed -i <span style="color:#b44">"s/__PILLAR__LOCAL__DNS__/</span><span style="color:#b8860b">$localdns</span><span style="color:#b44">/g; s/__PILLAR__DNS__DOMAIN__/</span><span style="color:#b8860b">$domain</span><span style="color:#b44">/g; s/__PILLAR__DNS__SERVER__/</span><span style="color:#b8860b">$kubedns</span><span style="color:#b44">/g"</span> nodelocaldns.yaml
+</span></span></code></pre></div><p><code>__PILLAR__CLUSTER__DNS__</code> and <code>__PILLAR__UPSTREAM__SERVERS__</code> will be populated by
+the <code>node-local-dns</code> pods.
+In this mode, the <code>node-local-dns</code> pods listen on both the kube-dns service IP
+as well as <code>&lt;node-local-address&gt;</code>, so pods can look up DNS records using either IP address.</p></li><li><p>If kube-proxy is running in IPVS mode:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>sed -i <span style="color:#b44">"s/__PILLAR__LOCAL__DNS__/</span><span style="color:#b8860b">$localdns</span><span style="color:#b44">/g; s/__PILLAR__DNS__DOMAIN__/</span><span style="color:#b8860b">$domain</span><span style="color:#b44">/g; s/,__PILLAR__DNS__SERVER__//g; s/__PILLAR__CLUSTER__DNS__/</span><span style="color:#b8860b">$kubedns</span><span style="color:#b44">/g"</span> nodelocaldns.yaml
+</span></span></code></pre></div><p>In this mode, the <code>node-local-dns</code> pods listen only on <code>&lt;node-local-address&gt;</code>.
+The <code>node-local-dns</code> interface cannot bind the kube-dns cluster IP since the
+interface used for IPVS loadbalancing already uses this address.
+<code>__PILLAR__UPSTREAM__SERVERS__</code> will be populated by the node-local-dns pods.</p></li></ul></li><li><p>Run <code>kubectl create -f nodelocaldns.yaml</code></p></li><li><p>If using kube-proxy in IPVS mode, <code>--cluster-dns</code> flag to kubelet needs to be modified
+to use <code>&lt;node-local-address&gt;</code> that NodeLocal DNSCache is listening on.
+Otherwise, there is no need to modify the value of the <code>--cluster-dns</code> flag,
+since NodeLocal DNSCache listens on both the kube-dns service IP as well as
+<code>&lt;node-local-address&gt;</code>.</p></li></ul><p>Once enabled, the <code>node-local-dns</code> Pods will run in the <code>kube-system</code> namespace
+on each of the cluster nodes. This Pod runs <a href="https://github.com/coredns/coredns">CoreDNS</a>
+in cache mode, so all CoreDNS metrics exposed by the different plugins will
+be available on a per-node basis.</p><p>You can disable this feature by removing the DaemonSet, using <code>kubectl delete -f &lt;manifest&gt;</code>.
+You should also revert any changes you made to the kubelet configuration.</p><h2 id="stubdomains-and-upstream-server-configuration">StubDomains and Upstream server Configuration</h2><p>StubDomains and upstream servers specified in the <code>kube-dns</code> ConfigMap in the <code>kube-system</code> namespace
+are automatically picked up by <code>node-local-dns</code> pods. The ConfigMap contents need to follow the format
+shown in <a href="/docs/tasks/administer-cluster/dns-custom-nameservers/#example-1">the example</a>.
+The <code>node-local-dns</code> ConfigMap can also be modified directly with the stubDomain configuration
+in the Corefile format. Some cloud providers might not allow modifying <code>node-local-dns</code> ConfigMap directly.
+In those cases, the <code>kube-dns</code> ConfigMap can be updated.</p><h2 id="setting-memory-limits">Setting memory limits</h2><p>The <code>node-local-dns</code> Pods use memory for storing cache entries and processing queries.
+Since they do not watch Kubernetes objects, the cluster size or the number of Services / EndpointSlices do not directly affect memory usage. Memory usage is influenced by the DNS query pattern.
+From <a href="https://github.com/coredns/deployment/blob/master/kubernetes/Scaling_CoreDNS.md">CoreDNS docs</a>,</p><blockquote><p>The default cache size is 10000 entries, which uses about 30 MB when completely filled.</p></blockquote><p>This would be the memory usage for each server block (if the cache gets completely filled).
+Memory usage can be reduced by specifying smaller cache sizes.</p><p>The number of concurrent queries is linked to the memory demand, because each extra
+goroutine used for handling a query requires an amount of memory. You can set an upper limit
+using the <code>max_concurrent</code> option in the forward plugin.</p><p>If a <code>node-local-dns</code> Pod attempts to use more memory than is available (because of total system
+resources, or because of a configured
+<a href="/docs/concepts/configuration/manage-resources-containers/">resource limit</a>), the operating system
+may shut down that pod's container.
+If this happens, the container that is terminated (“OOMKilled”) does not clean up the custom
+packet filtering rules that it previously added during startup.
+The <code>node-local-dns</code> container should get restarted (since managed as part of a DaemonSet), but this
+will lead to a brief DNS downtime each time that the container fails: the packet filtering rules direct
+DNS queries to a local Pod that is unhealthy.</p><p>You can determine a suitable memory limit by running node-local-dns pods without a limit and
+measuring the peak usage. You can also set up and use a
+<a href="https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler">VerticalPodAutoscaler</a>
+in <em>recommender mode</em>, and then check its recommendations.</p></div>

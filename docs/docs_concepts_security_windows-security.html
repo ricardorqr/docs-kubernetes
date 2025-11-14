@@ -1,0 +1,17 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Security For Windows Nodes</h1><p>This page describes security considerations and best practices specific to the Windows operating system.</p><h2 id="protection-for-secret-data-on-nodes">Protection for Secret data on nodes</h2><p>On Windows, data from Secrets are written out in clear text onto the node's local
+storage (as compared to using tmpfs / in-memory filesystems on Linux). As a cluster
+operator, you should take both of the following additional measures:</p><ol><li>Use file ACLs to secure the Secrets' file location.</li><li>Apply volume-level encryption using
+<a href="https://docs.microsoft.com/windows/security/information-protection/bitlocker/bitlocker-how-to-deploy-on-windows-server">BitLocker</a>.</li></ol><h2 id="container-users">Container users</h2><p><a href="/docs/tasks/configure-pod-container/configure-runasusername/">RunAsUsername</a>
+can be specified for Windows Pods or containers to execute the container
+processes as specific user. This is roughly equivalent to
+<a href="/docs/concepts/security/pod-security-policy/#users-and-groups">RunAsUser</a>.</p><p>Windows containers offer two default user accounts, ContainerUser and ContainerAdministrator.
+The differences between these two user accounts are covered in
+<a href="https://docs.microsoft.com/virtualization/windowscontainers/manage-containers/container-security#when-to-use-containeradmin-and-containeruser-user-accounts">When to use ContainerAdmin and ContainerUser user accounts</a>
+within Microsoft's <em>Secure Windows containers</em> documentation.</p><p>Local users can be added to container images during the container build process.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><ul><li><a href="https://hub.docker.com/_/microsoft-windows-nanoserver">Nano Server</a> based images run as
+<code>ContainerUser</code> by default</li><li><a href="https://hub.docker.com/_/microsoft-windows-servercore">Server Core</a> based images run as
+<code>ContainerAdministrator</code> by default</li></ul></div><p>Windows containers can also run as Active Directory identities by utilizing
+<a href="/docs/tasks/configure-pod-container/configure-gmsa/">Group Managed Service Accounts</a></p><h2 id="pod-level-security-isolation">Pod-level security isolation</h2><p>Linux-specific pod security context mechanisms (such as SELinux, AppArmor, Seccomp, or custom
+POSIX capabilities) are not supported on Windows nodes.</p><p>Privileged containers are <a href="/docs/concepts/windows/intro/#compatibility-v1-pod-spec-containers-securitycontext">not supported</a>
+on Windows.
+Instead <a href="/docs/tasks/configure-pod-container/create-hostprocess-pod/">HostProcess containers</a>
+can be used on Windows to perform many of the tasks performed by privileged containers on Linux.</p></div>

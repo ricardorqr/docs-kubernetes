@@ -1,0 +1,25 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Containers</h1><div class="lead">Technology for packaging an application along with its runtime dependencies.</div><p>This page will discuss containers and container images, as well as their use in operations and solution development.</p><p>The word <em>container</em> is an overloaded term. Whenever you use the word, check whether your audience uses the same definition.</p><p>Each container that you run is repeatable; the standardization from having
+dependencies included means that you get the same behavior wherever you
+run it.</p><p>Containers decouple applications from the underlying host infrastructure.
+This makes deployment easier in different cloud or OS environments.</p><p>Each <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a> in a Kubernetes
+cluster runs the containers that form the
+<a href="/docs/concepts/workloads/pods/">Pods</a> assigned to that node.
+Containers in a Pod are co-located and co-scheduled to run on the same node.</p><h2 id="container-images">Container images</h2><p>A <a href="/docs/concepts/containers/images/">container image</a> is a ready-to-run
+software package containing everything needed to run an application:
+the code and any runtime it requires, application and system libraries,
+and default values for any essential settings.</p><p>Containers are intended to be stateless and
+<a href="https://glossary.cncf.io/immutable-infrastructure/">immutable</a>:
+you should not change
+the code of a container that is already running. If you have a containerized
+application and want to make changes, the correct process is to build a new
+image that includes the change, then recreate the container to start from the
+updated image.</p><h2 id="container-runtimes">Container runtimes</h2><p>A fundamental component that empowers Kubernetes to run containers effectively.
+It is responsible for managing the execution and lifecycle of containers within the Kubernetes environment.</p><p>Kubernetes supports container runtimes such as
+<a class="glossary-tooltip" title="A container runtime with an emphasis on simplicity, robustness and portability" data-toggle="tooltip" data-placement="top" href="https://containerd.io/docs/" target="_blank" aria-label="containerd">containerd</a>, <a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" data-toggle="tooltip" data-placement="top" href="https://cri-o.io/#what-is-cri-o" target="_blank" aria-label="CRI-O">CRI-O</a>,
+and any other implementation of the <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-node/container-runtime-interface.md">Kubernetes CRI (Container Runtime
+Interface)</a>.</p><p>Usually, you can allow your cluster to pick the default container runtime
+for a Pod. If you need to use more than one container runtime in your cluster,
+you can specify the <a href="/docs/concepts/containers/runtime-class/">RuntimeClass</a>
+for a Pod to make sure that Kubernetes runs those containers using a
+particular container runtime.</p><p>You can also use RuntimeClass to run different Pods with the same container
+runtime but with different settings.</p><div class="section-index"><hr class="panel-line"/><div class="entry"><h5><a href="/docs/concepts/containers/container-environment/">Container Environment</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/containers/container-lifecycle-hooks/">Container Lifecycle Hooks</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/containers/cri/">Container Runtime Interface (CRI)</a></h5><p/></div></div></div>

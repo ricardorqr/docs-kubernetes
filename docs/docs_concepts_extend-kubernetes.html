@@ -1,0 +1,128 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Extending Kubernetes</h1><div class="lead">Different ways to change the behavior of your Kubernetes cluster.</div><p>Kubernetes is highly configurable and extensible. As a result, there is rarely a need to fork or
+submit patches to the Kubernetes project code.</p><p>This guide describes the options for customizing a Kubernetes cluster. It is aimed at
+<a class="glossary-tooltip" title="A person who configures, controls, and monitors clusters." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-cluster-operator" target="_blank" aria-label="cluster operators">cluster operators</a> who want to understand
+how to adapt their Kubernetes cluster to the needs of their work environment. Developers who are
+prospective <a class="glossary-tooltip" title="A person who customizes the Kubernetes platform to fit the needs of their project." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-platform-developer" target="_blank" aria-label="Platform Developers">Platform Developers</a> or
+Kubernetes Project <a class="glossary-tooltip" title="Someone who donates code, documentation, or their time to help the Kubernetes project or community." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-contributor" target="_blank" aria-label="Contributors">Contributors</a> will also
+find it useful as an introduction to what extension points and patterns exist, and their
+trade-offs and limitations.</p><p>Customization approaches can be broadly divided into <a href="#configuration">configuration</a>, which only
+involves changing command line arguments, local configuration files, or API resources; and <a href="#extensions">extensions</a>,
+which involve running additional programs, additional network services, or both.
+This document is primarily about <em>extensions</em>.</p><h2 id="configuration">Configuration</h2><p><em>Configuration files</em> and <em>command arguments</em> are documented in the <a href="/docs/reference/">Reference</a> section of the online
+documentation, with a page for each binary:</p><ul><li><a href="/docs/reference/command-line-tools-reference/kube-apiserver/"><code>kube-apiserver</code></a></li><li><a href="/docs/reference/command-line-tools-reference/kube-controller-manager/"><code>kube-controller-manager</code></a></li><li><a href="/docs/reference/command-line-tools-reference/kube-scheduler/"><code>kube-scheduler</code></a></li><li><a href="/docs/reference/command-line-tools-reference/kubelet/"><code>kubelet</code></a></li><li><a href="/docs/reference/command-line-tools-reference/kube-proxy/"><code>kube-proxy</code></a></li></ul><p>Command arguments and configuration files may not always be changeable in a hosted Kubernetes service or a
+distribution with managed installation. When they are changeable, they are usually only changeable
+by the cluster operator. Also, they are subject to change in future Kubernetes versions, and
+setting them may require restarting processes. For those reasons, they should be used only when
+there are no other options.</p><p>Built-in <em>policy APIs</em>, such as <a href="/docs/concepts/policy/resource-quotas/">ResourceQuota</a>,
+<a href="/docs/concepts/services-networking/network-policies/">NetworkPolicy</a> and Role-based Access Control
+(<a href="/docs/reference/access-authn-authz/rbac/">RBAC</a>), are built-in Kubernetes APIs that provide declaratively configured policy settings.
+APIs are typically usable even with hosted Kubernetes services and with managed Kubernetes installations.
+The built-in policy APIs follow the same conventions as other Kubernetes resources such as Pods.
+When you use a policy APIs that is <a href="/docs/reference/using-api/#api-versioning">stable</a>, you benefit from a
+<a href="/docs/reference/using-api/deprecation-policy/">defined support policy</a> like other Kubernetes APIs.
+For these reasons, policy APIs are recommended over <em>configuration files</em> and <em>command arguments</em> where suitable.</p><h2 id="extensions">Extensions</h2><p>Extensions are software components that extend and deeply integrate with Kubernetes.
+They adapt it to support new types and new kinds of hardware.</p><p>Many cluster administrators use a hosted or distribution instance of Kubernetes.
+These clusters come with extensions pre-installed. As a result, most Kubernetes
+users will not need to install extensions and even fewer users will need to author new ones.</p><h3 id="extension-patterns">Extension patterns</h3><p>Kubernetes is designed to be automated by writing client programs. Any
+program that reads and/or writes to the Kubernetes API can provide useful
+automation. <em>Automation</em> can run on the cluster or off it. By following
+the guidance in this doc you can write highly available and robust automation.
+Automation generally works with any Kubernetes cluster, including hosted
+clusters and managed installations.</p><p>There is a specific pattern for writing client programs that work well with
+Kubernetes called the <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a>
+pattern. Controllers typically read an object's <code>.spec</code>, possibly do things, and then
+update the object's <code>.status</code>.</p><p>A controller is a client of the Kubernetes API. When Kubernetes is the client and calls
+out to a remote service, Kubernetes calls this a <em>webhook</em>. The remote service is called
+a <em>webhook backend</em>. As with custom controllers, webhooks do add a point of failure.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Outside of Kubernetes, the term “webhook” typically refers to a mechanism for asynchronous
+notifications, where the webhook call serves as a one-way notification to another system or
+component. In the Kubernetes ecosystem, even synchronous HTTP callouts are often
+described as “webhooks”.</div><p>In the webhook model, Kubernetes makes a network request to a remote service.
+With the alternative <em>binary Plugin</em> model, Kubernetes executes a binary (program).
+Binary plugins are used by the kubelet (for example, <a href="https://kubernetes-csi.github.io/docs/">CSI storage plugins</a>
+and <a href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">CNI network plugins</a>),
+and by kubectl (see <a href="/docs/tasks/extend-kubectl/kubectl-plugins/">Extend kubectl with plugins</a>).</p><h3 id="extension-points">Extension points</h3><p>This diagram shows the extension points in a Kubernetes cluster and the
+clients that access it.</p><figure class="diagram-large"><img src="/docs/concepts/extend-kubernetes/extension-points.png" alt="Symbolic representation of seven numbered extension points for Kubernetes"/><figcaption><p>Kubernetes extension points</p></figcaption></figure><h4 id="key-to-the-figure">Key to the figure</h4><ol><li><p>Users often interact with the Kubernetes API using <code>kubectl</code>. <a href="#client-extensions">Plugins</a>
+customise the behaviour of clients. There are generic extensions that can apply to different clients,
+as well as specific ways to extend <code>kubectl</code>.</p></li><li><p>The API server handles all requests. Several types of extension points in the API server allow
+authenticating requests, or blocking them based on their content, editing content, and handling
+deletion. These are described in the <a href="#api-access-extensions">API Access Extensions</a> section.</p></li><li><p>The API server serves various kinds of <em>resources</em>. <em>Built-in resource kinds</em>, such as
+<code>pods</code>, are defined by the Kubernetes project and can't be changed.
+Read <a href="#api-extensions">API extensions</a> to learn about extending the Kubernetes API.</p></li><li><p>The Kubernetes scheduler <a href="/docs/concepts/scheduling-eviction/assign-pod-node/">decides</a>
+which nodes to place pods on. There are several ways to extend scheduling, which are
+described in the <a href="#scheduling-extensions">Scheduling extensions</a> section.</p></li><li><p>Much of the behavior of Kubernetes is implemented by programs called
+<a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controllers">controllers</a>, that are
+clients of the API server. Controllers are often used in conjunction with custom resources.
+Read <a href="#combining-new-apis-with-automation">combining new APIs with automation</a> and
+<a href="#changing-built-in-resources">Changing built-in resources</a> to learn more.</p></li><li><p>The kubelet runs on servers (nodes), and helps pods appear like virtual servers with their own IPs on
+the cluster network. <a href="#network-plugins">Network Plugins</a> allow for different implementations of
+pod networking.</p></li><li><p>You can use <a href="#device-plugins">Device Plugins</a> to integrate custom hardware or other special
+node-local facilities, and make these available to Pods running in your cluster. The kubelet
+includes support for working with device plugins.</p><p>The kubelet also mounts and unmounts
+<a class="glossary-tooltip" title="A directory containing data, accessible to the containers in a pod." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/volumes/" target="_blank" aria-label="volume">volume</a> for pods and their containers.
+You can use <a href="#storage-plugins">Storage Plugins</a> to add support for new kinds
+of storage and other volume types.</p></li></ol><h4 id="extension-flowchart">Extension point choice flowchart</h4><p>If you are unsure where to start, this flowchart can help. Note that some solutions may involve
+several types of extensions.</p><figure class="diagram-large"><img src="/docs/concepts/extend-kubernetes/flowchart.svg" alt="Flowchart with questions about use cases and guidance for implementers. Green circles indicate yes; red circles indicate no."/><figcaption><p>Flowchart guide to select an extension approach</p></figcaption></figure><hr/><h2 id="client-extensions">Client extensions</h2><p>Plugins for kubectl are separate binaries that add or replace the behavior of specific subcommands.
+The <code>kubectl</code> tool can also integrate with <a href="/docs/reference/access-authn-authz/authentication/#client-go-credential-plugins">credential plugins</a>
+These extensions only affect a individual user's local environment, and so cannot enforce site-wide policies.</p><p>If you want to extend the <code>kubectl</code> tool, read <a href="/docs/tasks/extend-kubectl/kubectl-plugins/">Extend kubectl with plugins</a>.</p><h2 id="api-extensions">API extensions</h2><h3 id="custom-resource-definitions">Custom resource definitions</h3><p>Consider adding a <em>Custom Resource</em> to Kubernetes if you want to define new controllers, application
+configuration objects or other declarative APIs, and to manage them using Kubernetes tools, such
+as <code>kubectl</code>.</p><p>For more about Custom Resources, see the
+<a href="/docs/concepts/extend-kubernetes/api-extension/custom-resources/">Custom Resources</a> concept guide.</p><h3 id="api-aggregation-layer">API aggregation layer</h3><p>You can use Kubernetes' <a href="/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/">API Aggregation Layer</a>
+to integrate the Kubernetes API with additional services such as for <a href="/docs/tasks/debug/debug-cluster/resource-metrics-pipeline/">metrics</a>.</p><h3 id="combining-new-apis-with-automation">Combining new APIs with automation</h3><p>A combination of a custom resource API and a control loop is called the
+<a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controllers">controllers</a> pattern. If your controller takes
+the place of a human operator deploying infrastructure based on a desired state, then the controller
+may also be following the <a class="glossary-tooltip" title="A specialized controller used to manage a custom resource" data-toggle="tooltip" data-placement="top" href="/docs/concepts/extend-kubernetes/operator/" target="_blank" aria-label="operator pattern">operator pattern</a>.
+The Operator pattern is used to manage specific applications; usually, these are applications that
+maintain state and require care in how they are managed.</p><p>You can also make your own custom APIs and control loops that manage other resources, such as storage,
+or to define policies (such as an access control restriction).</p><h3 id="changing-built-in-resources">Changing built-in resources</h3><p>When you extend the Kubernetes API by adding custom resources, the added resources always fall
+into a new API Groups. You cannot replace or change existing API groups.
+Adding an API does not directly let you affect the behavior of existing APIs (such as Pods), whereas
+<em>API Access Extensions</em> do.</p><h2 id="api-access-extensions">API access extensions</h2><p>When a request reaches the Kubernetes API Server, it is first <em>authenticated</em>, then <em>authorized</em>,
+and is then subject to various types of <em>admission control</em> (some requests are in fact not
+authenticated, and get special treatment). See
+<a href="/docs/concepts/security/controlling-access/">Controlling Access to the Kubernetes API</a>
+for more on this flow.</p><p>Each of the steps in the Kubernetes authentication / authorization flow offers extension points.</p><h3 id="authentication">Authentication</h3><p><a href="/docs/reference/access-authn-authz/authentication/">Authentication</a> maps headers or certificates
+in all requests to a username for the client making the request.</p><p>Kubernetes has several built-in authentication methods that it supports. It can also sit behind an
+authenticating proxy, and it can send a token from an <code>Authorization:</code> header to a remote service for
+verification (an <a href="/docs/reference/access-authn-authz/authentication/#webhook-token-authentication">authentication webhook</a>)
+if those don't meet your needs.</p><h3 id="authorization">Authorization</h3><p><a href="/docs/reference/access-authn-authz/authorization/">Authorization</a> determines whether specific
+users can read, write, and do other operations on API resources. It works at the level of whole
+resources -- it doesn't discriminate based on arbitrary object fields.</p><p>If the built-in authorization options don't meet your needs, an
+<a href="/docs/reference/access-authn-authz/webhook/">authorization webhook</a>
+allows calling out to custom code that makes an authorization decision.</p><h3 id="dynamic-admission-control">Dynamic admission control</h3><p>After a request is authorized, if it is a write operation, it also goes through
+<a href="/docs/reference/access-authn-authz/admission-controllers/">Admission Control</a> steps.
+In addition to the built-in steps, there are several extensions:</p><ul><li>The <a href="/docs/reference/access-authn-authz/admission-controllers/#imagepolicywebhook">Image Policy webhook</a>
+restricts what images can be run in containers.</li><li>To make arbitrary admission control decisions, a general
+<a href="/docs/reference/access-authn-authz/extensible-admission-controllers/#admission-webhooks">Admission webhook</a>
+can be used. Admission webhooks can reject creations or updates.
+Some admission webhooks modify the incoming request data before it is handled further by Kubernetes.</li></ul><h2 id="infrastructure-extensions">Infrastructure extensions</h2><h3 id="device-plugins">Device plugins</h3><p><em>Device plugins</em> allow a node to discover new Node resources (in addition to the
+builtin ones like cpu and memory) via a
+<a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/">Device Plugin</a>.</p><h3 id="storage-plugins">Storage plugins</h3><p><a class="glossary-tooltip" title="The Container Storage Interface (CSI) defines a standard interface to expose storage systems to containers." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/volumes/#csi" target="_blank" aria-label="Container Storage Interface">Container Storage Interface</a> (CSI) plugins provide
+a way to extend Kubernetes with supports for new kinds of volumes. The volumes can be backed by
+durable external storage, or provide ephemeral storage, or they might offer a read-only interface
+to information using a filesystem paradigm.</p><p>Kubernetes also includes support for <a href="/docs/concepts/storage/volumes/#flexvolume">FlexVolume</a> plugins,
+which are deprecated since Kubernetes v1.23 (in favour of CSI).</p><p>FlexVolume plugins allow users to mount volume types that aren't natively supported by Kubernetes. When
+you run a Pod that relies on FlexVolume storage, the kubelet calls a binary plugin to mount the volume.
+The archived <a href="https://git.k8s.io/design-proposals-archive/storage/flexvolume-deployment.md">FlexVolume</a>
+design proposal has more detail on this approach.</p><p>The <a href="https://github.com/kubernetes/community/blob/master/sig-storage/volume-plugin-faq.md#kubernetes-volume-plugin-faq-for-storage-vendors">Kubernetes Volume Plugin FAQ for Storage Vendors</a>
+includes general information on storage plugins.</p><h3 id="network-plugins">Network plugins</h3><p>Your Kubernetes cluster needs a <em>network plugin</em> in order to have a working Pod network
+and to support other aspects of the Kubernetes network model.</p><p><a href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">Network Plugins</a>
+allow Kubernetes to work with different networking topologies and technologies.</p><h3 id="kubelet-image-credential-provider-plugins">Kubelet image credential provider plugins</h3><p><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [stable]</code></div>Kubelet image credential providers are plugins for the kubelet to dynamically retrieve image registry
+credentials. The credentials are then used when pulling images from container image registries that
+match the configuration.</p><p>The plugins can communicate with external services or use local files to obtain credentials. This way,
+the kubelet does not need to have static credentials for each registry, and can support various
+authentication methods and protocols.</p><p>For plugin configuration details, see
+<a href="/docs/tasks/administer-cluster/kubelet-credential-provider/">Configure a kubelet image credential provider</a>.</p><h2 id="scheduling-extensions">Scheduling extensions</h2><p>The scheduler is a special type of controller that watches pods, and assigns
+pods to nodes. The default scheduler can be replaced entirely, while
+continuing to use other Kubernetes components, or
+<a href="/docs/tasks/extend-kubernetes/configure-multiple-schedulers/">multiple schedulers</a>
+can run at the same time.</p><p>This is a significant undertaking, and almost all Kubernetes users find they
+do not need to modify the scheduler.</p><p>You can control which <a href="/docs/reference/scheduling/config/#scheduling-plugins">scheduling plugins</a>
+are active, or associate sets of plugins with different named <a href="/docs/reference/scheduling/config/#multiple-profiles">scheduler profiles</a>.
+You can also write your own plugin that integrates with one or more of the kube-scheduler's
+<a href="/docs/concepts/scheduling-eviction/scheduling-framework/#extension-points">extension points</a>.</p><p>Finally, the built in <code>kube-scheduler</code> component supports a
+<a href="https://git.k8s.io/design-proposals-archive/scheduling/scheduler_extender.md">webhook</a>
+that permits a remote HTTP backend (scheduler extension) to filter and / or prioritize
+the nodes that the kube-scheduler chooses for a pod.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>You can only affect node filtering
+and node prioritization with a scheduler extender webhook; other extension points are
+not available through the webhook integration.</div><h2 id="what-s-next">What's next</h2><ul><li>Learn more about infrastructure extensions<ul><li><a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/">Device Plugins</a></li><li><a href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">Network Plugins</a></li><li>CSI <a href="https://kubernetes-csi.github.io/docs/">storage plugins</a></li></ul></li><li>Learn about <a href="/docs/tasks/extend-kubectl/kubectl-plugins/">kubectl plugins</a></li><li>Learn more about <a href="/docs/concepts/extend-kubernetes/api-extension/custom-resources/">Custom Resources</a></li><li>Learn more about <a href="/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/">Extension API Servers</a></li><li>Learn about <a href="/docs/reference/access-authn-authz/extensible-admission-controllers/">Dynamic admission control</a></li><li>Learn about the <a href="/docs/concepts/extend-kubernetes/operator/">Operator pattern</a></li></ul><div class="section-index"/></div>

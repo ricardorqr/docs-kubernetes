@@ -1,0 +1,97 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Create an External Load Balancer</h1><p>This page shows how to create an external load balancer.</p><p>When creating a <a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a>, you have
+the option of automatically creating a cloud load balancer. This provides an
+externally-accessible IP address that sends traffic to the correct port on your cluster
+nodes,
+<em>provided your cluster runs in a supported environment and is configured with
+the correct cloud load balancer provider package</em>.</p><p>You can also use an <a class="glossary-tooltip" title="An API object that manages external access to the services in a cluster, typically HTTP." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/ingress/" target="_blank" aria-label="Ingress">Ingress</a> in place of Service.
+For more information, check the <a href="/docs/concepts/services-networking/ingress/">Ingress</a>
+documentation.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>Your cluster must be running in a cloud or other environment that already has support
+for configuring external load balancers.</p><h2 id="create-a-service">Create a Service</h2><h3 id="create-a-service-from-a-manifest">Create a Service from a manifest</h3><p>To create an external load balancer, add the following line to your
+Service manifest:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>LoadBalancer<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Your manifest might then look like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">8765</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>LoadBalancer<span style="color:#bbb">
+</span></span></span></code></pre></div><h3 id="create-a-service-using-kubectl">Create a Service using kubectl</h3><p>You can alternatively create the service with the <code>kubectl expose</code> command and
+its <code>--type=LoadBalancer</code> flag:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl expose deployment example --port<span style="color:#666">=</span><span style="color:#666">8765</span> --target-port<span style="color:#666">=</span><span style="color:#666">9376</span> <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>        --name<span style="color:#666">=</span>example-service --type<span style="color:#666">=</span>LoadBalancer
+</span></span></code></pre></div><p>This command creates a new Service using the same selectors as the referenced
+resource (in the case of the example above, a
+<a class="glossary-tooltip" title="Manages a replicated application on your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/deployment/" target="_blank" aria-label="Deployment">Deployment</a> named <code>example</code>).</p><p>For more information, including optional flags, refer to the
+<a href="/docs/reference/generated/kubectl/kubectl-commands/#expose"><code>kubectl expose</code> reference</a>.</p><h2 id="finding-your-ip-address">Finding your IP address</h2><p>You can find the IP address created for your service by getting the service
+information through <code>kubectl</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl describe services example-service
+</span></span></code></pre></div><p>which should produce output similar to:</p><pre tabindex="0"><code>Name:                     example-service
+Namespace:                default
+Labels:                   app=example
+Annotations:              &lt;none&gt;
+Selector:                 app=example
+Type:                     LoadBalancer
+IP Families:              &lt;none&gt;
+IP:                       10.3.22.96
+IPs:                      10.3.22.96
+LoadBalancer Ingress:     192.0.2.89
+Port:                     &lt;unset&gt;  8765/TCP
+TargetPort:               9376/TCP
+NodePort:                 &lt;unset&gt;  30593/TCP
+Endpoints:                172.17.0.3:9376
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   &lt;none&gt;
+</code></pre><p>The load balancer's IP address is listed next to <code>LoadBalancer Ingress</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>If you are running your service on Minikube, you can find the assigned IP address and port with:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>minikube service example-service --url
+</span></span></code></pre></div></div><h2 id="preserving-the-client-source-ip">Preserving the client source IP</h2><p>By default, the source IP seen in the target container is <em>not the original
+source IP</em> of the client. To enable preservation of the client IP, the following
+fields can be configured in the <code>.spec</code> of the Service:</p><ul><li><code>.spec.externalTrafficPolicy</code> - denotes if this Service desires to route
+external traffic to node-local or cluster-wide endpoints. There are two available
+options: <code>Cluster</code> (default) and <code>Local</code>. <code>Cluster</code> obscures the client source
+IP and may cause a second hop to another node, but should have good overall
+load-spreading. <code>Local</code> preserves the client source IP and avoids a second hop
+for LoadBalancer and NodePort type Services, but risks potentially imbalanced
+traffic spreading.</li><li><code>.spec.healthCheckNodePort</code> - specifies the health check node port
+(numeric port number) for the service. If you don't specify
+<code>healthCheckNodePort</code>, the service controller allocates a port from your
+cluster's NodePort range.<br/>You can configure that range by setting an API server command line option,
+<code>--service-node-port-range</code>. The Service will use the user-specified
+<code>healthCheckNodePort</code> value if you specify it, provided that the
+Service <code>type</code> is set to LoadBalancer and <code>externalTrafficPolicy</code> is set
+to <code>Local</code>.</li></ul><p>Setting <code>externalTrafficPolicy</code> to Local in the Service manifest
+activates this feature. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">8765</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">externalTrafficPolicy</span>:<span style="color:#bbb"> </span>Local<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>LoadBalancer<span style="color:#bbb">
+</span></span></span></code></pre></div><h3 id="caveats-and-limitations-when-preserving-source-ips">Caveats and limitations when preserving source IPs</h3><p>Load balancing services from some cloud providers do not let you configure different weights for each target.</p><p>With each target weighted equally in terms of sending traffic to Nodes, external
+traffic is not equally load balanced across different Pods. The external load balancer
+is unaware of the number of Pods on each node that are used as a target.</p><p>Where <code>NumServicePods &lt;&lt; NumNodes</code> or <code>NumServicePods &gt;&gt; NumNodes</code>, a fairly close-to-equal
+distribution will be seen, even without weights.</p><p>Internal pod to pod traffic should behave similar to ClusterIP services, with equal probability across all pods.</p><h2 id="garbage-collecting-load-balancers">Garbage collecting load balancers</h2><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.17 [stable]</code></div><p>In usual case, the correlating load balancer resources in cloud provider should
+be cleaned up soon after a LoadBalancer type Service is deleted. But it is known
+that there are various corner cases where cloud resources are orphaned after the
+associated Service is deleted. Finalizer Protection for Service LoadBalancers was
+introduced to prevent this from happening. By using finalizers, a Service resource
+will never be deleted until the correlating load balancer resources are also deleted.</p><p>Specifically, if a Service has <code>type</code> LoadBalancer, the service controller will attach
+a finalizer named <code>service.kubernetes.io/load-balancer-cleanup</code>.
+The finalizer will only be removed after the load balancer resource is cleaned up.
+This prevents dangling load balancer resources even in corner cases such as the
+service controller crashing.</p><h2 id="external-load-balancer-providers">External load balancer providers</h2><p>It is important to note that the datapath for this functionality is provided by a load balancer external to the Kubernetes cluster.</p><p>When the Service <code>type</code> is set to LoadBalancer, Kubernetes provides functionality equivalent to <code>type</code> equals ClusterIP to pods
+within the cluster and extends it by programming the (external to Kubernetes) load balancer with entries for the nodes
+hosting the relevant Kubernetes pods. The Kubernetes control plane automates the creation of the external load balancer,
+health checks (if needed), and packet filtering rules (if needed). Once the cloud provider allocates an IP address for the load
+balancer, the control plane looks up that external IP address and populates it into the Service object.</p><h2 id="what-s-next">What's next</h2><ul><li>Follow the <a href="/docs/tutorials/services/connect-applications-service/">Connecting Applications with Services</a> tutorial</li><li>Read about <a href="/docs/concepts/services-networking/service/">Service</a></li><li>Read about <a href="/docs/concepts/services-networking/ingress/">Ingress</a></li></ul></div>

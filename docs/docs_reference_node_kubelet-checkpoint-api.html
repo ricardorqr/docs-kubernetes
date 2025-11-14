@@ -1,0 +1,28 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Kubelet Checkpoint API</h1><div class="feature-state-notice feature-beta" title="Feature Gate: ContainerCheckpoint"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.30 [beta]</code> (enabled by default: true)</div><p>Checkpointing a container is the functionality to create a stateful copy of a
+running container. Once you have a stateful copy of a container, you could
+move it to a different computer for debugging or similar purposes.</p><p>If you move the checkpointed container data to a computer that's able to restore
+it, that restored container continues to run at exactly the same
+point it was checkpointed. You can also inspect the saved data, provided that you
+have suitable tools for doing so.</p><p>Creating a checkpoint of a container might have security implications. Typically
+a checkpoint contains all memory pages of all processes in the checkpointed
+container. This means that everything that used to be in memory is now available
+on the local disk. This includes all private data and possibly keys used for
+encryption. The underlying CRI implementations (the container runtime on that node)
+should create the checkpoint archive to be only accessible by the <code>root</code> user. It
+is still important to remember if the checkpoint archive is transferred to another
+system all memory pages will be readable by the owner of the checkpoint archive.</p><h2 id="operations">Operations</h2><h3 id="post-checkpoint"><code>post</code> checkpoint the specified container</h3><p>Tell the kubelet to checkpoint a specific container from the specified Pod.</p><p>Consult the <a href="/docs/reference/access-authn-authz/kubelet-authn-authz/">Kubelet authentication/authorization reference</a>
+for more information about how access to the kubelet checkpoint interface is
+controlled.</p><p>The kubelet will request a checkpoint from the underlying
+<a class="glossary-tooltip" title="Protocol for communication between the kubelet and the local container runtime." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cri" target="_blank" aria-label="CRI">CRI</a> implementation. In the checkpoint
+request the kubelet will specify the name of the checkpoint archive as
+<code>checkpoint-&lt;podFullName&gt;-&lt;containerName&gt;-&lt;timestamp&gt;.tar</code> and also request to
+store the checkpoint archive in the <code>checkpoints</code> directory below its root
+directory (as defined by <code>--root-dir</code>). This defaults to
+<code>/var/lib/kubelet/checkpoints</code>.</p><p>The checkpoint archive is in <em>tar</em> format, and could be listed using an implementation of
+<a href="https://pubs.opengroup.org/onlinepubs/7908799/xcu/tar.html"><code>tar</code></a>. The contents of the
+archive depend on the underlying CRI implementation (the container runtime on that node).</p><h4 id="post-checkpoint-request">HTTP Request</h4><p>POST /checkpoint/{namespace}/{pod}/{container}</p><h4 id="post-checkpoint-params">Parameters</h4><ul><li><p><strong>namespace</strong> (<em>in path</em>): string, required</p><a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="Namespace">Namespace</a></li><li><p><strong>pod</strong> (<em>in path</em>): string, required</p><a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a></li><li><p><strong>container</strong> (<em>in path</em>): string, required</p><a class="glossary-tooltip" title="A lightweight and portable executable image that contains software and all of its dependencies." data-toggle="tooltip" data-placement="top" href="/docs/concepts/containers/" target="_blank" aria-label="Container">Container</a></li><li><p><strong>timeout</strong> (<em>in query</em>): integer</p><p>Timeout in seconds to wait until the checkpoint creation is finished.
+If zero or no timeout is specified the default <a class="glossary-tooltip" title="Protocol for communication between the kubelet and the local container runtime." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cri" target="_blank" aria-label="CRI">CRI</a> timeout value will be used. Checkpoint
+creation time depends directly on the used memory of the container.
+The more memory a container uses the more time is required to create
+the corresponding checkpoint.</p></li></ul><h4 id="post-checkpoint-response">Response</h4><p>200: OK</p><p>401: Unauthorized</p><p>404: Not Found (if the <code>ContainerCheckpoint</code> feature gate is disabled)</p><p>404: Not Found (if the specified <code>namespace</code>, <code>pod</code> or <code>container</code> cannot be found)</p><p>500: Internal Server Error (if the CRI implementation encounter an error during checkpointing (see error message for further details))</p><p>500: Internal Server Error (if the CRI implementation does not implement the checkpoint CRI API (see error message for further details))</p></div>

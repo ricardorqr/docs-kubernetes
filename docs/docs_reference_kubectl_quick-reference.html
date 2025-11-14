@@ -1,0 +1,320 @@
+<div class="td-content"><h1 data-pagefind-weight="10">kubectl Quick Reference</h1><p>This page contains a list of commonly used <code>kubectl</code> commands and flags.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>These instructions are for Kubernetes v1.34. To check the version, use the <code>kubectl version</code> command.</div><h2 id="kubectl-autocomplete">Kubectl autocomplete</h2><h3 id="bash">BASH</h3><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#a2f">source</span> &lt;<span style="color:#666">(</span>kubectl completion bash<span style="color:#666">)</span> <span style="color:#080;font-style:italic"># set up autocomplete in bash into the current shell, bash-completion package should be installed first.</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">"source &lt;(kubectl completion bash)"</span> &gt;&gt; ~/.bashrc <span style="color:#080;font-style:italic"># add autocomplete permanently to your bash shell.</span>
+</span></span></code></pre></div><p>You can also use a shorthand alias for <code>kubectl</code> that also works with completion:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#a2f">alias</span> <span style="color:#b8860b">k</span><span style="color:#666">=</span>kubectl
+</span></span><span style="display:flex"><span><span style="color:#a2f">complete</span> -o default -F __start_kubectl k
+</span></span></code></pre></div><h3 id="zsh">ZSH</h3><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#a2f">source</span> &lt;<span style="color:#666">(</span>kubectl completion zsh<span style="color:#666">)</span>  <span style="color:#080;font-style:italic"># set up autocomplete in zsh into the current shell</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">'[[ $commands[kubectl] ]] &amp;&amp; source &lt;(kubectl completion zsh)'</span> &gt;&gt; ~/.zshrc <span style="color:#080;font-style:italic"># add autocomplete permanently to your zsh shell</span>
+</span></span></code></pre></div><h3 id="fish">FISH</h3><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Requires kubectl version 1.23 or above.</div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">'kubectl completion fish | source'</span> &gt; ~/.config/fish/completions/kubectl.fish <span style="color:#666">&amp;&amp;</span> <span style="color:#a2f">source</span> ~/.config/fish/completions/kubectl.fish
+</span></span></code></pre></div><h3 id="a-note-on-all-namespaces">A note on <code>--all-namespaces</code></h3><p>Appending <code>--all-namespaces</code> happens frequently enough that you should be aware of the shorthand for <code>--all-namespaces</code>:</p><p><code>kubectl -A</code></p><h2 id="kubectl-context-and-configuration">Kubectl context and configuration</h2><p>Set which Kubernetes cluster <code>kubectl</code> communicates with and modifies configuration
+information. See <a href="/docs/tasks/access-application-cluster/configure-access-multiple-clusters/">Authenticating Across Clusters with kubeconfig</a> documentation for
+detailed config file information.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl config view <span style="color:#080;font-style:italic"># Show Merged kubeconfig settings.</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># use multiple kubeconfig files at the same time and view merged config</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">KUBECONFIG</span><span style="color:#666">=</span>~/.kube/config:~/.kube/kubconfig2
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl config view
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Show merged kubeconfig settings and raw certificate data and exposed secrets</span>
+</span></span><span style="display:flex"><span>kubectl config view --raw 
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># get the password for the e2e user</span>
+</span></span><span style="display:flex"><span>kubectl config view -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.users[?(@.name == "e2e")].user.password}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># get the certificate for the e2e user</span>
+</span></span><span style="display:flex"><span>kubectl config view --raw -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.users[?(.name == "e2e")].user.client-certificate-data}'</span> | base64 -d
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl config view -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.users[].name}'</span>    <span style="color:#080;font-style:italic"># display the first user</span>
+</span></span><span style="display:flex"><span>kubectl config view -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.users[*].name}'</span>   <span style="color:#080;font-style:italic"># get a list of users</span>
+</span></span><span style="display:flex"><span>kubectl config get-contexts                          <span style="color:#080;font-style:italic"># display list of contexts</span>
+</span></span><span style="display:flex"><span>kubectl config get-contexts -o name                  <span style="color:#080;font-style:italic"># get all context names</span>
+</span></span><span style="display:flex"><span>kubectl config current-context                       <span style="color:#080;font-style:italic"># display the current-context</span>
+</span></span><span style="display:flex"><span>kubectl config use-context my-cluster-name           <span style="color:#080;font-style:italic"># set the default context to my-cluster-name</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl config set-cluster my-cluster-name           <span style="color:#080;font-style:italic"># set a cluster entry in the kubeconfig</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># configure the URL to a proxy server to use for requests made by this client in the kubeconfig</span>
+</span></span><span style="display:flex"><span>kubectl config set-cluster my-cluster-name --proxy-url<span style="color:#666">=</span>my-proxy-url
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># add a new user to your kubeconf that supports basic auth</span>
+</span></span><span style="display:flex"><span>kubectl config set-credentials kubeuser/foo.kubernetes.com --username<span style="color:#666">=</span>kubeuser --password<span style="color:#666">=</span>kubepassword
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># permanently save the namespace for all subsequent kubectl commands in that context.</span>
+</span></span><span style="display:flex"><span>kubectl config set-context --current --namespace<span style="color:#666">=</span>ggckad-s2
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># set a context utilizing a specific username and namespace.</span>
+</span></span><span style="display:flex"><span>kubectl config set-context gce --user<span style="color:#666">=</span>cluster-admin --namespace<span style="color:#666">=</span>foo <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  <span style="color:#666">&amp;&amp;</span> kubectl config use-context gce
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl config <span style="color:#a2f">unset</span> users.foo                       <span style="color:#080;font-style:italic"># delete user foo</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># short alias to set/show context/namespace (only works for bash and bash-compatible shells, current context to be set before using kn to set namespace)</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">alias</span> <span style="color:#b8860b">kx</span><span style="color:#666">=</span><span style="color:#b44">'f() { [ "$1" ] &amp;&amp; kubectl config use-context $1 || kubectl config current-context ; } ; f'</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">alias</span> <span style="color:#b8860b">kn</span><span style="color:#666">=</span><span style="color:#b44">'f() { [ "$1" ] &amp;&amp; kubectl config set-context --current --namespace $1 || kubectl config view --minify | grep namespace | cut -d" " -f6 ; } ; f'</span>
+</span></span></code></pre></div><h2 id="kubectl-apply">Kubectl apply</h2><p><code>apply</code> manages applications through files defining Kubernetes resources. It creates and updates resources in a cluster through running <code>kubectl apply</code>. This is the recommended way of managing Kubernetes applications on production. See <a href="https://kubectl.docs.kubernetes.io">Kubectl Book</a>.</p><h2 id="creating-objects">Creating objects</h2><p>Kubernetes manifests can be defined in YAML or JSON. The file extension <code>.yaml</code>,
+<code>.yml</code>, and <code>.json</code> can be used.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl apply -f ./my-manifest.yaml                 <span style="color:#080;font-style:italic"># create resource(s)</span>
+</span></span><span style="display:flex"><span>kubectl apply -f ./my1.yaml -f ./my2.yaml           <span style="color:#080;font-style:italic"># create from multiple files</span>
+</span></span><span style="display:flex"><span>kubectl apply -f ./dir                              <span style="color:#080;font-style:italic"># create resource(s) in all manifest files in dir</span>
+</span></span><span style="display:flex"><span>kubectl apply -f https://example.com/manifest.yaml  <span style="color:#080;font-style:italic"># create resource(s) from url (Note: this is an example domain and does not contain a valid manifest)</span>
+</span></span><span style="display:flex"><span>kubectl create deployment nginx --image<span style="color:#666">=</span>nginx       <span style="color:#080;font-style:italic"># start a single instance of nginx</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># create a Job which prints "Hello World"</span>
+</span></span><span style="display:flex"><span>kubectl create job hello --image<span style="color:#666">=</span>busybox:1.28 -- <span style="color:#a2f">echo</span> <span style="color:#b44">"Hello World"</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># create a CronJob that prints "Hello World" every minute</span>
+</span></span><span style="display:flex"><span>kubectl create cronjob hello --image<span style="color:#666">=</span>busybox:1.28   --schedule<span style="color:#666">=</span><span style="color:#b44">"*/1 * * * *"</span> -- <span style="color:#a2f">echo</span> <span style="color:#b44">"Hello World"</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl explain pods                           <span style="color:#080;font-style:italic"># get the documentation for pod manifests</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Create multiple YAML objects from stdin</span>
+</span></span><span style="display:flex"><span>kubectl apply -f - <span style="color:#b44">&lt;&lt;EOF
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: Pod
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: busybox-sleep
+</span></span></span><span style="display:flex"><span><span style="color:#b44">spec:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  containers:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  - name: busybox
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    image: busybox:1.28
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    args:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    - sleep
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    - "1000000"
+</span></span></span><span style="display:flex"><span><span style="color:#b44">---
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: Pod
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: busybox-sleep-less
+</span></span></span><span style="display:flex"><span><span style="color:#b44">spec:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  containers:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  - name: busybox
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    image: busybox:1.28
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    args:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    - sleep
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    - "1000"
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Create a secret with several keys</span>
+</span></span><span style="display:flex"><span>kubectl apply -f - <span style="color:#b44">&lt;&lt;EOF
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: Secret
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: mysecret
+</span></span></span><span style="display:flex"><span><span style="color:#b44">type: Opaque
+</span></span></span><span style="display:flex"><span><span style="color:#b44">data:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  password: $(echo -n "s33msi4" | base64 -w0)
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  username: $(echo -n "jane" | base64 -w0)
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><h2 id="viewing-and-finding-resources">Viewing and finding resources</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Get commands with basic output</span>
+</span></span><span style="display:flex"><span>kubectl get services                          <span style="color:#080;font-style:italic"># List all services in the namespace</span>
+</span></span><span style="display:flex"><span>kubectl get pods --all-namespaces             <span style="color:#080;font-style:italic"># List all pods in all namespaces</span>
+</span></span><span style="display:flex"><span>kubectl get pods -o wide                      <span style="color:#080;font-style:italic"># List all pods in the current namespace, with more details</span>
+</span></span><span style="display:flex"><span>kubectl get deployment my-dep                 <span style="color:#080;font-style:italic"># List a particular deployment</span>
+</span></span><span style="display:flex"><span>kubectl get pods                              <span style="color:#080;font-style:italic"># List all pods in the namespace</span>
+</span></span><span style="display:flex"><span>kubectl get pod my-pod -o yaml                <span style="color:#080;font-style:italic"># Get a pod's YAML</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Describe commands with verbose output</span>
+</span></span><span style="display:flex"><span>kubectl describe nodes my-node
+</span></span><span style="display:flex"><span>kubectl describe pods my-pod
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List Services Sorted by Name</span>
+</span></span><span style="display:flex"><span>kubectl get services --sort-by<span style="color:#666">=</span>.metadata.name
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List pods Sorted by Restart Count</span>
+</span></span><span style="display:flex"><span>kubectl get pods --sort-by<span style="color:#666">=</span><span style="color:#b44">'.status.containerStatuses[0].restartCount'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List PersistentVolumes sorted by capacity</span>
+</span></span><span style="display:flex"><span>kubectl get pv --sort-by<span style="color:#666">=</span>.spec.capacity.storage
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Get the version label of all pods with label app=cassandra</span>
+</span></span><span style="display:flex"><span>kubectl get pods --selector<span style="color:#666">=</span><span style="color:#b8860b">app</span><span style="color:#666">=</span>cassandra -o <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.items[*].metadata.labels.version}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Retrieve the value of a key with dots, e.g. 'ca.crt'</span>
+</span></span><span style="display:flex"><span>kubectl get configmap myconfig <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.data.ca\.crt}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Retrieve a base64 encoded value with dashes instead of underscores.</span>
+</span></span><span style="display:flex"><span>kubectl get secret my-secret --template<span style="color:#666">=</span><span style="color:#b44">'{{index .data "key-name-with-dashes"}}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Get all worker nodes (use a selector to exclude results that have a label</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># named 'node-role.kubernetes.io/control-plane')</span>
+</span></span><span style="display:flex"><span>kubectl get node --selector<span style="color:#666">=</span><span style="color:#b44">'!node-role.kubernetes.io/control-plane'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Get all running pods in the namespace</span>
+</span></span><span style="display:flex"><span>kubectl get pods --field-selector<span style="color:#666">=</span>status.phase<span style="color:#666">=</span>Running
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Get ExternalIPs of all nodes</span>
+</span></span><span style="display:flex"><span>kubectl get nodes -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.items[*].status.addresses[?(@.type=="ExternalIP")].address}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List Names of Pods that belong to Particular RC</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># "jq" command useful for transformations that are too complex for jsonpath, it can be found at https://jqlang.github.io/jq/</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">sel</span><span style="color:#666">=</span><span style="color:#b68;font-weight:700">${</span><span style="color:#a2f;font-weight:700">$(</span>kubectl get rc my-rc --output<span style="color:#666">=</span>json | jq -j <span style="color:#b44">'.spec.selector | to_entries | .[] | "\(.key)=\(.value),"'</span><span style="color:#a2f;font-weight:700">)</span>%?<span style="color:#b68;font-weight:700">}</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#a2f;font-weight:700">$(</span>kubectl get pods --selector<span style="color:#666">=</span><span style="color:#b8860b">$sel</span> --output<span style="color:#666">=</span><span style="color:#b8860b">jsonpath</span><span style="color:#666">={</span>.items..metadata.name<span style="color:#666">}</span><span style="color:#a2f;font-weight:700">)</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Show labels for all pods (or any other Kubernetes object that supports labelling)</span>
+</span></span><span style="display:flex"><span>kubectl get pods --show-labels
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Check which nodes are ready</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">JSONPATH</span><span style="color:#666">=</span><span style="color:#b44">'{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}'</span> <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/> <span style="color:#666">&amp;&amp;</span> kubectl get nodes -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">"</span><span style="color:#b8860b">$JSONPATH</span><span style="color:#b44">"</span> | grep <span style="color:#b44">"Ready=True"</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Check which nodes are ready with custom-columns</span>
+</span></span><span style="display:flex"><span>kubectl get node -o custom-columns<span style="color:#666">=</span><span style="color:#b44">'NODE_NAME:.metadata.name,STATUS:.status.conditions[?(@.type=="Ready")].status'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Output decoded secrets without external tools</span>
+</span></span><span style="display:flex"><span>kubectl get secret my-secret -o go-template<span style="color:#666">=</span><span style="color:#b44">'{{range $k,$v := .data}}{{"### "}}{{$k}}{{"\n"}}{{$v|base64decode}}{{"\n\n"}}{{end}}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List all Secrets currently in use by a pod</span>
+</span></span><span style="display:flex"><span>kubectl get pods -o json | jq <span style="color:#b44">'.items[].spec.containers[].env[]?.valueFrom.secretKeyRef.name'</span> | grep -v null | sort | uniq
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List all containerIDs of initContainer of all pods</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Helpful when cleaning up stopped containers, while avoiding removal of initContainers.</span>
+</span></span><span style="display:flex"><span>kubectl get pods --all-namespaces -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{range .items[*].status.initContainerStatuses[*]}{.containerID}{"\n"}{end}'</span> | cut -d/ -f3
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List Events sorted by timestamp</span>
+</span></span><span style="display:flex"><span>kubectl get events --sort-by<span style="color:#666">=</span>.metadata.creationTimestamp
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># List all warning events</span>
+</span></span><span style="display:flex"><span>kubectl events --types<span style="color:#666">=</span>Warning
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Compares the current state of the cluster against the state that the cluster would be in if the manifest was applied.</span>
+</span></span><span style="display:flex"><span>kubectl diff -f ./my-manifest.yaml
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Produce a period-delimited tree of all keys returned for nodes</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Helpful when locating a key within a complex nested JSON structure</span>
+</span></span><span style="display:flex"><span>kubectl get nodes -o json | jq -c <span style="color:#b44">'paths|join(".")'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Produce a period-delimited tree of all keys returned for pods, etc</span>
+</span></span><span style="display:flex"><span>kubectl get pods -o json | jq -c <span style="color:#b44">'paths|join(".")'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Produce ENV for all pods, assuming you have a default container for the pods, default namespace and the `env` command is supported.</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Helpful when running any supported command across all pods, not just `env`</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> pod in <span style="color:#a2f;font-weight:700">$(</span>kubectl get po --output<span style="color:#666">=</span><span style="color:#b8860b">jsonpath</span><span style="color:#666">={</span>.items..metadata.name<span style="color:#666">}</span><span style="color:#a2f;font-weight:700">)</span>; <span style="color:#a2f;font-weight:700">do</span> <span style="color:#a2f">echo</span> <span style="color:#b8860b">$pod</span> <span style="color:#666">&amp;&amp;</span> kubectl <span style="color:#a2f">exec</span> -it <span style="color:#b8860b">$pod</span> -- env; <span style="color:#a2f;font-weight:700">done</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Get a deployment's status subresource</span>
+</span></span><span style="display:flex"><span>kubectl get deployment nginx-deployment --subresource<span style="color:#666">=</span>status
+</span></span></code></pre></div><h2 id="updating-resources">Updating resources</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl <span style="color:#a2f">set</span> image deployment/frontend <span style="color:#b8860b">www</span><span style="color:#666">=</span>image:v2               <span style="color:#080;font-style:italic"># Rolling update "www" containers of "frontend" deployment, updating the image</span>
+</span></span><span style="display:flex"><span>kubectl rollout <span style="color:#a2f">history</span> deployment/frontend                      <span style="color:#080;font-style:italic"># Check the history of deployments including the revision</span>
+</span></span><span style="display:flex"><span>kubectl rollout undo deployment/frontend                         <span style="color:#080;font-style:italic"># Rollback to the previous deployment</span>
+</span></span><span style="display:flex"><span>kubectl rollout undo deployment/frontend --to-revision<span style="color:#666">=</span><span style="color:#666">2</span>         <span style="color:#080;font-style:italic"># Rollback to a specific revision</span>
+</span></span><span style="display:flex"><span>kubectl rollout status -w deployment/frontend                    <span style="color:#080;font-style:italic"># Watch rolling update status of "frontend" deployment until completion</span>
+</span></span><span style="display:flex"><span>kubectl rollout restart deployment/frontend                      <span style="color:#080;font-style:italic"># Rolling restart of the "frontend" deployment</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>cat pod.json | kubectl replace -f -                              <span style="color:#080;font-style:italic"># Replace a pod based on the JSON passed into stdin</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Force replace, delete and then re-create the resource. Will cause a service outage.</span>
+</span></span><span style="display:flex"><span>kubectl replace --force -f ./pod.json
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Create a service for a replicated nginx, which serves on port 80 and connects to the containers on port 8000</span>
+</span></span><span style="display:flex"><span>kubectl expose rc nginx --port<span style="color:#666">=</span><span style="color:#666">80</span> --target-port<span style="color:#666">=</span><span style="color:#666">8000</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Update a single-container pod's image version (tag) to v4</span>
+</span></span><span style="display:flex"><span>kubectl get pod mypod -o yaml | sed <span style="color:#b44">'s/\(image: myimage\):.*$/\1:v4/'</span> | kubectl replace -f -
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl label pods my-pod new-label<span style="color:#666">=</span>awesome                      <span style="color:#080;font-style:italic"># Add a Label</span>
+</span></span><span style="display:flex"><span>kubectl label pods my-pod new-label-                             <span style="color:#080;font-style:italic"># Remove a label</span>
+</span></span><span style="display:flex"><span>kubectl label pods my-pod new-label<span style="color:#666">=</span>new-value --overwrite        <span style="color:#080;font-style:italic"># Overwrite an existing value</span>
+</span></span><span style="display:flex"><span>kubectl annotate pods my-pod icon-url<span style="color:#666">=</span>http://goo.gl/XXBTWq       <span style="color:#080;font-style:italic"># Add an annotation</span>
+</span></span><span style="display:flex"><span>kubectl annotate pods my-pod icon-url-                           <span style="color:#080;font-style:italic"># Remove annotation</span>
+</span></span><span style="display:flex"><span>kubectl autoscale deployment foo --min<span style="color:#666">=</span><span style="color:#666">2</span> --max<span style="color:#666">=</span><span style="color:#666">10</span>                <span style="color:#080;font-style:italic"># Auto scale a deployment "foo"</span>
+</span></span></code></pre></div><h2 id="patching-resources">Patching resources</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Partially update a node</span>
+</span></span><span style="display:flex"><span>kubectl patch node k8s-node-1 -p <span style="color:#b44">'{"spec":{"unschedulable":true}}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Update a container's image; spec.containers[*].name is required because it's a merge key</span>
+</span></span><span style="display:flex"><span>kubectl patch pod valid-pod -p <span style="color:#b44">'{"spec":{"containers":[{"name":"kubernetes-serve-hostname","image":"new image"}]}}'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Update a container's image using a json patch with positional arrays</span>
+</span></span><span style="display:flex"><span>kubectl patch pod valid-pod --type<span style="color:#666">=</span><span style="color:#b44">'json'</span> -p<span style="color:#666">=</span><span style="color:#b44">'[{"op": "replace", "path": "/spec/containers/0/image", "value":"new image"}]'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Disable a deployment livenessProbe using a json patch with positional arrays</span>
+</span></span><span style="display:flex"><span>kubectl patch deployment valid-deployment  --type json   -p<span style="color:#666">=</span><span style="color:#b44">'[{"op": "remove", "path": "/spec/template/spec/containers/0/livenessProbe"}]'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Add a new element to a positional array</span>
+</span></span><span style="display:flex"><span>kubectl patch sa default --type<span style="color:#666">=</span><span style="color:#b44">'json'</span> -p<span style="color:#666">=</span><span style="color:#b44">'[{"op": "add", "path": "/secrets/1", "value": {"name": "whatever" } }]'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Update a deployment's replica count by patching its scale subresource</span>
+</span></span><span style="display:flex"><span>kubectl patch deployment nginx-deployment --subresource<span style="color:#666">=</span><span style="color:#b44">'scale'</span> --type<span style="color:#666">=</span><span style="color:#b44">'merge'</span> -p <span style="color:#b44">'{"spec":{"replicas":2}}'</span>
+</span></span></code></pre></div><h2 id="editing-resources">Editing resources</h2><p>Edit any API resource in your preferred editor.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl edit svc/docker-registry                      <span style="color:#080;font-style:italic"># Edit the service named docker-registry</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">KUBE_EDITOR</span><span style="color:#666">=</span><span style="color:#b44">"nano"</span> kubectl edit svc/docker-registry   <span style="color:#080;font-style:italic"># Use an alternative editor</span>
+</span></span></code></pre></div><h2 id="scaling-resources">Scaling resources</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl scale --replicas<span style="color:#666">=</span><span style="color:#666">3</span> rs/foo                                 <span style="color:#080;font-style:italic"># Scale a replicaset named 'foo' to 3</span>
+</span></span><span style="display:flex"><span>kubectl scale --replicas<span style="color:#666">=</span><span style="color:#666">3</span> -f foo.yaml                            <span style="color:#080;font-style:italic"># Scale a resource specified in "foo.yaml" to 3</span>
+</span></span><span style="display:flex"><span>kubectl scale --current-replicas<span style="color:#666">=</span><span style="color:#666">2</span> --replicas<span style="color:#666">=</span><span style="color:#666">3</span> deployment/mysql  <span style="color:#080;font-style:italic"># If the deployment named mysql's current size is 2, scale mysql to 3</span>
+</span></span><span style="display:flex"><span>kubectl scale --replicas<span style="color:#666">=</span><span style="color:#666">5</span> rc/foo rc/bar rc/baz                   <span style="color:#080;font-style:italic"># Scale multiple replication controllers</span>
+</span></span></code></pre></div><h2 id="deleting-resources">Deleting resources</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl delete -f ./pod.json                                      <span style="color:#080;font-style:italic"># Delete a pod using the type and name specified in pod.json</span>
+</span></span><span style="display:flex"><span>kubectl delete pod unwanted --now                                 <span style="color:#080;font-style:italic"># Delete a pod with no grace period</span>
+</span></span><span style="display:flex"><span>kubectl delete pod,service baz foo                                <span style="color:#080;font-style:italic"># Delete pods and services with same names "baz" and "foo"</span>
+</span></span><span style="display:flex"><span>kubectl delete pods,services -l <span style="color:#b8860b">name</span><span style="color:#666">=</span>myLabel                      <span style="color:#080;font-style:italic"># Delete pods and services with label name=myLabel</span>
+</span></span><span style="display:flex"><span>kubectl -n my-ns delete pod,svc --all                             <span style="color:#080;font-style:italic"># Delete all pods and services in namespace my-ns,</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Delete all pods matching the awk pattern1 or pattern2</span>
+</span></span><span style="display:flex"><span>kubectl get pods  -n mynamespace --no-headers<span style="color:#666">=</span><span style="color:#a2f">true</span> | awk <span style="color:#b44">'/pattern1|pattern2/{print $1}'</span> | xargs  kubectl delete -n mynamespace pod
+</span></span></code></pre></div><h2 id="interacting-with-running-pods">Interacting with running Pods</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl logs my-pod                                 <span style="color:#080;font-style:italic"># dump pod logs (stdout)</span>
+</span></span><span style="display:flex"><span>kubectl logs -l <span style="color:#b8860b">name</span><span style="color:#666">=</span>myLabel                        <span style="color:#080;font-style:italic"># dump pod logs, with label name=myLabel (stdout)</span>
+</span></span><span style="display:flex"><span>kubectl logs my-pod --previous                      <span style="color:#080;font-style:italic"># dump pod logs (stdout) for a previous instantiation of a container</span>
+</span></span><span style="display:flex"><span>kubectl logs my-pod -c my-container                 <span style="color:#080;font-style:italic"># dump pod container logs (stdout, multi-container case)</span>
+</span></span><span style="display:flex"><span>kubectl logs -l <span style="color:#b8860b">name</span><span style="color:#666">=</span>myLabel -c my-container        <span style="color:#080;font-style:italic"># dump pod container logs, with label name=myLabel (stdout)</span>
+</span></span><span style="display:flex"><span>kubectl logs my-pod -c my-container --previous      <span style="color:#080;font-style:italic"># dump pod container logs (stdout, multi-container case) for a previous instantiation of a container</span>
+</span></span><span style="display:flex"><span>kubectl logs -f my-pod                              <span style="color:#080;font-style:italic"># stream pod logs (stdout)</span>
+</span></span><span style="display:flex"><span>kubectl logs -f my-pod -c my-container              <span style="color:#080;font-style:italic"># stream pod container logs (stdout, multi-container case)</span>
+</span></span><span style="display:flex"><span>kubectl logs -f -l <span style="color:#b8860b">name</span><span style="color:#666">=</span>myLabel --all-containers    <span style="color:#080;font-style:italic"># stream all pods logs with label name=myLabel (stdout)</span>
+</span></span><span style="display:flex"><span>kubectl run -i --tty busybox --image<span style="color:#666">=</span>busybox:1.28 -- sh  <span style="color:#080;font-style:italic"># Run pod as interactive shell</span>
+</span></span><span style="display:flex"><span>kubectl run nginx --image<span style="color:#666">=</span>nginx -n mynamespace      <span style="color:#080;font-style:italic"># Start a single instance of nginx pod in the namespace of mynamespace</span>
+</span></span><span style="display:flex"><span>kubectl run nginx --image<span style="color:#666">=</span>nginx --dry-run<span style="color:#666">=</span>client -o yaml &gt; pod.yaml
+</span></span><span style="display:flex"><span>                                                    <span style="color:#080;font-style:italic"># Generate spec for running pod nginx and write it into a file called pod.yaml</span>
+</span></span><span style="display:flex"><span>kubectl attach my-pod -i                            <span style="color:#080;font-style:italic"># Attach to Running Container</span>
+</span></span><span style="display:flex"><span>kubectl port-forward my-pod 5000:6000               <span style="color:#080;font-style:italic"># Listen on port 5000 on the local machine and forward to port 6000 on my-pod</span>
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> my-pod -- ls /                         <span style="color:#080;font-style:italic"># Run command in existing pod (1 container case)</span>
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> --stdin --tty my-pod -- /bin/sh        <span style="color:#080;font-style:italic"># Interactive shell access to a running pod (1 container case)</span>
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> my-pod -c my-container -- ls /         <span style="color:#080;font-style:italic"># Run command in existing pod (multi-container case)</span>
+</span></span><span style="display:flex"><span>kubectl debug my-pod -it --image<span style="color:#666">=</span>busybox:1.28       <span style="color:#080;font-style:italic"># Create an interactive debugging session within existing pod and immediately attach to it</span>
+</span></span><span style="display:flex"><span>kubectl debug node/my-node -it --image<span style="color:#666">=</span>busybox:1.28 <span style="color:#080;font-style:italic"># Create an interactive debugging session on a node and immediately attach to it</span>
+</span></span><span style="display:flex"><span>kubectl top pod                                     <span style="color:#080;font-style:italic"># Show metrics for all pods in the default namespace</span>
+</span></span><span style="display:flex"><span>kubectl top pod POD_NAME --containers               <span style="color:#080;font-style:italic"># Show metrics for a given pod and its containers</span>
+</span></span><span style="display:flex"><span>kubectl top pod POD_NAME --sort-by<span style="color:#666">=</span>cpu              <span style="color:#080;font-style:italic"># Show metrics for a given pod and sort it by 'cpu' or 'memory'</span>
+</span></span></code></pre></div><h2 id="copying-files-and-directories-to-and-from-containers">Copying files and directories to and from containers</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl cp /tmp/foo_dir my-pod:/tmp/bar_dir            <span style="color:#080;font-style:italic"># Copy /tmp/foo_dir local directory to /tmp/bar_dir in a remote pod in the current namespace</span>
+</span></span><span style="display:flex"><span>kubectl cp /tmp/foo my-pod:/tmp/bar -c my-container    <span style="color:#080;font-style:italic"># Copy /tmp/foo local file to /tmp/bar in a remote pod in a specific container</span>
+</span></span><span style="display:flex"><span>kubectl cp /tmp/foo my-namespace/my-pod:/tmp/bar       <span style="color:#080;font-style:italic"># Copy /tmp/foo local file to /tmp/bar in a remote pod in namespace my-namespace</span>
+</span></span><span style="display:flex"><span>kubectl cp my-namespace/my-pod:/tmp/foo /tmp/bar       <span style="color:#080;font-style:italic"># Copy /tmp/foo from a remote pod to /tmp/bar locally</span>
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><code>kubectl cp</code> requires that the 'tar' binary is present in your container image. If 'tar' is not present, <code>kubectl cp</code> will fail.
+For advanced use cases, such as symlinks, wildcard expansion or file mode preservation consider using <code>kubectl exec</code>.</div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>tar cf - /tmp/foo | kubectl <span style="color:#a2f">exec</span> -i -n my-namespace my-pod -- tar xf - -C /tmp/bar           <span style="color:#080;font-style:italic"># Copy /tmp/foo local file to /tmp/bar in a remote pod in namespace my-namespace</span>
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -n my-namespace my-pod -- tar cf - /tmp/foo | tar xf - -C /tmp/bar    <span style="color:#080;font-style:italic"># Copy /tmp/foo from a remote pod to /tmp/bar locally</span>
+</span></span></code></pre></div><h2 id="interacting-with-deployments-and-services">Interacting with Deployments and Services</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl logs deploy/my-deployment                         <span style="color:#080;font-style:italic"># dump Pod logs for a Deployment (single-container case)</span>
+</span></span><span style="display:flex"><span>kubectl logs deploy/my-deployment -c my-container         <span style="color:#080;font-style:italic"># dump Pod logs for a Deployment (multi-container case)</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl port-forward svc/my-service <span style="color:#666">5000</span>                  <span style="color:#080;font-style:italic"># listen on local port 5000 and forward to port 5000 on Service backend</span>
+</span></span><span style="display:flex"><span>kubectl port-forward svc/my-service 5000:my-service-port  <span style="color:#080;font-style:italic"># listen on local port 5000 and forward to Service target port with name &lt;my-service-port&gt;</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl port-forward deploy/my-deployment 5000:6000       <span style="color:#080;font-style:italic"># listen on local port 5000 and forward to port 6000 on a Pod created by &lt;my-deployment&gt;</span>
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> deploy/my-deployment -- ls                   <span style="color:#080;font-style:italic"># run command in first Pod and first container in Deployment (single- or multi-container cases)</span>
+</span></span></code></pre></div><h2 id="interacting-with-nodes-and-cluster">Interacting with Nodes and cluster</h2><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl cordon my-node                                                <span style="color:#080;font-style:italic"># Mark my-node as unschedulable</span>
+</span></span><span style="display:flex"><span>kubectl drain my-node                                                 <span style="color:#080;font-style:italic"># Drain my-node in preparation for maintenance</span>
+</span></span><span style="display:flex"><span>kubectl uncordon my-node                                              <span style="color:#080;font-style:italic"># Mark my-node as schedulable</span>
+</span></span><span style="display:flex"><span>kubectl top node                                                      <span style="color:#080;font-style:italic"># Show metrics for all nodes</span>
+</span></span><span style="display:flex"><span>kubectl top node my-node                                              <span style="color:#080;font-style:italic"># Show metrics for a given node</span>
+</span></span><span style="display:flex"><span>kubectl cluster-info                                                  <span style="color:#080;font-style:italic"># Display addresses of the master and services</span>
+</span></span><span style="display:flex"><span>kubectl cluster-info dump                                             <span style="color:#080;font-style:italic"># Dump current cluster state to stdout</span>
+</span></span><span style="display:flex"><span>kubectl cluster-info dump --output-directory<span style="color:#666">=</span>/path/to/cluster-state   <span style="color:#080;font-style:italic"># Dump current cluster state to /path/to/cluster-state</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># View existing taints on which exist on current nodes.</span>
+</span></span><span style="display:flex"><span>kubectl get nodes -o<span style="color:#666">=</span><span style="color:#b44">'custom-columns=NodeName:.metadata.name,TaintKey:.spec.taints[*].key,TaintValue:.spec.taints[*].value,TaintEffect:.spec.taints[*].effect'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># If a taint with that key and effect already exists, its value is replaced as specified.</span>
+</span></span><span style="display:flex"><span>kubectl taint nodes foo <span style="color:#b8860b">dedicated</span><span style="color:#666">=</span>special-user:NoSchedule
+</span></span></code></pre></div><h3 id="resource-types">Resource types</h3><p>List all supported resource types along with their shortnames, <a href="/docs/concepts/overview/kubernetes-api/#api-groups-and-versioning">API group</a>, whether they are <a href="/docs/concepts/overview/working-with-objects/namespaces/">namespaced</a>, and <a href="/docs/concepts/overview/working-with-objects/">kind</a>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl api-resources
+</span></span></code></pre></div><p>Other operations for exploring API resources:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl api-resources --namespaced<span style="color:#666">=</span><span style="color:#a2f">true</span>      <span style="color:#080;font-style:italic"># All namespaced resources</span>
+</span></span><span style="display:flex"><span>kubectl api-resources --namespaced<span style="color:#666">=</span><span style="color:#a2f">false</span>     <span style="color:#080;font-style:italic"># All non-namespaced resources</span>
+</span></span><span style="display:flex"><span>kubectl api-resources -o name                <span style="color:#080;font-style:italic"># All resources with simple output (only the resource name)</span>
+</span></span><span style="display:flex"><span>kubectl api-resources -o wide                <span style="color:#080;font-style:italic"># All resources with expanded (aka "wide") output</span>
+</span></span><span style="display:flex"><span>kubectl api-resources --verbs<span style="color:#666">=</span>list,get       <span style="color:#080;font-style:italic"># All resources that support the "list" and "get" request verbs</span>
+</span></span><span style="display:flex"><span>kubectl api-resources --api-group<span style="color:#666">=</span>extensions <span style="color:#080;font-style:italic"># All resources in the "extensions" API group</span>
+</span></span></code></pre></div><h3 id="formatting-output">Formatting output</h3><p>To output details to your terminal window in a specific format, add the <code>-o</code> (or <code>--output</code>) flag to a supported <code>kubectl</code> command.</p><table><thead><tr><th>Output format</th><th>Description</th></tr></thead><tbody><tr><td><code>-o=custom-columns=&lt;spec&gt;</code></td><td>Print a table using a comma separated list of custom columns</td></tr><tr><td><code>-o=custom-columns-file=&lt;filename&gt;</code></td><td>Print a table using the custom columns template in the <code>&lt;filename&gt;</code> file</td></tr><tr><td><code>-o=go-template=&lt;template&gt;</code></td><td>Print the fields defined in a <a href="https://pkg.go.dev/text/template">golang template</a></td></tr><tr><td><code>-o=go-template-file=&lt;filename&gt;</code></td><td>Print the fields defined by the <a href="https://pkg.go.dev/text/template">golang template</a> in the <code>&lt;filename&gt;</code> file</td></tr><tr><td><code>-o=json</code></td><td>Output a JSON formatted API object</td></tr><tr><td><code>-o=jsonpath=&lt;template&gt;</code></td><td>Print the fields defined in a <a href="/docs/reference/kubectl/jsonpath/">jsonpath</a> expression</td></tr><tr><td><code>-o=jsonpath-file=&lt;filename&gt;</code></td><td>Print the fields defined by the <a href="/docs/reference/kubectl/jsonpath/">jsonpath</a> expression in the <code>&lt;filename&gt;</code> file</td></tr><tr><td><code>-o=kyaml</code></td><td>Output a KYAML formatted API object (alpha, requires environment variable <code>KUBECTL_KYAML="true"</code>). KYAML is an experimental Kubernetes-specific dialect of YAML, and can be parsed as YAML.</td></tr><tr><td><code>-o=name</code></td><td>Print only the resource name and nothing else</td></tr><tr><td><code>-o=wide</code></td><td>Output in the plain-text format with any additional information, and for pods, the node name is included</td></tr><tr><td><code>-o=yaml</code></td><td>Output a YAML formatted API object</td></tr></tbody></table><p>Examples using <code>-o=custom-columns</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># All images running in a cluster</span>
+</span></span><span style="display:flex"><span>kubectl get pods -A -o<span style="color:#666">=</span>custom-columns<span style="color:#666">=</span><span style="color:#b44">'DATA:spec.containers[*].image'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># All images running in namespace: default, grouped by Pod</span>
+</span></span><span style="display:flex"><span>kubectl get pods --namespace default --output<span style="color:#666">=</span>custom-columns<span style="color:#666">=</span><span style="color:#b44">"NAME:.metadata.name,IMAGE:.spec.containers[*].image"</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span> <span style="color:#080;font-style:italic"># All images excluding "registry.k8s.io/coredns:1.6.2"</span>
+</span></span><span style="display:flex"><span>kubectl get pods -A -o<span style="color:#666">=</span>custom-columns<span style="color:#666">=</span><span style="color:#b44">'DATA:spec.containers[?(@.image!="registry.k8s.io/coredns:1.6.2")].image'</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># All fields under metadata regardless of name</span>
+</span></span><span style="display:flex"><span>kubectl get pods -A -o<span style="color:#666">=</span>custom-columns<span style="color:#666">=</span><span style="color:#b44">'DATA:metadata.*'</span>
+</span></span></code></pre></div><p>More examples in the kubectl <a href="/docs/reference/kubectl/#custom-columns">reference documentation</a>.</p><h3 id="kubectl-output-verbosity-and-debugging">Kubectl output verbosity and debugging</h3><p>Kubectl verbosity is controlled with the <code>-v</code> or <code>--v</code> flags followed by an integer representing the log level. General Kubernetes logging conventions and the associated log levels are described <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md">here</a>.</p><table><thead><tr><th>Verbosity</th><th>Description</th></tr></thead><tbody><tr><td><code>--v=0</code></td><td>Generally useful for this to <em>always</em> be visible to a cluster operator.</td></tr><tr><td><code>--v=1</code></td><td>A reasonable default log level if you don't want verbosity.</td></tr><tr><td><code>--v=2</code></td><td>Useful steady state information about the service and important log messages that may correlate to significant changes in the system. This is the recommended default log level for most systems.</td></tr><tr><td><code>--v=3</code></td><td>Extended information about changes.</td></tr><tr><td><code>--v=4</code></td><td>Debug level verbosity.</td></tr><tr><td><code>--v=5</code></td><td>Trace level verbosity.</td></tr><tr><td><code>--v=6</code></td><td>Display requested resources.</td></tr><tr><td><code>--v=7</code></td><td>Display HTTP request headers.</td></tr><tr><td><code>--v=8</code></td><td>Display HTTP request contents.</td></tr><tr><td><code>--v=9</code></td><td>Display HTTP request contents without truncation of contents.</td></tr></tbody></table><h2 id="what-s-next">What's next</h2><ul><li><p>Read the <a href="/docs/reference/kubectl/">kubectl overview</a> and learn about <a href="/docs/reference/kubectl/jsonpath/">JsonPath</a>.</p></li><li><p>See <a href="/docs/reference/kubectl/kubectl/">kubectl</a> options.</p></li><li><p>See <a href="/docs/reference/kubectl/kuberc/">kuberc</a> options.</p></li><li><p>Also read <a href="/docs/reference/kubectl/conventions/">kubectl Usage Conventions</a> to understand how to use kubectl in reusable scripts.</p></li><li><p>See more community <a href="https://github.com/dennyzhang/cheatsheet-kubernetes-A4">kubectl cheatsheets</a>.</p></li></ul></div>

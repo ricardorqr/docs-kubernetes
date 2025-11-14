@@ -1,0 +1,60 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Windows debugging tips</h1><h2 id="troubleshooting-node">Node-level troubleshooting</h2><ol><li><p>My Pods are stuck at "Container Creating" or restarting over and over</p><p>Ensure that your pause image is compatible with your Windows OS version.
+See <a href="/docs/concepts/windows/intro/#pause-container">Pause container</a>
+to see the latest / recommended pause image and/or get more information.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If using containerd as your container runtime the pause image is specified in the
+<code>plugins.plugins.cri.sandbox_image</code> field of the of config.toml configuration file.</div></li><li><p>My pods show status as <code>ErrImgPull</code> or <code>ImagePullBackOff</code></p><p>Ensure that your Pod is getting scheduled to a
+<a href="https://docs.microsoft.com/virtualization/windowscontainers/deploy-containers/version-compatibility">compatible</a>
+Windows Node.</p><p>More information on how to specify a compatible node for your Pod can be found in
+<a href="/docs/concepts/windows/user-guide/#ensuring-os-specific-workloads-land-on-the-appropriate-container-host">this guide</a>.</p></li></ol><h2 id="troubleshooting-network">Network troubleshooting</h2><ol><li><p>My Windows Pods do not have network connectivity</p><p>If you are using virtual machines, ensure that MAC spoofing is <strong>enabled</strong> on all
+the VM network adapter(s).</p></li><li><p>My Windows Pods cannot ping external resources</p><p>Windows Pods do not have outbound rules programmed for the ICMP protocol. However,
+TCP/UDP is supported. When trying to demonstrate connectivity to resources
+outside of the cluster, substitute <code>ping &lt;IP&gt;</code> with corresponding
+<code>curl &lt;IP&gt;</code> commands.</p><p>If you are still facing problems, most likely your network configuration in
+<a href="https://github.com/Microsoft/SDN/blob/master/Kubernetes/flannel/l2bridge/cni/config/cni.conf">cni.conf</a>
+deserves some extra attention. You can always edit this static file. The
+configuration update will apply to any new Kubernetes resources.</p><p>One of the Kubernetes networking requirements
+(see <a href="/docs/concepts/cluster-administration/networking/">Kubernetes model</a>) is
+for cluster communication to occur without
+NAT internally. To honor this requirement, there is an
+<a href="https://github.com/Microsoft/SDN/blob/master/Kubernetes/flannel/l2bridge/cni/config/cni.conf#L20">ExceptionList</a>
+for all the communication where you do not want outbound NAT to occur. However,
+this also means that you need to exclude the external IP you are trying to query
+from the <code>ExceptionList</code>. Only then will the traffic originating from your Windows
+pods be SNAT'ed correctly to receive a response from the outside world. In this
+regard, your <code>ExceptionList</code> in <code>cni.conf</code> should look as follows:</p><pre tabindex="0"><code class="language-conf" data-lang="conf">"ExceptionList": [
+                "10.244.0.0/16",  # Cluster subnet
+                "10.96.0.0/12",   # Service subnet
+                "10.127.130.0/24" # Management (host) subnet
+            ]
+</code></pre></li><li><p>My Windows node cannot access <code>NodePort</code> type Services</p><p>Local NodePort access from the node itself fails. This is a known
+limitation. NodePort access works from other nodes or external clients.</p></li><li><p>vNICs and HNS endpoints of containers are being deleted</p><p>This issue can be caused when the <code>hostname-override</code> parameter is not passed to
+<a href="/docs/reference/command-line-tools-reference/kube-proxy/">kube-proxy</a>. To resolve
+it, users need to pass the hostname to kube-proxy as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-powershell" data-lang="powershell"><span style="display:flex"><span>C:\k\<span style="color:#a2f">kube-proxy</span>.exe --hostname-override=$(hostname)
+</span></span></code></pre></div></li><li><p>My Windows node cannot access my services using the service IP</p><p>This is a known limitation of the networking stack on Windows. However, Windows Pods can access the Service IP.</p></li><li><p>No network adapter is found when starting the kubelet</p><p>The Windows networking stack needs a virtual adapter for Kubernetes networking to work.
+If the following commands return no results (in an admin shell),
+virtual network creation — a necessary prerequisite for the kubelet to work — has failed:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-powershell" data-lang="powershell"><span style="display:flex"><span><span style="color:#a2f">Get-HnsNetwork</span> | ? Name <span style="color:#666">-ieq</span> <span style="color:#b44">"cbr0"</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">Get-NetAdapter</span> | ? Name <span style="color:#666">-Like</span> <span style="color:#b44">"vEthernet (Ethernet*"</span>
+</span></span></code></pre></div><p>Often it is worthwhile to modify the <a href="https://github.com/microsoft/SDN/blob/master/Kubernetes/flannel/start.ps1#L7">InterfaceName</a>
+parameter of the <code>start.ps1</code> script, in cases where the host's network adapter isn't "Ethernet".
+Otherwise, consult the output of the <code>start-kubelet.ps1</code> script to see if there are errors during virtual network creation.</p></li><li><p>DNS resolution is not properly working</p><p>Check the DNS limitations for Windows in this <a href="/docs/concepts/services-networking/dns-pod-service/#dns-windows">section</a>.</p></li><li><p><code>kubectl port-forward</code> fails with "unable to do port forwarding: wincat not found"</p><p>This was implemented in Kubernetes 1.15 by including <code>wincat.exe</code> in the pause infrastructure container
+<code>mcr.microsoft.com/oss/kubernetes/pause:3.6</code>.
+Be sure to use a supported version of Kubernetes.
+If you would like to build your own pause infrastructure container be sure to include
+<a href="https://github.com/kubernetes/kubernetes/tree/master/build/pause/windows/wincat">wincat</a>.</p></li><li><p>My Kubernetes installation is failing because my Windows Server node is behind a proxy</p><p>If you are behind a proxy, the following PowerShell environment variables must be defined:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-PowerShell" data-lang="PowerShell"><span style="display:flex"><span>[<span style="color:#800">Environment</span>]::SetEnvironmentVariable(<span style="color:#b44">"HTTP_PROXY"</span>, <span style="color:#b44">"http://proxy.example.com:80/"</span>, [<span style="color:#800">EnvironmentVariableTarget</span>]::Machine)
+</span></span><span style="display:flex"><span>[<span style="color:#800">Environment</span>]::SetEnvironmentVariable(<span style="color:#b44">"HTTPS_PROXY"</span>, <span style="color:#b44">"http://proxy.example.com:443/"</span>, [<span style="color:#800">EnvironmentVariableTarget</span>]::Machine)
+</span></span></code></pre></div></li></ol><h3 id="flannel-troubleshooting">Flannel troubleshooting</h3><ol><li><p>With Flannel, my nodes are having issues after rejoining a cluster</p><p>Whenever a previously deleted node is being re-joined to the cluster, flannelD
+tries to assign a new pod subnet to the node. Users should remove the old pod
+subnet configuration files in the following paths:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-powershell" data-lang="powershell"><span style="display:flex"><span><span style="color:#a2f">Remove-Item</span> C:\k\SourceVip.json
+</span></span><span style="display:flex"><span><span style="color:#a2f">Remove-Item</span> C:\k\SourceVipRequest.json
+</span></span></code></pre></div></li><li><p>Flanneld is stuck in "Waiting for the Network to be created"</p><p>There are numerous reports of this <a href="https://github.com/coreos/flannel/issues/1066">issue</a>;
+most likely it is a timing issue for when the management IP of the flannel network is set.
+A workaround is to relaunch <code>start.ps1</code> or relaunch it manually as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-powershell" data-lang="powershell"><span style="display:flex"><span>[<span style="color:#800">Environment</span>]::SetEnvironmentVariable(<span style="color:#b44">"NODE_NAME"</span>, <span style="color:#b44">"&lt;Windows_Worker_Hostname&gt;"</span>)
+</span></span><span style="display:flex"><span>C:\flannel\flanneld.exe --kubeconfig<span style="color:#666">-file</span>=c:\k\config --iface=&lt;Windows_Worker_Node_IP&gt; --ip-masq=<span style="color:#666">1</span> --kube-subnet-mgr=<span style="color:#666">1</span>
+</span></span></code></pre></div></li><li><p>My Windows Pods cannot launch because of missing <code>/run/flannel/subnet.env</code></p><p>This indicates that Flannel didn't launch correctly. You can either try
+to restart <code>flanneld.exe</code> or you can copy the files over manually from
+<code>/run/flannel/subnet.env</code> on the Kubernetes master to <code>C:\run\flannel\subnet.env</code>
+on the Windows worker node and modify the <code>FLANNEL_SUBNET</code> row to a different
+number. For example, if node subnet 10.244.4.1/24 is desired:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-env" data-lang="env"><span style="display:flex"><span><span style="color:#b8860b">FLANNEL_NETWORK</span><span style="color:#666">=</span>10.244.0.0/16
+</span></span><span style="display:flex"><span><span style="color:#b8860b">FLANNEL_SUBNET</span><span style="color:#666">=</span>10.244.4.1/24
+</span></span><span style="display:flex"><span><span style="color:#b8860b">FLANNEL_MTU</span><span style="color:#666">=</span><span style="color:#666">1500</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">FLANNEL_IPMASQ</span><span style="color:#666">=</span><span style="color:#a2f">true</span>
+</span></span></code></pre></div></li></ol><h3 id="further-investigation">Further investigation</h3><p>If these steps don't resolve your problem, you can get help running Windows containers on Windows nodes in Kubernetes through:</p><ul><li>StackOverflow <a href="https://stackoverflow.com/questions/tagged/windows-server-container">Windows Server Container</a> topic</li><li>Kubernetes Official Forum <a href="https://discuss.kubernetes.io/">discuss.kubernetes.io</a></li><li>Kubernetes Slack <a href="https://kubernetes.slack.com/messages/sig-windows">#SIG-Windows Channel</a></li></ul></div>

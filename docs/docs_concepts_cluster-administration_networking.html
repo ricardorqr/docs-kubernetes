@@ -1,0 +1,25 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Cluster Networking</h1><p>Networking is a central part of Kubernetes, but it can be challenging to
+understand exactly how it is expected to work. There are 4 distinct networking
+problems to address:</p><ol><li>Highly-coupled container-to-container communications: this is solved by
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a> and <code>localhost</code> communications.</li><li>Pod-to-Pod communications: this is the primary focus of this document.</li><li>Pod-to-Service communications: this is covered by <a href="/docs/concepts/services-networking/service/">Services</a>.</li><li>External-to-Service communications: this is also covered by Services.</li></ol><p>Kubernetes is all about sharing machines among applications. Typically,
+sharing machines requires ensuring that two applications do not try to use the
+same ports. Coordinating ports across multiple developers is very difficult to
+do at scale and exposes users to cluster-level issues outside of their control.</p><p>Dynamic port allocation brings a lot of complications to the system - every
+application has to take ports as flags, the API servers have to know how to
+insert dynamic port numbers into configuration blocks, services have to know
+how to find each other, etc. Rather than deal with this, Kubernetes takes a
+different approach.</p><p>To learn about the Kubernetes networking model, see <a href="/docs/concepts/services-networking/">here</a>.</p><h2 id="kubernetes-ip-address-ranges">Kubernetes IP address ranges</h2><p>Kubernetes clusters require to allocate non-overlapping IP addresses for Pods, Services and Nodes,
+from a range of available addresses configured in the following components:</p><ul><li>The network plugin is configured to assign IP addresses to Pods.</li><li>The kube-apiserver is configured to assign IP addresses to Services.</li><li>The kubelet or the cloud-controller-manager is configured to assign IP addresses to Nodes.</li></ul><figure class="diagram-medium"><img src="/docs/images/kubernetes-cluster-network.svg" alt="A figure illustrating the different network ranges in a kubernetes cluster"/></figure><h2 id="cluster-network-ipfamilies">Cluster networking types</h2><p>Kubernetes clusters, attending to the IP families configured, can be categorized into:</p><ul><li>IPv4 only: The network plugin, kube-apiserver and kubelet/cloud-controller-manager are configured to assign only IPv4 addresses.</li><li>IPv6 only: The network plugin, kube-apiserver and kubelet/cloud-controller-manager are configured to assign only IPv6 addresses.</li><li>IPv4/IPv6 or IPv6/IPv4 <a href="/docs/concepts/services-networking/dual-stack/">dual-stack</a>:<ul><li>The network plugin is configured to assign IPv4 and IPv6 addresses.</li><li>The kube-apiserver is configured to assign IPv4 and IPv6 addresses.</li><li>The kubelet or cloud-controller-manager is configured to assign IPv4 and IPv6 address.</li><li>All components must agree on the configured primary IP family.</li></ul></li></ul><p>Kubernetes clusters only consider the IP families present on the Pods, Services and Nodes objects,
+independently of the existing IPs of the represented objects. Per example, a server or a pod can have multiple
+IP addresses on its interfaces, but only the IP addresses in <code>node.status.addresses</code> or <code>pod.status.ips</code> are
+considered for implementing the Kubernetes network model and defining the type of the cluster.</p><h2 id="how-to-implement-the-kubernetes-network-model">How to implement the Kubernetes network model</h2><p>The network model is implemented by the container runtime on each node. The most common container
+runtimes use <a href="https://github.com/containernetworking/cni">Container Network Interface</a> (CNI)
+plugins to manage their network and security capabilities. Many different CNI plugins exist from
+many different vendors. Some of these provide only basic features of adding and removing network
+interfaces, while others provide more sophisticated solutions, such as integration with other
+container orchestration systems, running multiple CNI plugins, advanced IPAM features etc.</p><p>See <a href="/docs/concepts/cluster-administration/addons/#networking-and-network-policy">this page</a>
+for a non-exhaustive list of networking addons supported by Kubernetes.</p><h2 id="what-s-next">What's next</h2><p>The early design of the networking model and its rationale are described in more detail in the
+<a href="https://git.k8s.io/design-proposals-archive/network/networking.md">networking design document</a>.
+For future plans and some on-going efforts that aim to improve Kubernetes networking, please
+refer to the SIG-Network
+<a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-network">KEPs</a>.</p></div>

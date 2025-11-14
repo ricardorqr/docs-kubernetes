@@ -1,0 +1,47 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Participating in SIG Docs</h1><p>SIG Docs is one of the
+<a href="https://github.com/kubernetes/community/blob/master/sig-list.md">special interest groups</a>
+within the Kubernetes project, focused on writing, updating, and maintaining
+the documentation for Kubernetes as a whole. See
+<a href="https://github.com/kubernetes/community/tree/master/sig-docs">SIG Docs from the community github repo</a>
+for more information about the SIG.</p><p>SIG Docs welcomes content and reviews from all contributors. Anyone can open a
+pull request (PR), and anyone is welcome to file issues about content or comment
+on pull requests in progress.</p><p>You can also become a <a href="/docs/contribute/participate/roles-and-responsibilities/#members">member</a>,
+<a href="/docs/contribute/participate/roles-and-responsibilities/#reviewers">reviewer</a>, or
+<a href="/docs/contribute/participate/roles-and-responsibilities/#approvers">approver</a>.
+These roles require greater access and entail certain responsibilities for
+approving and committing changes. See
+<a href="https://github.com/kubernetes/community/blob/master/community-membership.md">community-membership</a>
+for more information on how membership works within the Kubernetes community.</p><p>The rest of this document outlines some unique ways these roles function within
+SIG Docs, which is responsible for maintaining one of the most public-facing
+aspects of Kubernetes -- the Kubernetes website and documentation.</p><h2 id="sig-docs-chairperson">SIG Docs chairperson</h2><p>Each SIG, including SIG Docs, selects one or more SIG members to act as
+chairpersons. These are points of contact between SIG Docs and other parts of
+the Kubernetes organization. They require extensive knowledge of the structure
+of the Kubernetes project as a whole and how SIG Docs works within it. See
+<a href="https://github.com/kubernetes/community/tree/master/sig-docs#leadership">Leadership</a>
+for the current list of chairpersons.</p><h2 id="sig-docs-teams-and-automation">SIG Docs teams and automation</h2><p>Automation in SIG Docs relies on two different mechanisms:
+GitHub teams and OWNERS files.</p><h3 id="github-teams">GitHub teams</h3><p>There are two categories of SIG Docs <a href="https://github.com/orgs/kubernetes/teams?query=sig-docs">teams</a> on GitHub:</p><ul><li><code>@sig-docs-{language}-owners</code> are approvers and leads</li><li><code>@sig-docs-{language}-reviews</code> are reviewers</li></ul><p>Each can be referenced with their <code>@name</code> in GitHub comments to communicate with
+everyone in that group.</p><p>Sometimes Prow and GitHub teams overlap without matching exactly. For
+assignment of issues, pull requests, and to support PR approvals, the
+automation uses information from <code>OWNERS</code> files.</p><h3 id="owners-files-and-front-matter">OWNERS files and front-matter</h3><p>The Kubernetes project uses an automation tool called prow for automation
+related to GitHub issues and pull requests. The
+<a href="https://github.com/kubernetes/website">Kubernetes website repository</a> uses
+two <a href="https://github.com/kubernetes-sigs/prow/tree/main/pkg/plugins">prow plugins</a>:</p><ul><li>blunderbuss</li><li>approve</li></ul><p>These two plugins use the
+<a href="https://github.com/kubernetes/website/blob/main/OWNERS">OWNERS</a> and
+<a href="https://github.com/kubernetes/website/blob/main/OWNERS_ALIASES">OWNERS_ALIASES</a>
+files in the top level of the <code>kubernetes/website</code> GitHub repository to control
+how prow works within the repository.</p><p>An OWNERS file contains a list of people who are SIG Docs reviewers and
+approvers. OWNERS files can also exist in subdirectories, and can override who
+can act as a reviewer or approver of files in that subdirectory and its
+descendants. For more information about OWNERS files in general, see
+<a href="https://github.com/kubernetes/community/blob/master/contributors/guide/owners.md">OWNERS</a>.</p><p>In addition, an individual Markdown file can list reviewers and approvers in its
+front-matter, either by listing individual GitHub usernames or GitHub groups.</p><p>The combination of OWNERS files and front-matter in Markdown files determines
+the advice PR owners get from automated systems about who to ask for technical
+and editorial review of their PR.</p><h2 id="how-merging-works">How merging works</h2><p>When a pull request is merged to the branch used to publish content, that content is published to <a href="https://kubernetes.io">https://kubernetes.io</a>. To ensure that
+the quality of our published content is high, we limit merging pull requests to
+SIG Docs approvers. Here's how it works.</p><ul><li>When a pull request has both the <code>lgtm</code> and <code>approve</code> labels, has no <code>hold</code>
+labels, and all tests are passing, the pull request merges automatically.</li><li>Kubernetes organization members and SIG Docs approvers can add comments to
+prevent automatic merging of a given pull request (by adding a <code>/hold</code> comment
+or withholding a <code>/lgtm</code> comment).</li><li>Any Kubernetes member can add the <code>lgtm</code> label by adding a <code>/lgtm</code> comment.</li><li>Only SIG Docs approvers can merge a pull request
+by adding an <code>/approve</code> comment. Some approvers also perform additional
+specific roles, such as <a href="/docs/contribute/participate/pr-wranglers/">PR Wrangler</a> or
+<a href="#sig-docs-chairperson">SIG Docs chairperson</a>.</li></ul><h2 id="what-s-next">What's next</h2><p>For more information about contributing to the Kubernetes documentation, see:</p><ul><li><a href="/docs/contribute/new-content/">Contributing new content</a></li><li><a href="/docs/contribute/review/reviewing-prs/">Reviewing content</a></li><li><a href="/docs/contribute/style/">Documentation style guide</a></li></ul><div class="section-index"><hr class="panel-line"/><div class="entry"><h5><a href="/docs/contribute/participate/roles-and-responsibilities/">Roles and responsibilities</a></h5><p/></div><div class="entry"><h5><a href="/docs/contribute/participate/issue-wrangler/">Issue Wranglers</a></h5><p/></div><div class="entry"><h5><a href="/docs/contribute/participate/pr-wranglers/">PR wranglers</a></h5><p/></div></div></div>

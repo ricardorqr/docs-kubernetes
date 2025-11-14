@@ -1,0 +1,485 @@
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Kubernetes Default ServiceCIDR Reconfiguration</h1><div class="feature-state-notice feature-stable" title="Feature Gate: MultiCIDRServiceAllocator"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p>This document shares how to reconfigure the default Service IP range(s) assigned
+to a cluster.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.33.<p>To check the version, enter <code>kubectl version</code>.</p><h2 id="kubernetes-default-servicecidr-reconfiguration">Kubernetes Default ServiceCIDR Reconfiguration</h2><p>This document explains how to manage the Service IP address range within a
+Kubernetes cluster, which also influences the cluster's supported IP families
+for Services.</p><p>The IP families available for Service ClusterIPs are determined by the
+<code>--service-cluster-ip-range</code> flag to kube-apiserver. For a better
+understanding of Service IP address allocation, refer to the
+<a href="/docs/reference/networking/virtual-ips/#ip-address-objects">Services IP address allocation tracking</a> documentation.</p><p>Since Kubernetes 1.33, the Service IP families configured for the cluster are
+reflected by the ServiceCIDR object named <code>kubernetes</code>. The <code>kubernetes</code> ServiceCIDR
+object is created by the first kube-apiserver instance that starts, based on its
+configured <code>--service-cluster-ip-range</code> flag. To ensure consistent cluster behavior,
+all kube-apiserver instances must be configured with the same <code>--service-cluster-ip-range</code> values,
+which must match the default <code>kubernetes</code> ServiceCIDR object.</p><h3 id="kubernetes-servicecidr-reconfiguration-categories">Kubernetes ServiceCIDR Reconfiguration Categories</h3><p>ServiceCIDR reconfiguration typically falls into one of the following categories:</p><ul><li><p><strong>Extending the existing ServiceCIDRs:</strong> This can be done dynamically by
+adding new ServiceCIDR objects without the need for reconfiguring the
+kube-apiserver. Please refer to the dedicated documentation on
+<a href="/docs/tasks/network/extend-service-ip-ranges/">Extending Service IP Ranges</a>.</p></li><li><p><strong>Single-to-dual-stack conversion preserving the primary ServiceCIDR:</strong> This
+involves introducing a secondary IP family (IPv6 to an IPv4-only cluster, or
+IPv4 to an IPv6-only cluster) while keeping the original IP family as
+primary. This requires an update to the kube-apiserver configuration and a
+corresponding modification of various cluster components that need to handle
+this additional IP family. These components include, but are not limited to,
+kube-proxy, the CNI or network plugin, service mesh implementations, and DNS
+services.</p></li><li><p><strong>Dual-to-single conversion preserving the primary ServiceCIDR:</strong> This
+involves removing the secondary IP family from a dual-stack cluster,
+reverting to a single IP family while retaining the original primary IP
+family. In addition to reconfiguring the components to match the
+new IP family, you might need to address Services that were explicitly
+configured to use the removed IP family.</p></li><li><p><strong>Anything that results in changing the primary ServiceCIDR:</strong> Completely
+replacing the default ServiceCIDR is a complex operation. If the new
+ServiceCIDR does not overlap with the existing one, it will require
+<a href="#illustrative-reconfiguration-steps">renumbering all existing Services and changing the <code>kubernetes.default</code> Service</a>.
+The case where the primary IP family also changes is even more complicated,
+and may require changing multiple cluster components (kubelet, network plugins, etc.)
+to match the new primary IP family.</p></li></ul><h3 id="manual-operations-for-replacing-the-default-servicecidr">Manual Operations for Replacing the Default ServiceCIDR</h3><p>Reconfiguring the default ServiceCIDR necessitates manual steps performed by
+the cluster operator, administrator, or the software managing the cluster
+lifecycle. These typically include:</p><ol><li><strong>Updating</strong> the kube-apiserver configuration: Modify the
+<code>--service-cluster-ip-range</code> flag with the new IP range(s).</li><li><strong>Reconfiguring</strong> the network components: This is a critical step and the
+specific procedure depends on the different networking components in use. It
+might involve updating configuration files, restarting agent pods, or
+updating the components to manage the new ServiceCIDR(s) and the desired IP
+family configuration for Pods. Typical components can be the implementation
+of Kubernetes Services, such as kube-proxy, and the configured networking
+plugin, and potentially other networking components like service mesh
+controllers and DNS servers, to ensure they can correctly handle traffic and
+perform service discovery with the new IP family configuration.</li><li><strong>Managing existing Services:</strong> Services with IPs from the old CIDR need to
+be addressed if they are not within the new configured ranges. Options
+include recreation (leading to downtime and new IP assignments) or
+potentially more complex reconfiguration strategies.</li><li><strong>Recreating internal Kubernetes services:</strong> The <code>kubernetes.default</code>
+Service must be deleted and recreated to obtain an IP address from the new
+ServiceCIDR if the primary IP family is changed or replaced by a different
+network.</li></ol><h3 id="illustrative-reconfiguration-steps">Illustrative Reconfiguration Steps</h3><p>The following steps describe a controlled reconfiguration focusing on the
+complete replacement of the default ServiceCIDR and the recreation of the
+<code>kubernetes.default</code> Service:</p><ol><li>Start the kube-apiserver with the initial <code>--service-cluster-ip-range</code>.</li><li>Create initial Services that obtain IPs from this range.</li><li>Introduce a new ServiceCIDR as a temporary target for reconfiguration.</li><li>Mark the <code>kubernetes</code> default ServiceCIDR for deletion (it will remain
+pending due to existing IPs and finalizers). This prevents new allocations
+from the old range.</li><li>Recreate existing Services. They should now be allocated IPs from the new,
+temporary ServiceCIDR.</li><li>Restart the kube-apiserver with the new ServiceCIDR(s) configured and shut
+down the old instance.</li><li>Delete the <code>kubernetes.default</code> Service. The new kube-apiserver will
+recreate it within the new ServiceCIDR.</li></ol><h2 id="what-s-next">What's next</h2><ul><li><a href="/docs/concepts/cluster-administration/networking/">Kubernetes Networking Concepts</a></li><li><a href="/docs/concepts/services-networking/dual-stack/">Kubernetes Dual-Stack Services</a></li><li><a href="/docs/tasks/network/extend-service-ip-ranges/">Extending Kubernetes Service IP Ranges</a></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Extend Service IP Ranges</h1><div class="feature-state-notice feature-stable" title="Feature Gate: MultiCIDRServiceAllocator"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p>This document shares how to extend the existing Service IP range assigned to a cluster.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.29.<p>To check the version, enter <code>kubectl version</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>While you can use this feature with an earlier version, the feature is only GA and officially supported since v1.33.</div><h2 id="extend-service-ip-ranges">Extend Service IP Ranges</h2><p>Kubernetes clusters with kube-apiservers that have enabled the <code>MultiCIDRServiceAllocator</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a> and have the
+<code>networking.k8s.io/v1</code> API group active, will create a ServiceCIDR object that takes
+the well-known name <code>kubernetes</code>, and that specifies an IP address range
+based on the value of the <code>--service-cluster-ip-range</code> command line argument to kube-apiserver.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get servicecidr
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         CIDRS          AGE
+kubernetes   10.96.0.0/28   17d
+</code></pre><p>The well-known <code>kubernetes</code> Service, that exposes the kube-apiserver endpoint to the Pods, calculates
+the first IP address from the default ServiceCIDR range and uses that IP address as its
+cluster IP address.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get service kubernetes
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    &lt;none&gt;        443/TCP   17d
+</code></pre><p>The default Service, in this case, uses the ClusterIP 10.96.0.1, that has the corresponding IPAddress object.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get ipaddress 10.96.0.1
+</span></span></code></pre></div><pre tabindex="0"><code>NAME        PARENTREF
+10.96.0.1   services/default/kubernetes
+</code></pre><p>The ServiceCIDRs are protected with <a class="glossary-tooltip" title="A namespaced key that tells Kubernetes to wait until specific conditions are met before it fully deletes an object marked for deletion." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/finalizers/" target="_blank" aria-label="finalizers">finalizers</a>,
+to avoid leaving Service ClusterIPs orphans; the finalizer is only removed if there is another subnet
+that contains the existing IPAddresses or there are no IPAddresses belonging to the subnet.</p><h2 id="extend-the-number-of-available-ips-for-services">Extend the number of available IPs for Services</h2><p>There are cases that users will need to increase the number addresses available to Services,
+previously, increasing the Service range was a disruptive operation that could also cause data loss.
+With this new feature users only need to add a new ServiceCIDR to increase the number of available addresses.</p><h3 id="adding-a-new-servicecidr">Adding a new ServiceCIDR</h3><p>On a cluster with a 10.96.0.0/28 range for Services, there is only 2^(32-28) - 2 = 14
+IP addresses available. The <code>kubernetes.default</code> Service is always created; for this example,
+that leaves you with only 13 possible Services.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> i in <span style="color:#a2f;font-weight:700">$(</span>seq <span style="color:#666">1</span> 13<span style="color:#a2f;font-weight:700">)</span>; <span style="color:#a2f;font-weight:700">do</span> kubectl create service clusterip <span style="color:#b44">"test-</span><span style="color:#b8860b">$i</span><span style="color:#b44">"</span> --tcp <span style="color:#666">80</span> -o json | jq -r .spec.clusterIP; <span style="color:#a2f;font-weight:700">done</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.96.0.11
+10.96.0.5
+10.96.0.12
+10.96.0.13
+10.96.0.14
+10.96.0.2
+10.96.0.3
+10.96.0.4
+10.96.0.6
+10.96.0.7
+10.96.0.8
+10.96.0.9
+error: failed to create ClusterIP service: Internal error occurred: failed to allocate a serviceIP: range is full
+</code></pre><p>You can increase the number of IP addresses available for Services, by creating a new ServiceCIDR
+that extends or adds new IP address ranges.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>cat &lt;EOF | kubectl apply -f -
+</span></span><span style="display:flex"><span>apiVersion: networking.k8s.io/v1
+</span></span><span style="display:flex"><span>kind: ServiceCIDR
+</span></span><span style="display:flex"><span>metadata:
+</span></span><span style="display:flex"><span>  name: newcidr1
+</span></span><span style="display:flex"><span>spec:
+</span></span><span style="display:flex"><span>  cidrs:
+</span></span><span style="display:flex"><span>  - 10.96.0.0/24
+</span></span><span style="display:flex"><span>EOF
+</span></span></code></pre></div><pre tabindex="0"><code>servicecidr.networking.k8s.io/newcidr1 created
+</code></pre><p>and this will allow you to create new Services with ClusterIPs that will be picked from this new range.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> i in <span style="color:#a2f;font-weight:700">$(</span>seq <span style="color:#666">13</span> 16<span style="color:#a2f;font-weight:700">)</span>; <span style="color:#a2f;font-weight:700">do</span> kubectl create service clusterip <span style="color:#b44">"test-</span><span style="color:#b8860b">$i</span><span style="color:#b44">"</span> --tcp <span style="color:#666">80</span> -o json | jq -r .spec.clusterIP; <span style="color:#a2f;font-weight:700">done</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.96.0.48
+10.96.0.200
+10.96.0.121
+10.96.0.144
+</code></pre><h3 id="deleting-a-servicecidr">Deleting a ServiceCIDR</h3><p>You cannot delete a ServiceCIDR if there are IPAddresses that depend on the ServiceCIDR.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl delete servicecidr newcidr1
+</span></span></code></pre></div><pre tabindex="0"><code>servicecidr.networking.k8s.io "newcidr1" deleted
+</code></pre><p>Kubernetes uses a finalizer on the ServiceCIDR to track this dependent relationship.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get servicecidr newcidr1 -o yaml
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>networking.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ServiceCIDR<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">creationTimestamp</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-10-12T15:11:07Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">deletionGracePeriodSeconds</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">deletionTimestamp</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-10-12T15:12:45Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">finalizers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- networking.k8s.io/service-cidr-finalizer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>newcidr1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resourceVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1133"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">uid</span>:<span style="color:#bbb"> </span>5ffd8afe-c78f-4e60-ae76-cec448a8af40<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">cidrs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#666">10.96.0.0</span>/24<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">conditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">lastTransitionTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-10-12T15:12:45Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">message</span>:<span style="color:#bbb"> </span>There are still IPAddresses referencing the ServiceCIDR, please remove<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>them or create a new ServiceCIDR<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">reason</span>:<span style="color:#bbb"> </span>OrphanIPAddress<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb"> </span><span style="color:#b44">"False"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Ready<span style="color:#bbb">
+</span></span></span></code></pre></div><p>By removing the Services containing the IP addresses that are blocking the deletion of the ServiceCIDR</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> i in <span style="color:#a2f;font-weight:700">$(</span>seq <span style="color:#666">13</span> 16<span style="color:#a2f;font-weight:700">)</span>; <span style="color:#a2f;font-weight:700">do</span> kubectl delete service <span style="color:#b44">"test-</span><span style="color:#b8860b">$i</span><span style="color:#b44">"</span> ; <span style="color:#a2f;font-weight:700">done</span>
+</span></span></code></pre></div><pre tabindex="0"><code>service "test-13" deleted
+service "test-14" deleted
+service "test-15" deleted
+service "test-16" deleted
+</code></pre><p>the control plane notices the removal. The control plane then removes its finalizer,
+so that the ServiceCIDR that was pending deletion will actually be removed.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get servicecidr newcidr1
+</span></span></code></pre></div><pre tabindex="0"><code>Error from server (NotFound): servicecidrs.networking.k8s.io "newcidr1" not found
+</code></pre><h2 id="kubernetes-service-cidr-policies">Kubernetes Service CIDR Policies</h2><p>Cluster administrators can implement policies to control the creation and
+modification of ServiceCIDR resources within the cluster. This allows for
+centralized management of the IP address ranges used for Services and helps
+prevent unintended or conflicting configurations. Kubernetes provides mechanisms
+like Validating Admission Policies to enforce these rules.</p><h3 id="preventing-unauthorized-servicecidr-creation-update-using-validating-admission-policy">Preventing Unauthorized ServiceCIDR Creation/Update using Validating Admission Policy</h3><p>There can be situations that the cluster administrators want to restrict the
+ranges that can be allowed or to completely deny any changes to the cluster
+Service IP ranges.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The default "kubernetes" ServiceCIDR is created by the kube-apiserver
+to provide consistency in the cluster and is required for the cluster to work,
+so it always must be allowed. You can ensure your <code>ValidatingAdmissionPolicy</code>
+doesn't restrict the default ServiceCIDR by adding the clause:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">'exclude-default-servicecidr'</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.metadata.name != 'kubernetes'"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>as in the examples below.</p></div><h4 id="restrict-service-cidr-ranges-to-some-specific-ranges">Restrict Service CIDR ranges to some specific ranges</h4><p>The following is an example of a <code>ValidatingAdmissionPolicy</code> that only allows
+ServiceCIDRs to be created if they are subranges of the given <code>allowed</code> ranges.
+(So the example policy would allow a ServiceCIDR with <code>cidrs: ['10.96.1.0/24']</code>
+or <code>cidrs: ['2001:db8:0:0:ffff::/80', '10.96.0.0/20']</code> but would not allow a
+ServiceCIDR with <code>cidrs: ['172.20.0.0/16']</code>.) You can copy this policy and change
+the value of <code>allowed</code> to something appropriate for you cluster.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicy<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.default"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">failurePolicy</span>:<span style="color:#bbb"> </span>Fail<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConstraints</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resourceRules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"networking.k8s.io"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">apiVersions</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"v1"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">operations</span>:<span style="color:#bbb">  </span>[<span style="color:#b44">"CREATE"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"UPDATE"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"servicecidrs"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">'exclude-default-servicecidr'</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.metadata.name != 'kubernetes'"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">variables</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>allowed<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"['10.96.0.0/16','2001:db8::/64']"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.spec.cidrs.all(newCIDR, variables.allowed.exists(allowedCIDR, cidr(allowedCIDR).containsCIDR(newCIDR)))"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># For all CIDRs (newCIDR) listed in the spec.cidrs of the submitted ServiceCIDR</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># object, check if there exists at least one CIDR (allowedCIDR) in the `allowed`</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># list of the VAP such that the allowedCIDR fully contains the newCIDR.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicyBinding<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs-binding"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">policyName</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.default"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validationActions</span>:<span style="color:#bbb"> </span>[Deny,Audit]<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Consult the <a href="https://kubernetes.io/docs/reference/using-api/cel/">CEL documentation</a>
+to learn more about CEL if you want to write your own validation <code>expression</code>.</p><h4 id="restrict-any-usage-of-the-servicecidr-api">Restrict any usage of the ServiceCIDR API</h4><p>The following example demonstrates how to use a <code>ValidatingAdmissionPolicy</code> and
+its binding to restrict the creation of any new Service CIDR ranges, excluding the default "kubernetes" ServiceCIDR:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicy<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.deny"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">failurePolicy</span>:<span style="color:#bbb"> </span>Fail<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConstraints</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resourceRules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"networking.k8s.io"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">apiVersions</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"v1"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">operations</span>:<span style="color:#bbb">  </span>[<span style="color:#b44">"CREATE"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"UPDATE"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"servicecidrs"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.metadata.name == 'kubernetes'"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicyBinding<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs-deny-binding"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">policyName</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.deny"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validationActions</span>:<span style="color:#bbb"> </span>[Deny,Audit]<span style="color:#bbb">
+</span></span></span></code></pre></div></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Adding entries to Pod /etc/hosts with HostAliases</h1><p>Adding entries to a Pod's <code>/etc/hosts</code> file provides Pod-level override of hostname resolution when DNS and other options are not applicable. You can add these custom entries with the HostAliases field in PodSpec.</p><p>The Kubernetes project recommends modifying DNS configuration using the <code>hostAliases</code> field
+(part of the <code>.spec</code> for a Pod), and not by using an init container or other means to edit <code>/etc/hosts</code>
+directly.
+Change made in other ways may be overwritten by the kubelet during Pod creation or restart.</p><h2 id="default-hosts-file-content">Default hosts file content</h2><p>Start an Nginx Pod which is assigned a Pod IP:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl run nginx --image nginx
+</span></span></code></pre></div><pre tabindex="0"><code>pod/nginx created
+</code></pre><p>Examine a Pod IP:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods --output<span style="color:#666">=</span>wide
+</span></span></code></pre></div><pre tabindex="0"><code>NAME     READY     STATUS    RESTARTS   AGE    IP           NODE
+nginx    1/1       Running   0          13s    10.200.0.4   worker0
+</code></pre><p>The hosts file content would look like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> nginx -- cat /etc/hosts
+</span></span></code></pre></div><pre tabindex="0"><code># Kubernetes-managed hosts file.
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+fe00::0	ip6-localnet
+fe00::0	ip6-mcastprefix
+fe00::1	ip6-allnodes
+fe00::2	ip6-allrouters
+10.200.0.4	nginx
+</code></pre><p>By default, the <code>hosts</code> file only includes IPv4 and IPv6 boilerplates like
+<code>localhost</code> and its own hostname.</p><h2 id="adding-additional-entries-with-hostaliases">Adding additional entries with hostAliases</h2><p>In addition to the default boilerplate, you can add additional entries to the
+<code>hosts</code> file.
+For example: to resolve <code>foo.local</code>, <code>bar.local</code> to <code>127.0.0.1</code> and <code>foo.remote</code>,
+<code>bar.remote</code> to <code>10.1.2.3</code>, you can configure HostAliases for a Pod under
+<code>.spec.hostAliases</code>:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/hostaliases-pod.yaml" download="service/networking/hostaliases-pod.yaml"><code>service/networking/hostaliases-pod.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-hostaliases-pod-yaml&quot;)" title="Copy service/networking/hostaliases-pod.yaml to clipboard"/></div><div class="includecode" id="service-networking-hostaliases-pod-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hostaliases-pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostAliases</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">ip</span>:<span style="color:#bbb"> </span><span style="color:#b44">"127.0.0.1"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">hostnames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"foo.local"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"bar.local"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">ip</span>:<span style="color:#bbb"> </span><span style="color:#b44">"10.1.2.3"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">hostnames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"foo.remote"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"bar.remote"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cat-hosts<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- cat<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"/etc/hosts"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>You can start a Pod with that configuration by running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/service/networking/hostaliases-pod.yaml
+</span></span></code></pre></div><pre tabindex="0"><code>pod/hostaliases-pod created
+</code></pre><p>Examine a Pod's details to see its IPv4 address and its status:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pod --output<span style="color:#666">=</span>wide
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                           READY     STATUS      RESTARTS   AGE       IP              NODE
+hostaliases-pod                0/1       Completed   0          6s        10.200.0.5      worker0
+</code></pre><p>The <code>hosts</code> file content looks like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs hostaliases-pod
+</span></span></code></pre></div><pre tabindex="0"><code># Kubernetes-managed hosts file.
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+fe00::0	ip6-localnet
+fe00::0	ip6-mcastprefix
+fe00::1	ip6-allnodes
+fe00::2	ip6-allrouters
+10.200.0.5	hostaliases-pod
+
+# Entries added by HostAliases.
+127.0.0.1	foo.local	bar.local
+10.1.2.3	foo.remote	bar.remote
+</code></pre><p>with the additional entries specified at the bottom.</p><h2 id="why-does-kubelet-manage-the-hosts-file">Why does the kubelet manage the hosts file?</h2><p>The kubelet manages the
+<code>hosts</code> file for each container of the Pod to prevent the container runtime from
+modifying the file after the containers have already been started.
+Historically, Kubernetes always used Docker Engine as its container runtime, and Docker Engine would
+then modify the <code>/etc/hosts</code> file after each container had started.</p><p>Current Kubernetes can use a variety of container runtimes; even so, the kubelet manages the
+hosts file within each container so that the outcome is as intended regardless of which
+container runtime you use.</p><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4><p>Avoid making manual changes to the hosts file inside a container.</p><p>If you make manual changes to the hosts file,
+those changes are lost when the container exits.</p></div></div>
+<hr>
+<div class="td-content"><h1>Networking</h1><div class="lead">Learn how to configure networking for your cluster.</div><div class="section-index"><hr class="panel-line"/><div class="entry"><h5><a href="/docs/tasks/network/customize-hosts-file-for-pods/">Adding entries to Pod /etc/hosts with HostAliases</a></h5><p/></div><div class="entry"><h5><a href="/docs/tasks/network/extend-service-ip-ranges/">Extend Service IP Ranges</a></h5><p/></div><div class="entry"><h5><a href="/docs/tasks/network/reconfigure-default-service-ip-ranges/">Kubernetes Default ServiceCIDR Reconfiguration</a></h5><p/></div><div class="entry"><h5><a href="/docs/tasks/network/validate-dual-stack/">Validate IPv4/IPv6 dual-stack</a></h5><p/></div></div></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Validate IPv4/IPv6 dual-stack</h1><p>This document shares how to validate IPv4/IPv6 dual-stack enabled Kubernetes clusters.</p><h2 id="before-you-begin">Before you begin</h2><ul><li>Provider support for dual-stack networking (Cloud provider or otherwise must be able to
+provide Kubernetes nodes with routable IPv4/IPv6 network interfaces)</li><li>A <a href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">network plugin</a>
+that supports dual-stack networking.</li><li><a href="/docs/concepts/services-networking/dual-stack/">Dual-stack enabled</a> cluster</li></ul>Your Kubernetes server must be at or later than version v1.23.<p>To check the version, enter <code>kubectl version</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>While you can validate with an earlier version, the feature is only GA and officially supported since v1.23.</div><h2 id="validate-addressing">Validate addressing</h2><h3 id="validate-node-addressing">Validate node addressing</h3><p>Each dual-stack Node should have a single IPv4 block and a single IPv6 block allocated.
+Validate that IPv4/IPv6 Pod address ranges are configured by running the following command.
+Replace the sample node name with a valid dual-stack Node from your cluster. In this example,
+the Node's name is <code>k8s-linuxpool1-34450317-0</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get nodes k8s-linuxpool1-34450317-0 -o go-template --template<span style="color:#666">=</span><span style="color:#b44">'{{range .spec.podCIDRs}}{{printf "%s\n" .}}{{end}}'</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.244.1.0/24
+2001:db8::/64
+</code></pre><p>There should be one IPv4 block and one IPv6 block allocated.</p><p>Validate that the node has an IPv4 and IPv6 interface detected.
+Replace node name with a valid node from the cluster.
+In this example the node name is <code>k8s-linuxpool1-34450317-0</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get nodes k8s-linuxpool1-34450317-0 -o go-template --template<span style="color:#666">=</span><span style="color:#b44">'{{range .status.addresses}}{{printf "%s: %s\n" .type .address}}{{end}}'</span>
+</span></span></code></pre></div><pre tabindex="0"><code>Hostname: k8s-linuxpool1-34450317-0
+InternalIP: 10.0.0.5
+InternalIP: 2001:db8:10::5
+</code></pre><h3 id="validate-pod-addressing">Validate Pod addressing</h3><p>Validate that a Pod has an IPv4 and IPv6 address assigned. Replace the Pod name with
+a valid Pod in your cluster. In this example the Pod name is <code>pod01</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods pod01 -o go-template --template<span style="color:#666">=</span><span style="color:#b44">'{{range .status.podIPs}}{{printf "%s\n" .ip}}{{end}}'</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.244.1.4
+2001:db8::4
+</code></pre><p>You can also validate Pod IPs using the Downward API via the <code>status.podIPs</code> fieldPath.
+The following snippet demonstrates how you can expose the Pod IPs via an environment variable
+called <code>MY_POD_IPS</code> within a container.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">env</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_POD_IPS<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>status.podIPs<span style="color:#bbb">
+</span></span></span></code></pre></div><p>The following command prints the value of the <code>MY_POD_IPS</code> environment variable from
+within a container. The value is a comma separated list that corresponds to the
+Pod's IPv4 and IPv6 addresses.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it pod01 -- <span style="color:#a2f">set</span> | grep MY_POD_IPS
+</span></span></code></pre></div><pre tabindex="0"><code>MY_POD_IPS=10.244.1.4,2001:db8::4
+</code></pre><p>The Pod's IP addresses will also be written to <code>/etc/hosts</code> within a container.
+The following command executes a cat on <code>/etc/hosts</code> on a dual stack Pod.
+From the output you can verify both the IPv4 and IPv6 IP address for the Pod.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it pod01 -- cat /etc/hosts
+</span></span></code></pre></div><pre tabindex="0"><code># Kubernetes-managed hosts file.
+127.0.0.1    localhost
+::1    localhost ip6-localhost ip6-loopback
+fe00::0    ip6-localnet
+fe00::0    ip6-mcastprefix
+fe00::1    ip6-allnodes
+fe00::2    ip6-allrouters
+10.244.1.4    pod01
+2001:db8::4    pod01
+</code></pre><h2 id="validate-services">Validate Services</h2><p>Create the following Service that does not explicitly define <code>.spec.ipFamilyPolicy</code>.
+Kubernetes will assign a cluster IP for the Service from the first configured
+<code>service-cluster-ip-range</code> and set the <code>.spec.ipFamilyPolicy</code> to <code>SingleStack</code>.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-default-svc.yaml" download="service/networking/dual-stack-default-svc.yaml"><code>service/networking/dual-stack-default-svc.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-default-svc-yaml&quot;)" title="Copy service/networking/dual-stack-default-svc.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-default-svc-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Use <code>kubectl</code> to view the YAML for the Service.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc my-service -o yaml
+</span></span></code></pre></div><p>The Service has <code>.spec.ipFamilyPolicy</code> set to <code>SingleStack</code> and <code>.spec.clusterIP</code> set
+to an IPv4 address from the first configured range set via <code>--service-cluster-ip-range</code>
+flag on kube-controller-manager.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>default<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIP</span>:<span style="color:#bbb"> </span><span style="color:#666">10.0.217.164</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIPs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#666">10.0.217.164</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv4<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>SingleStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">sessionAffinity</span>:<span style="color:#bbb"> </span>None<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>ClusterIP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">loadBalancer</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Create the following Service that explicitly defines <code>IPv6</code> as the first array element in
+<code>.spec.ipFamilies</code>. Kubernetes will assign a cluster IP for the Service from the IPv6 range
+configured <code>service-cluster-ip-range</code> and set the <code>.spec.ipFamilyPolicy</code> to <code>SingleStack</code>.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-ipfamilies-ipv6.yaml" download="service/networking/dual-stack-ipfamilies-ipv6.yaml"><code>service/networking/dual-stack-ipfamilies-ipv6.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-ipfamilies-ipv6-yaml&quot;)" title="Copy service/networking/dual-stack-ipfamilies-ipv6.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-ipfamilies-ipv6-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv6<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Use <code>kubectl</code> to view the YAML for the Service.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc my-service -o yaml
+</span></span></code></pre></div><p>The Service has <code>.spec.ipFamilyPolicy</code> set to <code>SingleStack</code> and <code>.spec.clusterIP</code> set to
+an IPv6 address from the IPv6 range set via <code>--service-cluster-ip-range</code> flag on kube-controller-manager.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIP</span>:<span style="color:#bbb"> </span><span style="color:#666">2001</span>:db8:fd00::5118<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIPs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#666">2001</span>:db8:fd00::5118<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv6<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>SingleStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">sessionAffinity</span>:<span style="color:#bbb"> </span>None<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>ClusterIP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">loadBalancer</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Create the following Service that explicitly defines <code>PreferDualStack</code> in <code>.spec.ipFamilyPolicy</code>.
+Kubernetes will assign both IPv4 and IPv6 addresses (as this cluster has dual-stack enabled) and
+select the <code>.spec.ClusterIP</code> from the list of <code>.spec.ClusterIPs</code> based on the address family of
+the first element in the <code>.spec.ipFamilies</code> array.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-preferred-svc.yaml" download="service/networking/dual-stack-preferred-svc.yaml"><code>service/networking/dual-stack-preferred-svc.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-preferred-svc-yaml&quot;)" title="Copy service/networking/dual-stack-preferred-svc.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-preferred-svc-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>PreferDualStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The <code>kubectl get svc</code> command will only show the primary IP in the <code>CLUSTER-IP</code> field.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc -l app.kubernetes.io/name<span style="color:#666">=</span>MyApp
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+my-service   ClusterIP   10.0.216.242   &lt;none&gt;        80/TCP    5s
+</code></pre></div><p>Validate that the Service gets cluster IPs from the IPv4 and IPv6 address blocks using
+<code>kubectl describe</code>. You may then validate access to the service via the IPs and ports.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe svc -l app.kubernetes.io/name<span style="color:#666">=</span>MyApp
+</span></span></code></pre></div><pre tabindex="0"><code>Name:              my-service
+Namespace:         default
+Labels:            app.kubernetes.io/name=MyApp
+Annotations:       &lt;none&gt;
+Selector:          app.kubernetes.io/name=MyApp
+Type:              ClusterIP
+IP Family Policy:  PreferDualStack
+IP Families:       IPv4,IPv6
+IP:                10.0.216.242
+IPs:               10.0.216.242,2001:db8:fd00::af55
+Port:              &lt;unset&gt;  80/TCP
+TargetPort:        9376/TCP
+Endpoints:         &lt;none&gt;
+Session Affinity:  None
+Events:            &lt;none&gt;
+</code></pre><h3 id="create-a-dual-stack-load-balanced-service">Create a dual-stack load balanced Service</h3><p>If the cloud provider supports the provisioning of IPv6 enabled external load balancers,
+create the following Service with <code>PreferDualStack</code> in <code>.spec.ipFamilyPolicy</code>, <code>IPv6</code> as
+the first element of the <code>.spec.ipFamilies</code> array and the <code>type</code> field set to <code>LoadBalancer</code>.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-prefer-ipv6-lb-svc.yaml" download="service/networking/dual-stack-prefer-ipv6-lb-svc.yaml"><code>service/networking/dual-stack-prefer-ipv6-lb-svc.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-prefer-ipv6-lb-svc-yaml&quot;)" title="Copy service/networking/dual-stack-prefer-ipv6-lb-svc.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-prefer-ipv6-lb-svc-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>PreferDualStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv6<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>LoadBalancer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Check the Service:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc -l app.kubernetes.io/name<span style="color:#666">=</span>MyApp
+</span></span></code></pre></div><p>Validate that the Service receives a <code>CLUSTER-IP</code> address from the IPv6 address block
+along with an <code>EXTERNAL-IP</code>. You may then validate access to the service via the IP and port.</p><pre tabindex="0"><code>NAME         TYPE           CLUSTER-IP            EXTERNAL-IP        PORT(S)        AGE
+my-service   LoadBalancer   2001:db8:fd00::7ebc   2603:1030:805::5   80:30790/TCP   35s
+</code></pre></div>

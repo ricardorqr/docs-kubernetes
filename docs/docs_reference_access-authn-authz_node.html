@@ -1,0 +1,43 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Using Node Authorization</h1><p>Node authorization is a special-purpose authorization mode that specifically
+authorizes API requests made by kubelets.</p><h2 id="overview">Overview</h2><p>The Node authorizer allows a kubelet to perform API operations. This includes:</p><p>Read operations:</p><ul><li>services</li><li>endpoints</li><li>nodes</li><li>pods</li><li>secrets, configmaps, persistent volume claims and persistent volumes related
+to pods bound to the kubelet's node</li></ul><div class="feature-state-notice feature-stable" title="Feature Gate: AuthorizeNodeWithSelectors"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [stable]</code> (enabled by default: true)</div><p>Kubelets are limited to reading their own Node objects, and only reading pods bound to their node.</p><p>Write operations:</p><ul><li>nodes and node status (enable the <code>NodeRestriction</code> admission plugin to limit
+a kubelet to modify its own node)</li><li>pods and pod status (enable the <code>NodeRestriction</code> admission plugin to limit a
+kubelet to modify pods bound to itself)</li><li>events</li></ul><p>Auth-related operations:</p><ul><li>read/write access to the
+<a href="/docs/reference/access-authn-authz/certificate-signing-requests/">CertificateSigningRequests API</a>
+for TLS bootstrapping</li><li>the ability to create TokenReviews and SubjectAccessReviews for delegated
+authentication/authorization checks</li></ul><p>In future releases, the node authorizer may add or remove permissions to ensure
+kubelets have the minimal set of permissions required to operate correctly.</p><p>In order to be authorized by the Node authorizer, kubelets must use a credential
+that identifies them as being in the <code>system:nodes</code> group, with a username of
+<code>system:node:&lt;nodeName&gt;</code>.
+This group and user name format match the identity created for each kubelet as part of
+<a href="/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/">kubelet TLS bootstrapping</a>.</p><p>The value of <code>&lt;nodeName&gt;</code> <strong>must</strong> match precisely the name of the node as
+registered by the kubelet. By default, this is the host name as provided by
+<code>hostname</code>, or overridden via the
+<a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet option</a>
+<code>--hostname-override</code>. However, when using the <code>--cloud-provider</code> kubelet
+option, the specific hostname may be determined by the cloud provider, ignoring
+the local <code>hostname</code> and the <code>--hostname-override</code> option.
+For specifics about how the kubelet determines the hostname, see the
+<a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet options reference</a>.</p><p>To enable the Node authorizer, start the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a>
+with the <code>--authorization-config</code> flag set to a file that includes the <code>Node</code> authorizer; for example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apiserver.config.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>AuthorizationConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">authorizers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>...<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Node<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>...<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Or, start the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a> with
+the <code>--authorization-mode</code> flag set to a comma-separated list that includes <code>Node</code>;
+for example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kube-apiserver --authorization-mode<span style="color:#666">=</span>...,Node --other-options --more-options
+</span></span></code></pre></div><p>To limit the API objects kubelets are able to write, enable the
+<a href="/docs/reference/access-authn-authz/admission-controllers/#noderestriction">NodeRestriction</a>
+admission plugin by starting the apiserver with
+<code>--enable-admission-plugins=...,NodeRestriction,...</code></p><h2 id="migration-considerations">Migration considerations</h2><h3 id="kubelets-outside-the-system-nodes-group">Kubelets outside the <code>system:nodes</code> group</h3><p>Kubelets outside the <code>system:nodes</code> group would not be authorized by the <code>Node</code>
+authorization mode, and would need to continue to be authorized via whatever
+mechanism currently authorizes them.
+The node admission plugin would not restrict requests from these kubelets.</p><h3 id="kubelets-with-undifferentiated-usernames">Kubelets with undifferentiated usernames</h3><p>In some deployments, kubelets have credentials that place them in the <code>system:nodes</code> group,
+but do not identify the particular node they are associated with,
+because they do not have a username in the <code>system:node:...</code> format.
+These kubelets would not be authorized by the <code>Node</code> authorization mode,
+and would need to continue to be authorized via whatever mechanism currently authorizes them.</p><p>The <code>NodeRestriction</code> admission plugin would ignore requests from these kubelets,
+since the default node identifier implementation would not consider that a node identity.</p></div>

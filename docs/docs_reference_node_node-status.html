@@ -1,0 +1,51 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Node Status</h1><p>The status of a <a href="/docs/concepts/architecture/nodes/">node</a> in Kubernetes is a critical
+aspect of managing a Kubernetes cluster. In this article, we'll cover the basics of
+monitoring and maintaining node status to ensure a healthy and stable cluster.</p><h2 id="node-status-fields">Node status fields</h2><p>A Node's status contains the following information:</p><ul><li><a href="#addresses">Addresses</a></li><li><a href="#condition">Conditions</a></li><li><a href="#capacity">Capacity and Allocatable</a></li><li><a href="#info">Info</a></li></ul><p>You can use <code>kubectl</code> to view a Node's status and other details:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe node &lt;insert-node-name-here&gt;
+</span></span></code></pre></div><p>Each section of the output is described below.</p><h2 id="addresses">Addresses</h2><p>The usage of these fields varies depending on your cloud provider or bare metal configuration.</p><ul><li>HostName: The hostname as reported by the node's kernel. Can be overridden via the kubelet
+<code>--hostname-override</code> parameter.</li><li>ExternalIP: Typically the IP address of the node that is externally routable (available from
+outside the cluster).</li><li>InternalIP: Typically the IP address of the node that is routable only within the cluster.</li></ul><h2 id="condition">Conditions</h2><p>The <code>conditions</code> field describes the status of all <code>Running</code> nodes. Examples of conditions include:</p><table><caption style="display:none">Node conditions, and a description of when each condition applies.</caption><thead><tr><th>Node Condition</th><th>Description</th></tr></thead><tbody><tr><td><code>Ready</code></td><td><code>True</code> if the node is healthy and ready to accept pods, <code>False</code> if the node is not healthy and is not accepting pods, and <code>Unknown</code> if the node controller has not heard from the node in the last <code>node-monitor-grace-period</code> (default is 50 seconds)</td></tr><tr><td><code>DiskPressure</code></td><td><code>True</code> if pressure exists on the disk size—that is, if the disk capacity is low; otherwise <code>False</code></td></tr><tr><td><code>MemoryPressure</code></td><td><code>True</code> if pressure exists on the node memory—that is, if the node memory is low; otherwise <code>False</code></td></tr><tr><td><code>PIDPressure</code></td><td><code>True</code> if pressure exists on the processes—that is, if there are too many processes on the node; otherwise <code>False</code></td></tr><tr><td><code>NetworkUnavailable</code></td><td><code>True</code> if the network for the node is not correctly configured, otherwise <code>False</code></td></tr></tbody></table><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you use command-line tools to print details of a cordoned Node, the Condition includes
+<code>SchedulingDisabled</code>. <code>SchedulingDisabled</code> is not a Condition in the Kubernetes API; instead,
+cordoned nodes are marked Unschedulable in their spec.</div><p>In the Kubernetes API, a node's condition is represented as part of the <code>.status</code>
+of the Node resource. For example, the following JSON structure describes a healthy node:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span><span style="color:#b44">"conditions"</span><span>:</span> [
+</span></span><span style="display:flex"><span>  {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"type"</span>: <span style="color:#b44">"Ready"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"status"</span>: <span style="color:#b44">"True"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"reason"</span>: <span style="color:#b44">"KubeletReady"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"message"</span>: <span style="color:#b44">"kubelet is posting ready status"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"lastHeartbeatTime"</span>: <span style="color:#b44">"2019-06-05T18:38:35Z"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"lastTransitionTime"</span>: <span style="color:#b44">"2019-06-05T11:41:27Z"</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>]
+</span></span></code></pre></div><p>When problems occur on nodes, the Kubernetes control plane automatically creates
+<a href="/docs/concepts/scheduling-eviction/taint-and-toleration/">taints</a> that match the conditions
+affecting the node. An example of this is when the <code>status</code> of the Ready condition
+remains <code>Unknown</code> or <code>False</code> for longer than the kube-controller-manager's <code>NodeMonitorGracePeriod</code>,
+which defaults to 50 seconds. This will cause either an <code>node.kubernetes.io/unreachable</code> taint, for an <code>Unknown</code> status,
+or a <code>node.kubernetes.io/not-ready</code> taint, for a <code>False</code> status, to be added to the Node.</p><p>These taints affect pending pods as the scheduler takes the Node's taints into consideration when
+assigning a pod to a Node. Existing pods scheduled to the node may be evicted due to the application
+of <code>NoExecute</code> taints. Pods may also have <a class="glossary-tooltip" title="A core object consisting of three required properties: key, value, and effect. Tolerations enable the scheduling of pods on nodes or node groups that have a matching taint." data-toggle="tooltip" data-placement="top" href="/docs/concepts/scheduling-eviction/taint-and-toleration/" target="_blank" aria-label="tolerations">tolerations</a> that let
+them schedule to and continue running on a Node even though it has a specific taint.</p><p>See <a href="/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions">Taint Based Evictions</a> and
+<a href="/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-nodes-by-condition">Taint Nodes by Condition</a>
+for more details.</p><h2 id="capacity">Capacity and Allocatable</h2><p>Describes the resources available on the node: CPU, memory, and the maximum
+number of pods that can be scheduled onto the node.</p><p>The fields in the capacity block indicate the total amount of resources that a
+Node has. The allocatable block indicates the amount of resources on a
+Node that is available to be consumed by normal Pods.</p><p>You may read more about capacity and allocatable resources while learning how
+to <a href="/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable">reserve compute resources</a>
+on a Node.</p><h2 id="info">Info</h2><p>Describes general information about the node, such as kernel version, Kubernetes
+version (kubelet and kube-proxy version), container runtime details, and which
+operating system the node uses.
+The kubelet gathers this information from the node and publishes it into
+the Kubernetes API.</p><h2 id="heartbeats">Heartbeats</h2><p>Heartbeats, sent by Kubernetes nodes, help your cluster determine the
+availability of each node, and to take action when failures are detected.</p><p>For nodes there are two forms of heartbeats:</p><ul><li>updates to the <code>.status</code> of a Node</li><li><a href="/docs/concepts/architecture/leases/">Lease</a> objects
+within the <code>kube-node-lease</code>
+<a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="namespace">namespace</a>.
+Each Node has an associated Lease object.</li></ul><p>Compared to updates to <code>.status</code> of a Node, a Lease is a lightweight resource.
+Using Leases for heartbeats reduces the performance impact of these updates
+for large clusters.</p><p>The kubelet is responsible for creating and updating the <code>.status</code> of Nodes,
+and for updating their related Leases.</p><ul><li>The kubelet updates the node's <code>.status</code> either when there is change in status
+or if there has been no update for a configured interval. The default interval
+for <code>.status</code> updates to Nodes is 5 minutes, which is much longer than the 40
+second default timeout for unreachable nodes.</li><li>The kubelet creates and then updates its Lease object every 10 seconds
+(the default update interval). Lease updates occur independently from
+updates to the Node's <code>.status</code>. If the Lease update fails, the kubelet retries,
+using exponential backoff that starts at 200 milliseconds and capped at 7 seconds.</li></ul></div>

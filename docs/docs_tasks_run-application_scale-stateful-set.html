@@ -1,0 +1,25 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Scale a StatefulSet</h1><p>This task shows how to scale a StatefulSet. Scaling a StatefulSet refers to
+increasing or decreasing the number of replicas.</p><h2 id="before-you-begin">Before you begin</h2><ul><li><p>StatefulSets are only available in Kubernetes version 1.5 or later.
+To check your version of Kubernetes, run <code>kubectl version</code>.</p></li><li><p>Not all stateful applications scale nicely. If you are unsure about whether
+to scale your StatefulSets, see <a href="/docs/concepts/workloads/controllers/statefulset/">StatefulSet concepts</a>
+or <a href="/docs/tutorials/stateful-application/basic-stateful-set/">StatefulSet tutorial</a> for further information.</p></li><li><p>You should perform scaling only when you are confident that your stateful application
+cluster is completely healthy.</p></li></ul><h2 id="scaling-statefulsets">Scaling StatefulSets</h2><h3 id="use-kubectl-to-scale-statefulsets">Use kubectl to scale StatefulSets</h3><p>First, find the StatefulSet you want to scale.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get statefulsets &lt;stateful-set-name&gt;
+</span></span></code></pre></div><p>Change the number of replicas of your StatefulSet:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl scale statefulsets &lt;stateful-set-name&gt; --replicas<span style="color:#666">=</span>&lt;new-replicas&gt;
+</span></span></code></pre></div><h3 id="make-in-place-updates-on-your-statefulsets">Make in-place updates on your StatefulSets</h3><p>Alternatively, you can do
+<a href="/docs/concepts/cluster-administration/manage-deployment/#in-place-updates-of-resources">in-place updates</a>
+on your StatefulSets.</p><p>If your StatefulSet was initially created with <code>kubectl apply</code>,
+update <code>.spec.replicas</code> of the StatefulSet manifests, and then do a <code>kubectl apply</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f &lt;stateful-set-file-updated&gt;
+</span></span></code></pre></div><p>Otherwise, edit that field with <code>kubectl edit</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl edit statefulsets &lt;stateful-set-name&gt;
+</span></span></code></pre></div><p>Or use <code>kubectl patch</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl patch statefulsets &lt;stateful-set-name&gt; -p <span style="color:#b44">'{"spec":{"replicas":&lt;new-replicas&gt;}}'</span>
+</span></span></code></pre></div><h2 id="troubleshooting">Troubleshooting</h2><h3 id="scaling-down-does-not-work-right">Scaling down does not work right</h3><p>You cannot scale down a StatefulSet when any of the stateful Pods it manages is
+unhealthy. Scaling down only takes place after those stateful Pods become running and ready.</p><p>If spec.replicas &gt; 1, Kubernetes cannot determine the reason for an unhealthy Pod.
+It might be the result of a permanent fault or of a transient fault. A transient
+fault can be caused by a restart required by upgrading or maintenance.</p><p>If the Pod is unhealthy due to a permanent fault, scaling
+without correcting the fault may lead to a state where the StatefulSet membership
+drops below a certain minimum number of replicas that are needed to function
+correctly. This may cause your StatefulSet to become unavailable.</p><p>If the Pod is unhealthy due to a transient fault and the Pod might become available again,
+the transient error may interfere with your scale-up or scale-down operation. Some distributed
+databases have issues when nodes join and leave at the same time. It is better
+to reason about scaling operations at the application level in these cases, and
+perform scaling only when you are sure that your stateful application cluster is
+completely healthy.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/tasks/run-application/delete-stateful-set/">deleting a StatefulSet</a>.</li></ul></div>

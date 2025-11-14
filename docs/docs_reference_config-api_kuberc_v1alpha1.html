@@ -1,0 +1,34 @@
+<div class="td-content"><h1 data-pagefind-weight="10">kuberc (v1alpha1)</h1><h2 id="resource-types">Resource Types</h2><ul><li><a href="#kubectl-config-k8s-io-v1alpha1-Preference">Preference</a></li></ul><h2 id="kubectl-config-k8s-io-v1alpha1-Preference"><code>Preference</code></h2><p>Preference stores elements of KubeRC configuration file</p><table class="table"><thead><tr><th width="30%">Field</th><th>Description</th></tr></thead><tbody><tr><td><code>apiVersion</code><br/>string</td><td><code>kubectl.config.k8s.io/v1alpha1</code></td></tr><tr><td><code>kind</code><br/>string</td><td><code>Preference</code></td></tr><tr><td><code>overrides</code> <b>[Required]</b><br/><a href="#kubectl-config-k8s-io-v1alpha1-CommandDefaults"><code>[]CommandDefaults</code></a></td><td><p>overrides allows changing default flag values of commands.
+This is especially useful, when user doesn't want to explicitly
+set flags each time.</p></td></tr><tr><td><code>aliases</code> <b>[Required]</b><br/><a href="#kubectl-config-k8s-io-v1alpha1-AliasOverride"><code>[]AliasOverride</code></a></td><td><p>aliases allow defining command aliases for existing kubectl commands, with optional default flag values.
+If the alias name collides with a built-in command, built-in command always takes precedence.
+Flag overrides defined in the overrides section do NOT apply to aliases for the same command.
+kubectl [ALIAS NAME] [USER_FLAGS] [USER_EXPLICIT_ARGS] expands to
+kubectl [COMMAND] # built-in command alias points to
+[KUBERC_PREPEND_ARGS]
+[USER_FLAGS]
+[KUBERC_FLAGS] # rest of the flags that are not passed by user in [USER_FLAGS]
+[USER_EXPLICIT_ARGS]
+[KUBERC_APPEND_ARGS]
+e.g.</p><ul><li>name: runx
+command: run
+flags:<ul><li>name: image
+default: nginx
+appendArgs:</li></ul><hr/><ul><li>custom-arg1
+For example, if user invokes "kubectl runx test-pod" command,
+this will be expanded to "kubectl run --image=nginx test-pod -- custom-arg1"</li></ul></li><li>name: getn
+command: get
+flags:<ul><li>name: output
+default: wide
+prependArgs:</li><li>node
+"kubectl getn control-plane-1" expands to "kubectl get node control-plane-1 --output=wide"
+"kubectl getn control-plane-1 --output=json" expands to "kubectl get node --output=json control-plane-1"</li></ul></li></ul></td></tr></tbody></table><h2 id="kubectl-config-k8s-io-v1alpha1-AliasOverride"><code>AliasOverride</code></h2><p><strong>Appears in:</strong></p><ul><li><a href="#kubectl-config-k8s-io-v1alpha1-Preference">Preference</a></li></ul><p>AliasOverride stores the alias definitions.</p><table class="table"><thead><tr><th width="30%">Field</th><th>Description</th></tr></thead><tbody><tr><td><code>name</code> <b>[Required]</b><br/><code>string</code></td><td><p>name is the name of alias that can only include alphabetical characters
+If the alias name conflicts with the built-in command,
+built-in command will be used.</p></td></tr><tr><td><code>command</code> <b>[Required]</b><br/><code>string</code></td><td><p>command is the single or set of commands to execute, such as "set env" or "create"</p></td></tr><tr><td><code>prependArgs</code> <b>[Required]</b><br/><code>[]string</code></td><td><p>prependArgs stores the arguments such as resource names, etc.
+These arguments are inserted after the alias name.</p></td></tr><tr><td><code>appendArgs</code> <b>[Required]</b><br/><code>[]string</code></td><td><p>appendArgs stores the arguments such as resource names, etc.
+These arguments are appended to the USER_ARGS.</p></td></tr><tr><td><code>flags</code> <b>[Required]</b><br/><a href="#kubectl-config-k8s-io-v1alpha1-CommandOptionDefault"><code>[]CommandOptionDefault</code></a></td><td><p>flags is allocated to store the flag definitions of alias.
+flags only modifies the default value of the flag and if
+user explicitly passes a value, explicit one is used.</p></td></tr></tbody></table><h2 id="kubectl-config-k8s-io-v1alpha1-CommandDefaults"><code>CommandDefaults</code></h2><p><strong>Appears in:</strong></p><ul><li><a href="#kubectl-config-k8s-io-v1alpha1-Preference">Preference</a></li></ul><p>CommandDefaults stores the commands and their associated option's
+default values.</p><table class="table"><thead><tr><th width="30%">Field</th><th>Description</th></tr></thead><tbody><tr><td><code>command</code> <b>[Required]</b><br/><code>string</code></td><td><p>command refers to a command whose flag's default value is changed.</p></td></tr><tr><td><code>flags</code> <b>[Required]</b><br/><a href="#kubectl-config-k8s-io-v1alpha1-CommandOptionDefault"><code>[]CommandOptionDefault</code></a></td><td><p>flags is a list of flags storing different default values.</p></td></tr></tbody></table><h2 id="kubectl-config-k8s-io-v1alpha1-CommandOptionDefault"><code>CommandOptionDefault</code></h2><p><strong>Appears in:</strong></p><ul><li><p><a href="#kubectl-config-k8s-io-v1alpha1-AliasOverride">AliasOverride</a></p></li><li><p><a href="#kubectl-config-k8s-io-v1alpha1-CommandDefaults">CommandDefaults</a></p></li></ul><p>CommandOptionDefault stores the name and the specified default
+value of an option.</p><table class="table"><thead><tr><th width="30%">Field</th><th>Description</th></tr></thead><tbody><tr><td><code>name</code> <b>[Required]</b><br/><code>string</code></td><td><p>Flag name (long form, without dashes).</p></td></tr><tr><td><code>default</code> <b>[Required]</b><br/><code>string</code></td><td><p>In a string format of a default value. It will be parsed
+by kubectl to the compatible value of the flag.</p></td></tr></tbody></table></div>

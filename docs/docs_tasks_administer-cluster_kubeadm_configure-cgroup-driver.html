@@ -1,0 +1,41 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Configuring a cgroup driver</h1><p>This page explains how to configure the kubelet's cgroup driver to match the container
+runtime cgroup driver for kubeadm clusters.</p><h2 id="before-you-begin">Before you begin</h2><p>You should be familiar with the Kubernetes
+<a href="/docs/setup/production-environment/container-runtimes/">container runtime requirements</a>.</p><h2 id="configuring-the-container-runtime-cgroup-driver">Configuring the container runtime cgroup driver</h2><p>The <a href="/docs/setup/production-environment/container-runtimes/">Container runtimes</a> page
+explains that the <code>systemd</code> driver is recommended for kubeadm based setups instead
+of the kubelet's <a href="/docs/reference/config-api/kubelet-config.v1beta1/">default</a> <code>cgroupfs</code> driver,
+because kubeadm manages the kubelet as a
+<a href="/docs/setup/production-environment/tools/kubeadm/kubelet-integration/">systemd service</a>.</p><p>The page also provides details on how to set up a number of different container runtimes with the
+<code>systemd</code> driver by default.</p><h2 id="configuring-the-kubelet-cgroup-driver">Configuring the kubelet cgroup driver</h2><p>kubeadm allows you to pass a <code>KubeletConfiguration</code> structure during <code>kubeadm init</code>.
+This <code>KubeletConfiguration</code> can include the <code>cgroupDriver</code> field which controls the cgroup
+driver of the kubelet.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>In v1.22 and later, if the user does not set the <code>cgroupDriver</code> field under <code>KubeletConfiguration</code>,
+kubeadm defaults it to <code>systemd</code>.</p><p>In Kubernetes v1.28, you can enable automatic detection of the
+cgroup driver as an alpha feature.
+See <a href="/docs/setup/production-environment/container-runtimes/#systemd-cgroup-driver">systemd cgroup driver</a>
+for more details.</p></div><p>A minimal example of configuring the field explicitly:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#080;font-style:italic"># kubeadm-config.yaml</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubeadm.k8s.io/v1beta4<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kubernetesVersion</span>:<span style="color:#bbb"> </span>v1.21.0<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">cgroupDriver</span>:<span style="color:#bbb"> </span>systemd<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Such a configuration file can then be passed to the kubeadm command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubeadm init --config kubeadm-config.yaml
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>Kubeadm uses the same <code>KubeletConfiguration</code> for all nodes in the cluster.
+The <code>KubeletConfiguration</code> is stored in a <a href="/docs/concepts/configuration/configmap/">ConfigMap</a>
+object under the <code>kube-system</code> namespace.</p><p>Executing the sub commands <code>init</code>, <code>join</code> and <code>upgrade</code> would result in kubeadm
+writing the <code>KubeletConfiguration</code> as a file under <code>/var/lib/kubelet/config.yaml</code>
+and passing it to the local node kubelet.</p><p>On each node, kubeadm detects the CRI socket and stores its details into the <code>/var/lib/kubelet/instance-config.yaml</code> file.
+When executing the <code>init</code>, <code>join</code>, or <code>upgrade</code> subcommands,
+kubeadm patches the <code>containerRuntimeEndpoint</code> value from this instance configuration into <code>/var/lib/kubelet/config.yaml</code>.</p></div><h2 id="using-the-cgroupfs-driver">Using the <code>cgroupfs</code> driver</h2><p>To use <code>cgroupfs</code> and to prevent <code>kubeadm upgrade</code> from modifying the
+<code>KubeletConfiguration</code> cgroup driver on existing setups, you must be explicit
+about its value. This applies to a case where you do not wish future versions
+of kubeadm to apply the <code>systemd</code> driver by default.</p><p>See the below section on "<a href="#modify-the-kubelet-configmap">Modify the kubelet ConfigMap</a>" for details on
+how to be explicit about the value.</p><p>If you wish to configure a container runtime to use the <code>cgroupfs</code> driver,
+you must refer to the documentation of the container runtime of your choice.</p><h2 id="migrating-to-the-systemd-driver">Migrating to the <code>systemd</code> driver</h2><p>To change the cgroup driver of an existing kubeadm cluster from <code>cgroupfs</code> to <code>systemd</code> in-place,
+a similar procedure to a kubelet upgrade is required. This must include both
+steps outlined below.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Alternatively, it is possible to replace the old nodes in the cluster with new ones
+that use the <code>systemd</code> driver. This requires executing only the first step below
+before joining the new nodes and ensuring the workloads can safely move to the new
+nodes before deleting the old nodes.</div><h3 id="modify-the-kubelet-configmap">Modify the kubelet ConfigMap</h3><ul><li><p>Call <code>kubectl edit cm kubelet-config -n kube-system</code>.</p></li><li><p>Either modify the existing <code>cgroupDriver</code> value or add a new field that looks like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">cgroupDriver</span>:<span style="color:#bbb"> </span>systemd<span style="color:#bbb">
+</span></span></span></code></pre></div><p>This field must be present under the <code>kubelet:</code> section of the ConfigMap.</p></li></ul><h3 id="update-the-cgroup-driver-on-all-nodes">Update the cgroup driver on all nodes</h3><p>For each node in the cluster:</p><ul><li><a href="/docs/tasks/administer-cluster/safely-drain-node/">Drain the node</a> using <code>kubectl drain &lt;node-name&gt; --ignore-daemonsets</code></li><li>Stop the kubelet using <code>systemctl stop kubelet</code></li><li>Stop the container runtime</li><li>Modify the container runtime cgroup driver to <code>systemd</code></li><li>Set <code>cgroupDriver: systemd</code> in <code>/var/lib/kubelet/config.yaml</code></li><li>Start the container runtime</li><li>Start the kubelet using <code>systemctl start kubelet</code></li><li><a href="/docs/tasks/administer-cluster/safely-drain-node/">Uncordon the node</a> using <code>kubectl uncordon &lt;node-name&gt;</code></li></ul><p>Execute these steps on nodes one at a time to ensure workloads
+have sufficient time to schedule on different nodes.</p><p>Once the process is complete ensure that all nodes and workloads are healthy.</p></div>

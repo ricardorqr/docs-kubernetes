@@ -1,0 +1,226 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Utilizing the NUMA-aware Memory Manager</h1><div class="feature-state-notice feature-stable" title="Feature Gate: MemoryManager"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [stable]</code> (enabled by default: true)</div><p>The Kubernetes <em>Memory Manager</em> enables the feature of guaranteed memory (and hugepages)
+allocation for pods in the <code>Guaranteed</code> <a class="glossary-tooltip" title="QoS Class (Quality of Service Class) provides a way for Kubernetes to classify pods within the cluster into several classes and make decisions about scheduling and eviction." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/pod-qos/" target="_blank" aria-label="QoS class">QoS class</a>.</p><p>The Memory Manager employs hint generation protocol to yield the most suitable NUMA affinity for a pod.
+The Memory Manager feeds the central manager (<em>Topology Manager</em>) with these affinity hints.
+Based on both the hints and Topology Manager policy, the pod is rejected or admitted to the node.</p><p>Moreover, the Memory Manager ensures that the memory which a pod requests
+is allocated from a minimum number of NUMA nodes.</p><p>The Memory Manager is only pertinent to Linux based hosts.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.32.<p>To check the version, enter <code>kubectl version</code>.</p></p><p>To align memory resources with other requested resources in a Pod spec:</p><ul><li>the CPU Manager should be enabled and proper CPU Manager policy should be configured on a Node.
+See <a href="/docs/tasks/administer-cluster/cpu-management-policies/">control CPU Management Policies</a>;</li><li>the Topology Manager should be enabled and proper Topology Manager policy should be configured on a Node.
+See <a href="/docs/tasks/administer-cluster/topology-manager/">control Topology Management Policies</a>.</li></ul><p>Starting from v1.22, the Memory Manager is enabled by default through <code>MemoryManager</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>.</p><p>Preceding v1.22, the <code>kubelet</code> must be started with the following flag:</p><p><code>--feature-gates=MemoryManager=true</code></p><p>in order to enable the Memory Manager feature.</p><h2 id="how-does-the-memory-manager-operate">How does the Memory Manager Operate?</h2><p>The Memory Manager currently offers the guaranteed memory (and hugepages) allocation
+for Pods in Guaranteed QoS class.
+To immediately put the Memory Manager into operation follow the guidelines in the section
+<a href="#memory-manager-configuration">Memory Manager configuration</a>, and subsequently,
+prepare and deploy a <code>Guaranteed</code> pod as illustrated in the section
+<a href="#placing-a-pod-in-the-guaranteed-qos-class">Placing a Pod in the Guaranteed QoS class</a>.</p><p>The Memory Manager is a Hint Provider, and it provides topology hints for
+the Topology Manager which then aligns the requested resources according to these topology hints.
+On Linux, it also enforces <code>cgroups</code> (i.e. <code>cpuset.mems</code>) for pods.
+The complete flow diagram concerning pod admission and deployment process is illustrated in
+<a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#design-overview">Memory Manager KEP: Design Overview</a> and below:</p><p><img alt="Memory Manager in the pod admission and deployment process" src="/images/docs/memory-manager-diagram.svg"/></p><p>During this process, the Memory Manager updates its internal counters stored in
+<a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#the-concept-of-node-map-and-memory-maps">Node Map and Memory Maps</a> to manage guaranteed memory allocation.</p><p>The Memory Manager updates the Node Map during the startup and runtime as follows.</p><h3 id="startup">Startup</h3><p>This occurs once a node administrator employs <code>--reserved-memory</code> (section
+<a href="#reserved-memory-flag">Reserved memory flag</a>).
+In this case, the Node Map becomes updated to reflect this reservation as illustrated in
+<a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#memory-maps-at-start-up-with-examples">Memory Manager KEP: Memory Maps at start-up (with examples)</a>.</p><p>The administrator must provide <code>--reserved-memory</code> flag when <code>Static</code> policy is configured.</p><h3 id="runtime">Runtime</h3><p>Reference <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#memory-maps-at-runtime-with-examples">Memory Manager KEP: Memory Maps at runtime (with examples)</a> illustrates
+how a successful pod deployment affects the Node Map, and it also relates to
+how potential Out-of-Memory (OOM) situations are handled further by Kubernetes or operating system.</p><p>Important topic in the context of Memory Manager operation is the management of NUMA groups.
+Each time pod's memory request is in excess of single NUMA node capacity, the Memory Manager
+attempts to create a group that comprises several NUMA nodes and features extend memory capacity.
+The problem has been solved as elaborated in
+<a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#how-to-enable-the-guaranteed-memory-allocation-over-many-numa-nodes">Memory Manager KEP: How to enable the guaranteed memory allocation over many NUMA nodes?</a>.
+Also, reference <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#simulation---how-the-memory-manager-works-by-examples">Memory Manager KEP: Simulation - how the Memory Manager works? (by examples)</a>
+illustrates how the management of groups occurs.</p><h3 id="windows-support">Windows Support</h3><div class="feature-state-notice feature-alpha" title="Feature Gate: WindowsCPUAndMemoryAffinity"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [alpha]</code> (enabled by default: false)</div><p>Windows support can be enabled via the <code>WindowsCPUAndMemoryAffinity</code> feature gate
+and it requires support in the container runtime.
+Only the <a href="#policy-best-effort">BestEffort Policy</a> is supported on Windows.</p><h2 id="memory-manager-configuration">Memory Manager configuration</h2><p>Other Managers should be first pre-configured. Next, the Memory Manager feature should be enabled
+and be run with <code>Static</code> policy (section <a href="#policy-static">Static policy</a>).
+Optionally, some amount of memory can be reserved for system or kubelet processes to increase
+node stability (section <a href="#reserved-memory-flag">Reserved memory flag</a>).</p><h3 id="policies">Policies</h3><p>Memory Manager supports two policies. You can select a policy via a <code>kubelet</code> flag <code>--memory-manager-policy</code>:</p><ul><li><code>None</code> (default)</li><li><code>Static</code> (Linux only)</li><li><code>BestEffort</code> (Windows Only)</li></ul><h4 id="policy-none">None policy</h4><p>This is the default policy and does not affect the memory allocation in any way.
+It acts the same as if the Memory Manager is not present at all.</p><p>The <code>None</code> policy returns default topology hint. This special hint denotes that Hint Provider
+(Memory Manager in this case) has no preference for NUMA affinity with any resource.</p><h4 id="policy-static">Static policy</h4><p>In the case of the <code>Guaranteed</code> pod, the <code>Static</code> Memory Manager policy returns topology hints
+relating to the set of NUMA nodes where the memory can be guaranteed,
+and reserves the memory through updating the internal <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#the-concept-of-node-map-and-memory-maps">NodeMap</a> object.</p><p>In the case of the <code>BestEffort</code> or <code>Burstable</code> pod, the <code>Static</code> Memory Manager policy sends back
+the default topology hint as there is no request for the guaranteed memory,
+and does not reserve the memory in the internal <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#the-concept-of-node-map-and-memory-maps">NodeMap</a> object.</p><p>This policy is only supported on Linux.</p><h4 id="policy-best-effort">BestEffort policy</h4><div class="feature-state-notice feature-alpha" title="Feature Gate: WindowsCPUAndMemoryAffinity"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [alpha]</code> (enabled by default: false)</div><p>This policy is only supported on Windows.</p><p>On Windows, NUMA node assignment works differently than Linux.
+There is no mechanism to ensure that Memory access only comes from a specific NUMA node.
+Instead the Windows scheduler will select the most optimal NUMA node based on the CPU(s) assignments.
+It is possible that Windows might use other NUMA nodes if deemed optimal by the Windows scheduler.</p><p>The policy does track the amount of memory available and requested through the internal <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#the-concept-of-node-map-and-memory-maps">NodeMap</a>.
+The memory manager will make a best effort at ensuring that enough memory is available on
+a NUMA node before making the assignment.<br/>This means that in most cases memory assignment should function as expected.</p><h3 id="reserved-memory-flag">Reserved memory flag</h3><p>The <a href="/docs/tasks/administer-cluster/reserve-compute-resources/">Node Allocatable</a> mechanism
+is commonly used by node administrators to reserve K8S node system resources for the kubelet
+or operating system processes in order to enhance the node stability.
+A dedicated set of flags can be used for this purpose to set the total amount of reserved memory
+for a node. This pre-configured value is subsequently utilized to calculate
+the real amount of node's "allocatable" memory available to pods.</p><p>The Kubernetes scheduler incorporates "allocatable" to optimise pod scheduling process.
+The foregoing flags include <code>--kube-reserved</code>, <code>--system-reserved</code> and <code>--eviction-threshold</code>.
+The sum of their values will account for the total amount of reserved memory.</p><p>A new <code>--reserved-memory</code> flag was added to Memory Manager to allow for this total reserved memory
+to be split (by a node administrator) and accordingly reserved across many NUMA nodes.</p><p>The flag specifies a comma-separated list of memory reservations of different memory types per NUMA node.
+Memory reservations across multiple NUMA nodes can be specified using semicolon as separator.
+This parameter is only useful in the context of the Memory Manager feature.
+The Memory Manager will not use this reserved memory for the allocation of container workloads.</p><p>For example, if you have a NUMA node "NUMA0" with <code>10Gi</code> of memory available, and
+the <code>--reserved-memory</code> was specified to reserve <code>1Gi</code> of memory at "NUMA0",
+the Memory Manager assumes that only <code>9Gi</code> is available for containers.</p><p>You can omit this parameter, however, you should be aware that the quantity of reserved memory
+from all NUMA nodes should be equal to the quantity of memory specified by the
+<a href="/docs/tasks/administer-cluster/reserve-compute-resources/">Node Allocatable feature</a>.
+If at least one node allocatable parameter is non-zero, you will need to specify
+<code>--reserved-memory</code> for at least one NUMA node.
+In fact, <code>eviction-hard</code> threshold value is equal to <code>100Mi</code> by default, so
+if <code>Static</code> policy is used, <code>--reserved-memory</code> is obligatory.</p><p>Also, avoid the following configurations:</p><ol><li>duplicates, i.e. the same NUMA node or memory type, but with a different value;</li><li>setting zero limit for any of memory types;</li><li>NUMA node IDs that do not exist in the machine hardware;</li><li>memory type names different than <code>memory</code> or <code>hugepages-&lt;size&gt;</code>
+(hugepages of particular <code>&lt;size&gt;</code> should also exist).</li></ol><p>Syntax:</p><p><code>--reserved-memory N:memory-type1=value1,memory-type2=value2,...</code></p><ul><li><code>N</code> (integer) - NUMA node index, e.g. <code>0</code></li><li><code>memory-type</code> (string) - represents memory type:<ul><li><code>memory</code> - conventional memory</li><li><code>hugepages-2Mi</code> or <code>hugepages-1Gi</code> - hugepages</li></ul></li><li><code>value</code> (string) - the quantity of reserved memory, e.g. <code>1Gi</code></li></ul><p>Example usage:</p><p><code>--reserved-memory 0:memory=1Gi,hugepages-1Gi=2Gi</code></p><p>or</p><p><code>--reserved-memory 0:memory=1Gi --reserved-memory 1:memory=2Gi</code></p><p>or</p><p><code>--reserved-memory '0:memory=1Gi;1:memory=2Gi'</code></p><p>When you specify values for <code>--reserved-memory</code> flag, you must comply with the setting that
+you prior provided via Node Allocatable Feature flags.
+That is, the following rule must be obeyed for each memory type:</p><p><code>sum(reserved-memory(i)) = kube-reserved + system-reserved + eviction-threshold</code>,</p><p>where <code>i</code> is an index of a NUMA node.</p><p>If you do not follow the formula above, the Memory Manager will show an error on startup.</p><p>In other words, the example above illustrates that for the conventional memory (<code>type=memory</code>),
+we reserve <code>3Gi</code> in total, i.e.:</p><p><code>sum(reserved-memory(i)) = reserved-memory(0) + reserved-memory(1) = 1Gi + 2Gi = 3Gi</code></p><p>An example of kubelet command-line arguments relevant to the node Allocatable configuration:</p><ul><li><code>--kube-reserved=cpu=500m,memory=50Mi</code></li><li><code>--system-reserved=cpu=123m,memory=333Mi</code></li><li><code>--eviction-hard=memory.available&lt;500Mi</code></li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The default hard eviction threshold is 100MiB, and <strong>not</strong> zero.
+Remember to increase the quantity of memory that you reserve by setting <code>--reserved-memory</code>
+by that hard eviction threshold. Otherwise, the kubelet will not start Memory Manager and
+display an error.</div><p>Here is an example of a correct configuration:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>--kube-reserved<span style="color:#666">=</span><span style="color:#b8860b">cpu</span><span style="color:#666">=</span>4,memory<span style="color:#666">=</span>4Gi
+</span></span><span style="display:flex"><span>--system-reserved<span style="color:#666">=</span><span style="color:#b8860b">cpu</span><span style="color:#666">=</span>1,memory<span style="color:#666">=</span>1Gi
+</span></span><span style="display:flex"><span>--memory-manager-policy<span style="color:#666">=</span>Static
+</span></span><span style="display:flex"><span>--reserved-memory <span style="color:#b44">'0:memory=3Gi;1:memory=2148Mi'</span>
+</span></span></code></pre></div><p>Prior to Kubernetes 1.32, you also need to add</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>--feature-gates<span style="color:#666">=</span><span style="color:#b8860b">MemoryManager</span><span style="color:#666">=</span><span style="color:#a2f">true</span>
+</span></span></code></pre></div><p>Let us validate the configuration above:</p><ol><li><code>kube-reserved + system-reserved + eviction-hard(default) = reserved-memory(0) + reserved-memory(1)</code></li><li><code>4GiB + 1GiB + 100MiB = 3GiB + 2148MiB</code></li><li><code>5120MiB + 100MiB = 3072MiB + 2148MiB</code></li><li><code>5220MiB = 5220MiB</code> (which is correct)</li></ol><h2 id="placing-a-pod-in-the-guaranteed-qos-class">Placing a Pod in the Guaranteed QoS class</h2><p>If the selected policy is anything other than <code>None</code>, the Memory Manager identifies pods
+that are in the <code>Guaranteed</code> QoS class.
+The Memory Manager provides specific topology hints to the Topology Manager for each <code>Guaranteed</code> pod.
+For pods in a QoS class other than <code>Guaranteed</code>, the Memory Manager provides default topology hints
+to the Topology Manager.</p><p>The following excerpts from pod manifests assign a pod to the <code>Guaranteed</code> QoS class.</p><p>Pod with integer CPU(s) runs in the <code>Guaranteed</code> QoS class, when <code>requests</code> are equal to <code>limits</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">example.com/device</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">example.com/device</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Also, a pod sharing CPU(s) runs in the <code>Guaranteed</code> QoS class, when <code>requests</code> are equal to <code>limits</code>.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"300m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">example.com/device</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"300m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">example.com/device</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Notice that both CPU and memory requests must be specified for a Pod to lend it to Guaranteed QoS class.</p><h2 id="troubleshooting">Troubleshooting</h2><p>The following means can be used to troubleshoot the reason why a pod could not be deployed or
+became rejected at a node:</p><ul><li>pod status - indicates topology affinity errors</li><li>system logs - include valuable information for debugging, e.g., about generated hints</li><li>state file - the dump of internal state of the Memory Manager
+(includes <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#the-concept-of-node-map-and-memory-maps">Node Map and Memory Maps</a>)</li><li>starting from v1.22, the <a href="#device-plugin-resource-api">device plugin resource API</a> can be used
+to retrieve information about the memory reserved for containers</li></ul><h3 id="TopologyAffinityError">Pod status (TopologyAffinityError)</h3><p>This error typically occurs in the following situations:</p><ul><li>a node has not enough resources available to satisfy the pod's request</li><li>the pod's request is rejected due to particular Topology Manager policy constraints</li></ul><p>The error appears in the status of a pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">NAME         READY   STATUS                  RESTARTS   AGE
+guaranteed   0/1     TopologyAffinityError   0          113s
+</code></pre><p>Use <code>kubectl describe pod &lt;id&gt;</code> or <code>kubectl get events</code> to obtain detailed error message:</p><pre tabindex="0"><code class="language-none" data-lang="none">Warning  TopologyAffinityError  10m   kubelet, dell8  Resources cannot be allocated with Topology locality
+</code></pre><h3 id="system-logs">System logs</h3><p>Search system logs with respect to a particular pod.</p><p>The set of hints that Memory Manager generated for the pod can be found in the logs.
+Also, the set of hints generated by CPU Manager should be present in the logs.</p><p>Topology Manager merges these hints to calculate a single best hint.
+The best hint should be also present in the logs.</p><p>The best hint indicates where to allocate all the resources.
+Topology Manager tests this hint against its current policy, and based on the verdict,
+it either admits the pod to the node or rejects it.</p><p>Also, search the logs for occurrences associated with the Memory Manager,
+e.g. to find out information about <code>cgroups</code> and <code>cpuset.mems</code> updates.</p><h3 id="examine-the-memory-manager-state-on-a-node">Examine the memory manager state on a node</h3><p>Let us first deploy a sample <code>Guaranteed</code> pod whose specification is as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>guaranteed<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>guaranteed<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>consumer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">imagePullPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span>150Gi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span>150Gi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"sleep"</span>,<span style="color:#b44">"infinity"</span>]<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Next, let us log into the node where it was deployed and examine the state file in
+<code>/var/lib/kubelet/memory_manager_state</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>   <span style="color:green;font-weight:700">"policyName"</span>:<span style="color:#b44">"Static"</span>,
+</span></span><span style="display:flex"><span>   <span style="color:green;font-weight:700">"machineState"</span>:{
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"0"</span>:{
+</span></span><span style="display:flex"><span>         <span style="color:green;font-weight:700">"numberOfAssignments"</span>:<span style="color:#666">1</span>,
+</span></span><span style="display:flex"><span>         <span style="color:green;font-weight:700">"memoryMap"</span>:{
+</span></span><span style="display:flex"><span>            <span style="color:green;font-weight:700">"hugepages-1Gi"</span>:{
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"total"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"systemReserved"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"allocatable"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"reserved"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"free"</span>:<span style="color:#666">0</span>
+</span></span><span style="display:flex"><span>            },
+</span></span><span style="display:flex"><span>            <span style="color:green;font-weight:700">"memory"</span>:{
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"total"</span>:<span style="color:#666">134987354112</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"systemReserved"</span>:<span style="color:#666">3221225472</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"allocatable"</span>:<span style="color:#666">131766128640</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"reserved"</span>:<span style="color:#666">131766128640</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"free"</span>:<span style="color:#666">0</span>
+</span></span><span style="display:flex"><span>            }
+</span></span><span style="display:flex"><span>         },
+</span></span><span style="display:flex"><span>         <span style="color:green;font-weight:700">"nodes"</span>:[
+</span></span><span style="display:flex"><span>            <span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>            <span style="color:#666">1</span>
+</span></span><span style="display:flex"><span>         ]
+</span></span><span style="display:flex"><span>      },
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"1"</span>:{
+</span></span><span style="display:flex"><span>         <span style="color:green;font-weight:700">"numberOfAssignments"</span>:<span style="color:#666">1</span>,
+</span></span><span style="display:flex"><span>         <span style="color:green;font-weight:700">"memoryMap"</span>:{
+</span></span><span style="display:flex"><span>            <span style="color:green;font-weight:700">"hugepages-1Gi"</span>:{
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"total"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"systemReserved"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"allocatable"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"reserved"</span>:<span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"free"</span>:<span style="color:#666">0</span>
+</span></span><span style="display:flex"><span>            },
+</span></span><span style="display:flex"><span>            <span style="color:green;font-weight:700">"memory"</span>:{
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"total"</span>:<span style="color:#666">135286722560</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"systemReserved"</span>:<span style="color:#666">2252341248</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"allocatable"</span>:<span style="color:#666">133034381312</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"reserved"</span>:<span style="color:#666">29295144960</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"free"</span>:<span style="color:#666">103739236352</span>
+</span></span><span style="display:flex"><span>            }
+</span></span><span style="display:flex"><span>         },
+</span></span><span style="display:flex"><span>         <span style="color:green;font-weight:700">"nodes"</span>:[
+</span></span><span style="display:flex"><span>            <span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>            <span style="color:#666">1</span>
+</span></span><span style="display:flex"><span>         ]
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>   },
+</span></span><span style="display:flex"><span>   <span style="color:green;font-weight:700">"entries"</span>:{
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"fa9bdd38-6df9-4cf9-aa67-8c4814da37a8"</span>:{
+</span></span><span style="display:flex"><span>         <span style="color:green;font-weight:700">"guaranteed"</span>:[
+</span></span><span style="display:flex"><span>            {
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"numaAffinity"</span>:[
+</span></span><span style="display:flex"><span>                  <span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>                  <span style="color:#666">1</span>
+</span></span><span style="display:flex"><span>               ],
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"type"</span>:<span style="color:#b44">"memory"</span>,
+</span></span><span style="display:flex"><span>               <span style="color:green;font-weight:700">"size"</span>:<span style="color:#666">161061273600</span>
+</span></span><span style="display:flex"><span>            }
+</span></span><span style="display:flex"><span>         ]
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>   },
+</span></span><span style="display:flex"><span>   <span style="color:green;font-weight:700">"checksum"</span>:<span style="color:#666">4142013182</span>
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>It can be deduced from the state file that the pod was pinned to both NUMA nodes, i.e.:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span><span style="color:#b44">"numaAffinity"</span><span>:</span>[
+</span></span><span style="display:flex"><span>   <span style="color:#666">0</span>,
+</span></span><span style="display:flex"><span>   <span style="color:#666">1</span>
+</span></span><span style="display:flex"><span>]<span>,</span>
+</span></span></code></pre></div><p>Pinned term means that pod's memory consumption is constrained (through <code>cgroups</code> configuration)
+to these NUMA nodes.</p><p>This automatically implies that Memory Manager instantiated a new group that
+comprises these two NUMA nodes, i.e. <code>0</code> and <code>1</code> indexed NUMA nodes.</p><p>Notice that the management of groups is handled in a relatively complex manner, and
+further elaboration is provided in Memory Manager KEP in <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#simulation---how-the-memory-manager-works-by-examples">this</a> and <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#how-to-enable-the-guaranteed-memory-allocation-over-many-numa-nodes">this</a> sections.</p><p>In order to analyse memory resources available in a group,the corresponding entries from
+NUMA nodes belonging to the group must be added up.</p><p>For example, the total amount of free "conventional" memory in the group can be computed
+by adding up the free memory available at every NUMA node in the group,
+i.e., in the <code>"memory"</code> section of NUMA node <code>0</code> (<code>"free":0</code>) and NUMA node <code>1</code> (<code>"free":103739236352</code>).
+So, the total amount of free "conventional" memory in this group is equal to <code>0 + 103739236352</code> bytes.</p><p>The line <code>"systemReserved":3221225472</code> indicates that the administrator of this node reserved
+<code>3221225472</code> bytes (i.e. <code>3Gi</code>) to serve kubelet and system processes at NUMA node <code>0</code>,
+by using <code>--reserved-memory</code> flag.</p><h3 id="device-plugin-resource-api">Device plugin resource API</h3><p>The kubelet provides a <code>PodResourceLister</code> gRPC service to enable discovery of resources and associated metadata.
+By using its <a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#grpc-endpoint-list">List gRPC endpoint</a>,
+information about reserved memory for each container can be retrieved, which is contained
+in protobuf <code>ContainerMemory</code> message.
+This information can be retrieved solely for pods in Guaranteed QoS class.</p><h2 id="what-s-next">What's next</h2><ul><li><a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#design-overview">Memory Manager KEP: Design Overview</a></li><li><a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#memory-maps-at-start-up-with-examples">Memory Manager KEP: Memory Maps at start-up (with examples)</a></li><li><a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#memory-maps-at-runtime-with-examples">Memory Manager KEP: Memory Maps at runtime (with examples)</a></li><li><a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#simulation---how-the-memory-manager-works-by-examples">Memory Manager KEP: Simulation - how the Memory Manager works? (by examples)</a></li><li><a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#the-concept-of-node-map-and-memory-maps">Memory Manager KEP: The Concept of Node Map and Memory Maps</a></li><li><a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1769-memory-manager#how-to-enable-the-guaranteed-memory-allocation-over-many-numa-nodes">Memory Manager KEP: How to enable the guaranteed memory allocation over many NUMA nodes?</a></li></ul></div>

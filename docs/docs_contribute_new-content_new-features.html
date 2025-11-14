@@ -1,0 +1,113 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Documenting a feature for a release</h1><p>Each major Kubernetes release introduces new features that require documentation.
+New releases also bring updates to existing features and documentation
+(such as upgrading a feature from alpha to beta).</p><p>Generally, the SIG responsible for a feature submits draft documentation of the
+feature as a pull request to the appropriate development branch of the
+<code>kubernetes/website</code> repository, and someone on the SIG Docs team provides
+editorial feedback or edits the draft directly. This section covers the branching
+conventions and process used during a release by both groups.</p><p>To learn about announcing features on the blog, read
+<a href="/docs/contribute/blog/release-comms/">post-release communications</a>.</p><h2 id="for-documentation-contributors">For documentation contributors</h2><p>In general, documentation contributors don't write content from scratch for a release.
+Instead, they work with the SIG creating a new feature to refine the draft documentation
+and make it release ready.</p><p>After you've chosen a feature to document or assist, ask about it in the <code>#sig-docs</code>
+Slack channel, in a weekly SIG Docs meeting, or directly on the PR filed by the
+feature SIG. If you're given the go-ahead, you can edit into the PR using one of
+the techniques described in
+<a href="/docs/contribute/review/for-approvers/#commit-into-another-person-s-pr">Commit into another person's PR</a>.</p><h3 id="find-out-about-upcoming-features">Find out about upcoming features</h3><p>To find out about upcoming features, attend the weekly SIG Release meeting (see
+the <a href="/community/">community</a> page for upcoming meetings)
+and monitor the release-specific documentation
+in the <a href="https://github.com/kubernetes/sig-release/">kubernetes/sig-release</a>
+repository. Each release has a sub-directory in the
+<a href="https://github.com/kubernetes/sig-release/tree/master/releases">/sig-release/tree/master/releases/</a>
+directory. The sub-directory contains a release schedule, a draft of the release
+notes, and a document listing each person on the release team.</p><p>The release schedule contains links to all other documents, meetings,
+meeting minutes, and milestones relating to the release. It also contains
+information about the goals and timeline of the release, and any special
+processes in place for this release. Near the bottom of the document, several
+release-related terms are defined.</p><p>This document also contains a link to the <strong>Feature tracking sheet</strong>, which is
+the official way to find out about all new features scheduled to go into the
+release.</p><p>The release team document lists who is responsible for each release role. If
+it's not clear who to talk to about a specific feature or question you have,
+either attend the release meeting to ask your question, or contact the release
+lead so that they can redirect you.</p><p>The release notes draft is a good place to find out about
+specific features, changes, deprecations, and more about the release. The
+content is not finalized until late in the release cycle, so use caution.</p><h3 id="feature-tracking-sheet">Feature tracking sheet</h3><p>The feature tracking sheet <a href="https://github.com/kubernetes/sig-release/tree/master/releases">for a given Kubernetes release</a>
+lists each feature that is planned for a release.
+Each line item includes the name of the feature, a link to the feature's main
+GitHub issue, its stability level (Alpha, Beta, or Stable), the SIG and
+individual responsible for implementing it, whether it
+needs docs, a draft release note for the feature, and whether it has been
+merged. Keep the following in mind:</p><ul><li>Beta and Stable features are generally a higher documentation priority than
+Alpha features.</li><li>It's hard to test (and therefore to document) a feature that hasn't been merged,
+or is at least considered feature-complete in its PR.</li><li>Determining whether a feature needs documentation is a manual process. Even if
+a feature is not marked as needing docs, you may need to document the feature.</li></ul><h2 id="for-developers-or-other-sig-members">For developers or other SIG members</h2><p>This section is information for members of other Kubernetes SIGs documenting new features
+for a release.</p><p>If you are a member of a SIG developing a new feature for Kubernetes, you need
+to work with SIG Docs to be sure your feature is documented in time for the
+release. Check the
+<a href="https://github.com/kubernetes/sig-release/tree/master/releases">feature tracking spreadsheet</a>
+or check in the <code>#sig-release</code> Kubernetes Slack channel to verify scheduling details and
+deadlines.</p><h3 id="open-a-placeholder-pr">Open a placeholder PR</h3><ol><li>Open a <strong>draft</strong> pull request against the
+<code>dev-1.35</code> branch in the <code>kubernetes/website</code> repository, with a small
+commit that you will amend later. To create a draft pull request, use the
+<strong>Create Pull Request</strong> drop-down and select <strong>Create Draft Pull Request</strong>,
+then click <strong>Draft Pull Request</strong>.</li><li>Edit the pull request description to include links to <a href="https://github.com/kubernetes/kubernetes">kubernetes/kubernetes</a>
+PR(s) and <a href="https://github.com/kubernetes/enhancements">kubernetes/enhancements</a> issue(s).</li><li>Leave a comment on the related <a href="https://github.com/kubernetes/enhancements">kubernetes/enhancements</a>
+issue with a link to the PR to notify the docs person managing this release that
+the feature docs are coming and should be tracked for the release.</li></ol><p>If your feature does not need any documentation changes, make sure the sig-release team knows this,
+by mentioning it in the <code>#sig-release</code> Slack channel. If the feature does need
+documentation but the PR is not created, the feature may be removed from the milestone.</p><h3 id="pr-ready-for-review">PR ready for review</h3><p>When ready, populate your placeholder PR with feature documentation and change
+the state of the PR from draft to <strong>ready for review</strong>. To mark a pull request
+as ready for review, navigate to the merge box and click <strong>Ready for review</strong>.</p><p>Do your best to describe your feature and how to use it. If you need help
+structuring your documentation, ask in the <code>#sig-docs</code> Slack channel.</p><p>When you complete your content, the documentation person assigned to your feature reviews it.
+To ensure technical accuracy, the content may also require a technical review from corresponding SIG(s).
+Use their suggestions to get the content to a release ready state.</p><p>If your feature needs documentation and the first draft
+content is not received, the feature may be removed from the milestone.</p><h4 id="ready-for-review-feature-gates">Feature gates</h4><p>If your feature is an Alpha or Beta feature and is behind a feature gate,
+you need a feature gate file for it inside
+<code>content/en/docs/reference/command-line-tools-reference/feature-gates/</code>.
+The name of the file should be the name of the feature gate with <code>.md</code> as the suffix.
+You can look at other files already in the same directory for a hint about what yours
+should look like. Usually a single paragraph is enough; for longer explanations,
+add documentation elsewhere and link to that.</p><p>Also, to ensure your feature gate appears in the
+<a href="/docs/reference/command-line-tools-reference/feature-gates/#feature-gates-for-alpha-or-beta-features">Alpha/Beta Feature gates</a>
+table, include the following details in the
+<a href="https://gohugo.io/content-management/front-matter/">front matter</a>
+of your Markdown description file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">stages</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">stage</span>:<span style="color:#bbb"> </span>&lt;alpha/beta/stable/deprecated&gt; <span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># Specify the development stage of the feature gate</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">defaultValue</span>:<span style="color:#bbb"> </span>&lt;true or false&gt;    <span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># Set to true if enabled by default, false otherwise</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">fromVersion</span>:<span style="color:#bbb"> </span>&lt;Version&gt;           <span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># Version from which the feature gate is available</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">toVersion</span>:<span style="color:#bbb"> </span>&lt;Version&gt;             <span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># (Optional) The version until which the feature gate is available</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>With net new feature gates, a separate description of the feature gate is also required;
+create a new Markdown file inside <code>content/en/docs/reference/command-line-tools-reference/feature-gates/</code>
+(use other files as a template).</p><p>When you change a feature gate from disabled-by-default to enabled-by-default,
+you may also need to change other documentation (not just the list of
+feature gates). Watch out for language such as ”The <code>exampleSetting</code> field
+is a beta field and disabled by default. You can enable it by enabling the
+<code>ProcessExampleThings</code> feature gate.”</p><p>If your feature is GA'ed or deprecated, include an additional <code>stage</code> entry within
+the <code>stages</code> block in the description file.
+Ensure that the Alpha and Beta stages remain intact. This step transitions the
+feature gate from the
+<a href="/docs/reference/command-line-tools-reference/feature-gates/#feature-gates-for-alpha-or-beta-features">Feature gates for Alpha/Beta</a> table
+to <a href="/docs/reference/command-line-tools-reference/feature-gates/#feature-gates-for-graduated-or-deprecated-features">Feature gates for graduated or deprecated features</a>
+table. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4;display:grid"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">stages</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">stage</span>:<span style="color:#bbb"> </span>alpha <span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">defaultValue</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">fromVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.12"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">toVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.12"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">stage</span>:<span style="color:#bbb"> </span>beta <span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">defaultValue</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">fromVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.13"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># Added a `toVersion` to the previous stage.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;background-color:#dfdfdf"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">toVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.18"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;background-color:#dfdfdf"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># Added 'stable' stage block to existing stages.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;background-color:#dfdfdf"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">stage</span>:<span style="color:#bbb"> </span>stable<span style="color:#bbb">
+</span></span></span><span style="display:flex;background-color:#dfdfdf"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">defaultValue</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;background-color:#dfdfdf"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">fromVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.19"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex;background-color:#dfdfdf"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">toVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.27"</span></span></span></code></pre></div><p>Eventually, Kubernetes will stop including the feature gate at all.
+To signify the removal of a feature gate, include <code>removed: true</code> in
+the front matter of the respective description file.
+Making that change means that the feature gate information moves from the
+<a href="/docs/reference/command-line-tools-reference/feature-gates-removed/#feature-gates-that-are-removed">Feature gates for graduated or deprecated features</a>
+section to a dedicated page titled
+<a href="/docs/reference/command-line-tools-reference/feature-gates-removed/">Feature Gates (removed)</a>,
+including its description.</p><h3 id="all-prs-reviewed-and-ready-to-merge">All PRs reviewed and ready to merge</h3><p>If your PR has not yet been merged into the <code>dev-1.35</code>
+branch by the release deadline, work with the docs person managing the release
+to get it in by the deadline. If your feature needs documentation and the docs
+are not ready, the feature may be removed from the milestone.</p></div>

@@ -1,0 +1,75 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Changing The Kubernetes Package Repository</h1><p>This page explains how to enable a package repository for the desired
+Kubernetes minor release upon upgrading a cluster. This is only needed
+for users of the community-owned package repositories hosted at <code>pkgs.k8s.io</code>.
+Unlike the legacy package repositories, the community-owned package
+repositories are structured in a way that there's a dedicated package
+repository for each Kubernetes minor version.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This guide only covers a part of the Kubernetes upgrade process. Please see the
+<a href="/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/">upgrade guide</a> for
+more information about upgrading Kubernetes clusters.</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This step is only needed upon upgrading a cluster to another <strong>minor</strong> release.
+If you're upgrading to another patch release within the same minor release (e.g.
+v1.34.5 to v1.34.7), you don't
+need to follow this guide. However, if you're still using the legacy package
+repositories, you'll need to migrate to the new community-owned package
+repositories before upgrading (see the next section for more details on how to
+do this).</div><h2 id="before-you-begin">Before you begin</h2><p>This document assumes that you're already using the community-owned
+package repositories (<code>pkgs.k8s.io</code>). If that's not the case, it's strongly
+recommended to migrate to the community-owned package repositories as described
+in the <a href="/blog/2023/08/15/pkgs-k8s-io-introduction/">official announcement</a>.</p><div class="alert alert-secondary callout note" role="alert"><strong>Note:</strong> The legacy package repositories (<code>apt.kubernetes.io</code> and <code>yum.kubernetes.io</code>) have been
+<a href="/blog/2023/08/31/legacy-package-repository-deprecation/">deprecated and frozen starting from September 13, 2023</a>.
+<strong>Using the <a href="/blog/2023/08/15/pkgs-k8s-io-introduction/">new package repositories hosted at <code>pkgs.k8s.io</code></a>
+is strongly recommended and required in order to install Kubernetes versions released after September 13, 2023.</strong>
+The deprecated legacy repositories, and their contents, might be removed at any time in the future and without
+a further notice period. The new package repositories provide downloads for Kubernetes versions starting with v1.24.0.</div><h3 id="verifying-if-the-kubernetes-package-repositories-are-used">Verifying if the Kubernetes package repositories are used</h3><p>If you're unsure whether you're using the community-owned package repositories or the
+legacy package repositories, take the following steps to verify:</p><ul class="nav nav-tabs" id="k8s-install-versions" role="tablist"><li class="nav-item"><a data-toggle="tab" class="nav-link active" href="#k8s-install-versions-0" role="tab" aria-controls="k8s-install-versions-0" aria-selected="true">Ubuntu, Debian or HypriotOS</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#k8s-install-versions-1" role="tab" aria-controls="k8s-install-versions-1">CentOS, RHEL or Fedora</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#k8s-install-versions-2" role="tab" aria-controls="k8s-install-versions-2">openSUSE or SLES</a></li></ul><div class="tab-content" id="k8s-install-versions"><div id="k8s-install-versions-0" class="tab-pane show active" role="tabpanel" aria-labelledby="k8s-install-versions-0"><p><p>Print the contents of the file that defines the Kubernetes <code>apt</code> repository:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># On your system, this configuration file could have a different name</span>
+</span></span><span style="display:flex"><span>pager /etc/apt/sources.list.d/kubernetes.list
+</span></span></code></pre></div><p>If you see a line similar to:</p><pre tabindex="0"><code>deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /
+</code></pre><p><strong>You're using the Kubernetes package repositories and this guide applies to you.</strong>
+Otherwise, it's strongly recommended to migrate to the Kubernetes package repositories
+as described in the <a href="/blog/2023/08/15/pkgs-k8s-io-introduction/">official announcement</a>.</p></p></div><div id="k8s-install-versions-1" class="tab-pane" role="tabpanel" aria-labelledby="k8s-install-versions-1"><p><p>Print the contents of the file that defines the Kubernetes <code>yum</code> repository:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># On your system, this configuration file could have a different name</span>
+</span></span><span style="display:flex"><span>cat /etc/yum.repos.d/kubernetes.repo
+</span></span></code></pre></div><p>If you see a <code>baseurl</code> similar to the <code>baseurl</code> in the output below:</p><pre tabindex="0"><code>[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.33/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.33/rpm/repodata/repomd.xml.key
+exclude=kubelet kubeadm kubectl
+</code></pre><p><strong>You're using the Kubernetes package repositories and this guide applies to you.</strong>
+Otherwise, it's strongly recommended to migrate to the Kubernetes package repositories
+as described in the <a href="/blog/2023/08/15/pkgs-k8s-io-introduction/">official announcement</a>.</p></p></div><div id="k8s-install-versions-2" class="tab-pane" role="tabpanel" aria-labelledby="k8s-install-versions-2"><p><p>Print the contents of the file that defines the Kubernetes <code>zypper</code> repository:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># On your system, this configuration file could have a different name</span>
+</span></span><span style="display:flex"><span>cat /etc/zypp/repos.d/kubernetes.repo
+</span></span></code></pre></div><p>If you see a <code>baseurl</code> similar to the <code>baseurl</code> in the output below:</p><pre tabindex="0"><code>[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.33/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.33/rpm/repodata/repomd.xml.key
+exclude=kubelet kubeadm kubectl
+</code></pre><p><strong>You're using the Kubernetes package repositories and this guide applies to you.</strong>
+Otherwise, it's strongly recommended to migrate to the Kubernetes package repositories
+as described in the <a href="/blog/2023/08/15/pkgs-k8s-io-introduction/">official announcement</a>.</p></p></div></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The URL used for the Kubernetes package repositories is not limited to <code>pkgs.k8s.io</code>,
+it can also be one of:</p><ul><li><code>pkgs.k8s.io</code></li><li><code>pkgs.kubernetes.io</code></li><li><code>packages.kubernetes.io</code></li></ul></div><h2 id="switching-to-another-kubernetes-package-repository">Switching to another Kubernetes package repository</h2><p>This step should be done upon upgrading from one to another Kubernetes minor
+release in order to get access to the packages of the desired Kubernetes minor
+version.</p><ul class="nav nav-tabs" id="k8s-upgrade-versions" role="tablist"><li class="nav-item"><a data-toggle="tab" class="nav-link active" href="#k8s-upgrade-versions-0" role="tab" aria-controls="k8s-upgrade-versions-0" aria-selected="true">Ubuntu, Debian or HypriotOS</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#k8s-upgrade-versions-1" role="tab" aria-controls="k8s-upgrade-versions-1">CentOS, RHEL or Fedora</a></li></ul><div class="tab-content" id="k8s-upgrade-versions"><div id="k8s-upgrade-versions-0" class="tab-pane show active" role="tabpanel" aria-labelledby="k8s-upgrade-versions-0"><p><ol><li><p>Open the file that defines the Kubernetes <code>apt</code> repository using a text editor of your choice:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>nano /etc/apt/sources.list.d/kubernetes.list
+</span></span></code></pre></div><p>You should see a single line with the URL that contains your current Kubernetes
+minor version. For example, if you're using v1.33,
+you should see this:</p><pre tabindex="0"><code>deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /
+</code></pre></li><li><p>Change the version in the URL to <strong>the next available minor release</strong>, for example:</p><pre tabindex="0"><code>deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.34/deb/ /
+</code></pre></li><li><p>Save the file and exit your text editor. Continue following the relevant upgrade instructions.</p></li></ol></p></div><div id="k8s-upgrade-versions-1" class="tab-pane" role="tabpanel" aria-labelledby="k8s-upgrade-versions-1"><p><ol><li><p>Open the file that defines the Kubernetes <code>yum</code> repository using a text editor of your choice:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>nano /etc/yum.repos.d/kubernetes.repo
+</span></span></code></pre></div><p>You should see a file with two URLs that contain your current Kubernetes
+minor version. For example, if you're using v1.33,
+you should see this:</p><pre tabindex="0"><code>[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.33/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.33/rpm/repodata/repomd.xml.key
+exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+</code></pre></li><li><p>Change the version in these URLs to <strong>the next available minor release</strong>, for example:</p><pre tabindex="0"><code>[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.34/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.34/rpm/repodata/repomd.xml.key
+exclude=kubelet kubeadm kubectl cri-tools kubernetes-cni
+</code></pre></li><li><p>Save the file and exit your text editor. Continue following the relevant upgrade instructions.</p></li></ol></p></div></div><h2 id="what-s-next">What's next</h2><ul><li>See how to <a href="/docs/tasks/administer-cluster/kubeadm/upgrading-linux-nodes/">Upgrade Linux nodes</a>.</li><li>See how to <a href="/docs/tasks/administer-cluster/kubeadm/upgrading-windows-nodes/">Upgrade Windows nodes</a>.</li></ul></div>

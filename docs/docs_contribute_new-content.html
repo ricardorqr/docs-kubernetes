@@ -1,0 +1,49 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Contributing new content</h1><p>This section contains information you should know before contributing new
+content.</p><p>There are also dedicated pages about submitting <a href="/docs/contribute/new-content/case-studies/">case studies</a>
+and <a href="/docs/contribute/blog/">blog articles</a>.</p><h2 id="new-content-task-flow">New content task flow</h2><figure><div class="mermaid">flowchart LR
+subgraph second[Before you begin]
+direction TB
+S[ ] -.-
+A[Sign the CNCF CLA] --&gt; B[Choose Git branch]
+B --&gt; C[One language per PR]
+C --&gt; F[Check out<br/>contributor tools]
+end
+subgraph first[Contributing Basics]
+direction TB
+T[ ] -.-
+D[Write docs in markdown<br/>and build site with Hugo] --- E[source in GitHub]
+E --- G['/content/../docs' folder contains docs<br/>for multiple languages]
+G --- H[Review Hugo page content<br/>types and shortcodes]
+end
+first ----&gt; second
+classDef grey fill:#dddddd,stroke:#ffffff,stroke-width:px,color:#000000, font-size:15px;
+classDef white fill:#ffffff,stroke:#000,stroke-width:px,color:#000,font-weight:bold
+classDef spacewhite fill:#ffffff,stroke:#fff,stroke-width:0px,color:#000
+class A,B,C,D,E,F,G,H grey
+class S,T spacewhite
+class first,second white</div></figure><noscript><div class="alert alert-secondary callout" role="alert"><em class="javascript-required">JavaScript must be <a href="https://www.enable-javascript.com/">enabled</a> to view this content</em></div></noscript><p><em><strong>Figure - Contributing new content preparation</strong></em></p><p>The figure above depicts the information you should know
+prior to submitting new content. The information details follow.</p><h2 id="contributing-basics">Contributing basics</h2><ul><li>Write Kubernetes documentation in Markdown and build the Kubernetes site
+using <a href="https://gohugo.io/">Hugo</a>.</li><li>Kubernetes documentation uses <a href="https://commonmark.org/">CommonMark</a> as its flavor of Markdown.</li><li>The source is in <a href="https://github.com/kubernetes/website">GitHub</a>. You can find
+Kubernetes documentation at <code>/content/en/docs/</code>. Some of the reference
+documentation is automatically generated from scripts in
+the <code>update-imported-docs/</code> directory.</li><li><a href="/docs/contribute/style/page-content-types/">Page content types</a> describe the
+presentation of documentation content in Hugo.</li><li>You can use <a href="https://www.docsy.dev/docs/adding-content/shortcodes/">Docsy shortcodes</a> or <a href="/docs/contribute/style/hugo-shortcodes/">custom Hugo shortcodes</a> to contribute to Kubernetes documentation.</li><li>In addition to the standard Hugo shortcodes, we use a number of
+<a href="/docs/contribute/style/hugo-shortcodes/">custom Hugo shortcodes</a> in our
+documentation to control the presentation of content.</li><li>Documentation source is available in multiple languages in <code>/content/</code>. Each
+language has its own folder with a two-letter code determined by the
+<a href="https://www.loc.gov/standards/iso639-2/php/code_list.php">ISO 639-1 standard</a>
+. For example, English documentation source is stored in <code>/content/en/docs/</code>.</li><li>For more information about contributing to documentation in multiple languages
+or starting a new translation,
+see <a href="/docs/contribute/localization/">localization</a>.</li></ul><h2 id="before-you-begin">Before you begin</h2><h3 id="sign-the-cla">Sign the CNCF CLA</h3><p>All Kubernetes contributors <strong>must</strong> read
+the <a href="https://github.com/kubernetes/community/blob/master/contributors/guide/README.md">Contributor guide</a>
+and <a href="https://github.com/kubernetes/community/blob/master/CLA.md">sign the Contributor License Agreement (CLA)</a>
+.</p><p>Pull requests from contributors who haven't signed the CLA fail the automated
+tests. The name and email you provide must match those found in
+your <code>git config</code>, and your git name and email must match those used for the
+CNCF CLA.</p><h3 id="choose-which-git-branch-to-use">Choose which Git branch to use</h3><p>When opening a pull request, you need to know in advance which branch to base
+your work on.</p><table><thead><tr><th style="text-align:left">Scenario</th><th style="text-align:left">Branch</th></tr></thead><tbody><tr><td style="text-align:left">Existing or new English language content for the current release</td><td style="text-align:left"><code>main</code></td></tr><tr><td style="text-align:left">Content for a feature change release</td><td style="text-align:left">The branch which corresponds to the major and minor version the feature change is in, using the pattern <code>dev-&lt;version&gt;</code>. For example, if a feature changes in the <code>v1.35</code> release, then add documentation changes to the <code>dev-1.35</code> branch.</td></tr><tr><td style="text-align:left">Content in other languages (localizations)</td><td style="text-align:left">Use the localization's convention. See the <a href="/docs/contribute/localization/#branch-strategy">Localization branching strategy</a> for more information.</td></tr></tbody></table><p>If you're still not sure which branch to choose, ask in <code>#sig-docs</code> on Slack.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you already submitted your pull request and you know that the
+base branch was wrong, you (and only you, the submitter) can change it.</div><h3 id="languages-per-pr">Languages per PR</h3><p>Limit pull requests to one language per PR. If you need to make an identical
+change to the same code sample in multiple languages, open a separate PR for
+each language.</p><h2 id="tools-for-contributors">Tools for contributors</h2><p>The <a href="https://github.com/kubernetes/website/tree/main/content/en/docs/doc-contributor-tools">doc contributors tools</a>
+directory in the <code>kubernetes/website</code> repository contains tools to help your
+contribution journey go more smoothly.</p><h2 id="what-s-next">What's next</h2><ul><li>Read about submitting <a href="/docs/contribute/blog/article-submission/">blog articles</a>.</li></ul><div class="section-index"><ul><li><a href="/docs/contribute/new-content/open-a-pr/">Opening a pull request</a></li><li><a href="/docs/contribute/new-content/new-features/">Documenting a feature for a release</a></li><li><a href="/docs/contribute/new-content/case-studies/">Submitting case studies</a></li></ul></div></div>

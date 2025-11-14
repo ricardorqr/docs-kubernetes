@@ -1,0 +1,45 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Audit Annotations</h1><p>This page serves as a reference for the audit annotations of the kubernetes.io
+namespace. These annotations apply to <code>Event</code> object from API group
+<code>audit.k8s.io</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The following annotations are not used within the Kubernetes API. When you
+<a href="/docs/tasks/debug/debug-cluster/audit/">enable auditing</a> in your cluster,
+audit event data is written using <code>Event</code> from API group <code>audit.k8s.io</code>.
+The annotations apply to audit events. Audit events are different from objects in the
+<a href="/docs/reference/kubernetes-api/cluster-resources/event-v1/">Event API</a> (API group
+<code>events.k8s.io</code>).</div><h2 id="k8s-io-deprecated">k8s.io/deprecated</h2><p>Example: <code>k8s.io/deprecated: "true"</code></p><p>Value <strong>must</strong> be "true" or "false". The value "true" indicates that the
+request used a deprecated API version.</p><h2 id="k8s-io-removed-release">k8s.io/removed-release</h2><p>Example: <code>k8s.io/removed-release: "1.22"</code></p><p>Value <strong>must</strong> be in the format "&lt;MAJOR&gt;.&lt;MINOR&gt;". It is set to target the removal release
+on requests made to deprecated API versions with a target removal release.</p><h2 id="pod-security-kubernetes-io-exempt">pod-security.kubernetes.io/exempt</h2><p>Example: <code>pod-security.kubernetes.io/exempt: namespace</code></p><p>Value <strong>must</strong> be one of <code>user</code>, <code>namespace</code>, or <code>runtimeClass</code> which correspond to
+<a href="/docs/concepts/security/pod-security-admission/#exemptions">Pod Security Exemption</a>
+dimensions. This annotation indicates on which dimension was based the exemption
+from the PodSecurity enforcement.</p><h2 id="pod-security-kubernetes-io-enforce-policy">pod-security.kubernetes.io/enforce-policy</h2><p>Example: <code>pod-security.kubernetes.io/enforce-policy: restricted:latest</code></p><p>Value <strong>must</strong> be <code>privileged:&lt;version&gt;</code>, <code>baseline:&lt;version&gt;</code>,
+<code>restricted:&lt;version&gt;</code> which correspond to <a href="/docs/concepts/security/pod-security-standards/">Pod Security
+Standard</a> levels accompanied by
+a version which <strong>must</strong> be <code>latest</code> or a valid Kubernetes version in the format
+<code>v&lt;MAJOR&gt;.&lt;MINOR&gt;</code>. This annotations informs about the enforcement level that
+allowed or denied the pod during PodSecurity admission.</p><p>See <a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a>
+for more information.</p><h2 id="pod-security-kubernetes-io-audit-violations">pod-security.kubernetes.io/audit-violations</h2><p>Example: <code>pod-security.kubernetes.io/audit-violations: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "example" must set securityContext.allowPrivilegeEscalation=false), ...</code></p><p>Value details an audit policy violation, it contains the
+<a href="/docs/concepts/security/pod-security-standards/">Pod Security Standard</a> level
+that was transgressed as well as the specific policies on the fields that were
+violated from the PodSecurity enforcement.</p><p>See <a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a>
+for more information.</p><h2 id="apiserver-latency-k8s-io-etcd">apiserver.latency.k8s.io/etcd</h2><p>Example: <code>apiserver.latency.k8s.io/etcd: "4.730661757s"</code></p><p>This annotation indiactes the measure of latency incurred inside the storage layer,
+it accounts for the time it takes to send data to the etcd and get the complete response back.</p><p>The value of this audit annotation does not include the time incurred in admission, or validation.</p><h2 id="apiserver-latency-k8s-io-decode-response-object">apiserver.latency.k8s.io/decode-response-object</h2><p>Example: <code>apiserver.latency.k8s.io/decode-response-object: "450.6649ns"</code></p><p>This annotation records the time taken to decode the response received from the storage layer (etcd)</p><h2 id="apiserver-latency-k8s-io-apf-queue-wait">apiserver.latency.k8s.io/apf-queue-wait</h2><p>Example: <code>apiserver.latency.k8s.io/apf-queue-wait: "100ns"</code></p><p>This annotation records the time that a request spent queued due to API server priorities.</p><p>See <a href="/docs/concepts/cluster-administration/flow-control/">API Priority and Fairness</a> (APF)
+for more information about this mechanism.</p><h2 id="authorization-k8s-io-decision">authorization.k8s.io/decision</h2><p>Example: <code>authorization.k8s.io/decision: "forbid"</code></p><p>Value must be <strong>forbid</strong> or <strong>allow</strong>. This annotation indicates whether or not a request
+was authorized in Kubernetes audit logs.</p><p>See <a href="/docs/tasks/debug/debug-cluster/audit/">Auditing</a> for more information.</p><h2 id="authorization-k8s-io-reason">authorization.k8s.io/reason</h2><p>Example: <code>authorization.k8s.io/reason: "Human-readable reason for the decision"</code></p><p>This annotation gives reason for the <a href="#authorization-k8s-io-decision">decision</a> in Kubernetes audit logs.</p><p>See <a href="/docs/tasks/debug/debug-cluster/audit/">Auditing</a> for more information.</p><h2 id="missing-san-invalid-cert-kubernetes-io-hostname">missing-san.invalid-cert.kubernetes.io/$hostname</h2><p>Example: <code>missing-san.invalid-cert.kubernetes.io/example-svc.example-namespace.svc: "relies on a legacy Common Name field instead of the SAN extension for subject validation"</code></p><p>Used by Kubernetes version v1.24 and later</p><p>This annotation indicates a webhook or aggregated API server
+is using an invalid certificate that is missing <code>subjectAltNames</code>.
+Support for these certificates was disabled by default in Kubernetes 1.19,
+and removed in Kubernetes 1.23.</p><p>Requests to endpoints using these certificates will fail.
+Services using these certificates should replace them as soon as possible
+to avoid disruption when running in Kubernetes 1.23+ environments.</p><p>There's more information about this in the Go documentation:
+<a href="https://go.dev/doc/go1.15#commonname">X.509 CommonName deprecation</a>.</p><h2 id="insecure-sha1-invalid-cert-kubernetes-io-hostname">insecure-sha1.invalid-cert.kubernetes.io/$hostname</h2><p>Example: <code>insecure-sha1.invalid-cert.kubernetes.io/example-svc.example-namespace.svc: "uses an insecure SHA-1 signature"</code></p><p>Used by Kubernetes version v1.24 and later</p><p>This annotation indicates a webhook or aggregated API server
+is using an insecure certificate signed with a SHA-1 hash.
+Support for these insecure certificates is disabled by default in Kubernetes 1.24,
+and will be removed in a future release.</p><p>Services using these certificates should replace them as soon as possible,
+to ensure connections are secured properly and to avoid disruption in future releases.</p><p>There's more information about this in the Go documentation:
+<a href="https://go.dev/doc/go1.18#sha1">Rejecting SHA-1 certificates</a>.</p><h2 id="validation-policy-admission-k8s-io-validation-failure">validation.policy.admission.k8s.io/validation_failure</h2><p>Example: <code>validation.policy.admission.k8s.io/validation_failure: '[{"message": "Invalid value", {"policy": "policy.example.com", {"binding": "policybinding.example.com", {"expressionIndex": "1", {"validationActions": ["Audit"]}]'</code></p><p>Used by Kubernetes version v1.27 and later.</p><p>This annotation indicates that a admission policy validation evaluated to false
+for an API request, or that the validation resulted in an error while the policy
+was configured with <code>failurePolicy: Fail</code>.</p><p>The value of the annotation is a JSON object. The <code>message</code> in the JSON
+provides the message about the validation failure.</p><p>The <code>policy</code>, <code>binding</code> and <code>expressionIndex</code> in the JSON identifies the
+name of the <code>ValidatingAdmissionPolicy</code>, the name of the
+<code>ValidatingAdmissionPolicyBinding</code> and the index in the policy <code>validations</code> of
+the CEL expressions that failed, respectively.</p><p>The <code>validationActions</code> shows what actions were taken for this validation failure.
+See <a href="/docs/reference/access-authn-authz/validating-admission-policy/">Validating Admission Policy</a>
+for more details about <code>validationActions</code>.</p></div>

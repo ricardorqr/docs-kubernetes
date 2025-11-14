@@ -1,0 +1,21 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Options for Highly Available Topology</h1><p>This page explains the two options for configuring the topology of your highly available (HA) Kubernetes clusters.</p><p>You can set up an HA cluster:</p><ul><li>With stacked control plane nodes, where etcd nodes are colocated with control plane nodes</li><li>With external etcd nodes, where etcd runs on separate nodes from the control plane</li></ul><p>You should carefully consider the advantages and disadvantages of each topology before setting up an HA cluster.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>kubeadm bootstraps the etcd cluster statically. Read the etcd
+<a href="https://github.com/etcd-io/etcd/blob/release-3.4/Documentation/op-guide/clustering.md#static">Clustering Guide</a>
+for more details.</div><h2 id="stacked-etcd-topology">Stacked etcd topology</h2><p>A stacked HA cluster is a <a href="https://en.wikipedia.org/wiki/Network_topology">topology</a> where the distributed
+data storage cluster provided by etcd is stacked on top of the cluster formed by the nodes managed by
+kubeadm that run control plane components.</p><p>Each control plane node runs an instance of the <code>kube-apiserver</code>, <code>kube-scheduler</code>, and <code>kube-controller-manager</code>.
+The <code>kube-apiserver</code> is exposed to worker nodes using a load balancer.</p><p>Each control plane node creates a local etcd member and this etcd member communicates only with
+the <code>kube-apiserver</code> of this node. The same applies to the local <code>kube-controller-manager</code>
+and <code>kube-scheduler</code> instances.</p><p>This topology couples the control planes and etcd members on the same nodes. It is simpler to set up than a cluster
+with external etcd nodes, and simpler to manage for replication.</p><p>However, a stacked cluster runs the risk of failed coupling. If one node goes down, both an etcd member and a control
+plane instance are lost, and redundancy is compromised. You can mitigate this risk by adding more control plane nodes.</p><p>You should therefore run a minimum of three stacked control plane nodes for an HA cluster.</p><p>This is the default topology in kubeadm. A local etcd member is created automatically
+on control plane nodes when using <code>kubeadm init</code> and <code>kubeadm join --control-plane</code>.</p><p><img alt="Stacked etcd topology" src="/images/kubeadm/kubeadm-ha-topology-stacked-etcd.svg"/></p><h2 id="external-etcd-topology">External etcd topology</h2><p>An HA cluster with external etcd is a <a href="https://en.wikipedia.org/wiki/Network_topology">topology</a>
+where the distributed data storage cluster provided by etcd is external to the cluster formed by
+the nodes that run control plane components.</p><p>Like the stacked etcd topology, each control plane node in an external etcd topology runs
+an instance of the <code>kube-apiserver</code>, <code>kube-scheduler</code>, and <code>kube-controller-manager</code>.
+And the <code>kube-apiserver</code> is exposed to worker nodes using a load balancer. However,
+etcd members run on separate hosts, and each etcd host communicates with the
+<code>kube-apiserver</code> of each control plane node.</p><p>This topology decouples the control plane and etcd member. It therefore provides an HA setup where
+losing a control plane instance or an etcd member has less impact and does not affect
+the cluster redundancy as much as the stacked HA topology.</p><p>However, this topology requires twice the number of hosts as the stacked HA topology.
+A minimum of three hosts for control plane nodes and three hosts for etcd nodes are
+required for an HA cluster with this topology.</p><p><img alt="External etcd topology" src="/images/kubeadm/kubeadm-ha-topology-external-etcd.svg"/></p><h2 id="what-s-next">What's next</h2><ul><li><a href="/docs/setup/production-environment/tools/kubeadm/high-availability/">Set up a highly available cluster with kubeadm</a></li></ul></div>

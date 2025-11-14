@@ -1,0 +1,15 @@
+<div class="td-content"><h1 data-pagefind-weight="10">CRI Pod &amp; Container Metrics</h1><div class="lead">Collection of Pod &amp; Container metrics via the CRI.</div><div class="feature-state-notice feature-alpha"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.23 [alpha]</code></div><p>The <a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> collects pod and
+container metrics via <a href="https://github.com/google/cadvisor">cAdvisor</a>. As an alpha feature,
+Kubernetes lets you configure the collection of pod and container
+metrics via the <a class="glossary-tooltip" title="Protocol for communication between the kubelet and the local container runtime." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cri" target="_blank" aria-label="Container Runtime Interface">Container Runtime Interface</a> (CRI). You
+must enable the <code>PodAndContainerStatsFromCRI</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a> and
+use a compatible CRI implementation (containerd &gt;= 1.6.0, CRI-O &gt;= 1.23.0) to
+use the CRI based collection mechanism.</p><h2 id="cri-pod-container-metrics">CRI Pod &amp; Container Metrics</h2><p>With <code>PodAndContainerStatsFromCRI</code> enabled, the kubelet polls the underlying container
+runtime for pod and container stats instead of inspecting the host system directly using cAdvisor.
+The benefits of relying on the container runtime for this information as opposed to direct
+collection with cAdvisor include:</p><ul><li><p>Potential improved performance if the container runtime already collects this information
+during normal operations. In this case, the data can be re-used instead of being aggregated
+again by the kubelet.</p></li><li><p>It further decouples the kubelet and the container runtime allowing collection of metrics for
+container runtimes that don't run processes directly on the host with kubelet where they are
+observable by cAdvisor (for example: container runtimes that use virtualization).</p></li></ul></div>

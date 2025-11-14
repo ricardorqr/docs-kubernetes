@@ -1,0 +1,63 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Get a Shell to a Running Container</h1><p>This page shows how to use <code>kubectl exec</code> to get a shell to a
+running container.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><h2 id="getting-a-shell-to-a-container">Getting a shell to a container</h2><p>In this exercise, you create a Pod that has one container. The container
+runs the nginx image. Here is the configuration file for the Pod:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/application/shell-demo.yaml" download="application/shell-demo.yaml"><code>application/shell-demo.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;application-shell-demo-yaml&quot;)" title="Copy application/shell-demo.yaml to clipboard"/></div><div class="includecode" id="application-shell-demo-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>shell-demo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>shared-data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>shared-data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/usr/share/nginx/html<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostNetwork</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">dnsPolicy</span>:<span style="color:#bbb"> </span>Default<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Create the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/application/shell-demo.yaml
+</span></span></code></pre></div><p>Verify that the container is running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pod shell-demo
+</span></span></code></pre></div><p>Get a shell to the running container:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> --stdin --tty shell-demo -- /bin/bash
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The double dash (<code>--</code>) separates the arguments you want to pass to the command from the kubectl arguments.</div><p>In your shell, list the root directory:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this inside the container</span>
+</span></span><span style="display:flex"><span>ls /
+</span></span></code></pre></div><p>In your shell, experiment with other commands. Here are
+some examples:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># You can run these example commands inside the container</span>
+</span></span><span style="display:flex"><span>ls /
+</span></span><span style="display:flex"><span>cat /proc/mounts
+</span></span><span style="display:flex"><span>cat /proc/1/maps
+</span></span><span style="display:flex"><span>apt-get update
+</span></span><span style="display:flex"><span>apt-get install -y tcpdump
+</span></span><span style="display:flex"><span>tcpdump
+</span></span><span style="display:flex"><span>apt-get install -y lsof
+</span></span><span style="display:flex"><span>lsof
+</span></span><span style="display:flex"><span>apt-get install -y procps
+</span></span><span style="display:flex"><span>ps aux
+</span></span><span style="display:flex"><span>ps aux | grep nginx
+</span></span></code></pre></div><h2 id="writing-the-root-page-for-nginx">Writing the root page for nginx</h2><p>Look again at the configuration file for your Pod. The Pod
+has an <code>emptyDir</code> volume, and the container mounts the volume
+at <code>/usr/share/nginx/html</code>.</p><p>In your shell, create an <code>index.html</code> file in the <code>/usr/share/nginx/html</code>
+directory:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this inside the container</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">'Hello shell demo'</span> &gt; /usr/share/nginx/html/index.html
+</span></span></code></pre></div><p>In your shell, send a GET request to the nginx server:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this in the shell inside your container</span>
+</span></span><span style="display:flex"><span>apt-get update
+</span></span><span style="display:flex"><span>apt-get install curl
+</span></span><span style="display:flex"><span>curl http://localhost/
+</span></span></code></pre></div><p>The output shows the text that you wrote to the <code>index.html</code> file:</p><pre tabindex="0"><code>Hello shell demo
+</code></pre><p>When you are finished with your shell, enter <code>exit</code>.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">exit</span> <span style="color:#080;font-style:italic"># To quit the shell in the container</span>
+</span></span></code></pre></div><h2 id="running-individual-commands-in-a-container">Running individual commands in a container</h2><p>In an ordinary command window, not your shell, list the environment
+variables in the running container:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> shell-demo -- env
+</span></span></code></pre></div><p>Experiment with running other commands. Here are some examples:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> shell-demo -- ps aux
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> shell-demo -- ls /
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> shell-demo -- cat /proc/1/mounts
+</span></span></code></pre></div><h2 id="opening-a-shell-when-a-pod-has-more-than-one-container">Opening a shell when a Pod has more than one container</h2><p>If a Pod has more than one container, use <code>--container</code> or <code>-c</code> to
+specify a container in the <code>kubectl exec</code> command. For example,
+suppose you have a Pod named my-pod, and the Pod has two containers
+named <em>main-app</em> and <em>helper-app</em>. The following command would open a
+shell to the <em>main-app</em> container.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -i -t my-pod --container main-app -- /bin/bash
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The short options <code>-i</code> and <code>-t</code> are the same as the long options <code>--stdin</code> and <code>--tty</code></div><h2 id="what-s-next">What's next</h2><ul><li>Read about <a href="/docs/reference/generated/kubectl/kubectl-commands/#exec">kubectl exec</a></li></ul></div>

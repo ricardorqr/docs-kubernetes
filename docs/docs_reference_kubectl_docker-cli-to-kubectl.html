@@ -1,0 +1,113 @@
+<div class="td-content"><h1 data-pagefind-weight="10">kubectl for Docker Users</h1><p>You can use the Kubernetes command line tool <code>kubectl</code> to interact with the API Server. Using kubectl is straightforward if you are familiar with the Docker command line tool. However, there are a few differences between the Docker commands and the kubectl commands. The following sections show a Docker sub-command and describe the equivalent <code>kubectl</code> command.</p><h2 id="docker-run">docker run</h2><p>To run an nginx Deployment and expose the Deployment, see <a href="/docs/reference/generated/kubectl/kubectl-commands#-em-deployment-em-">kubectl create deployment</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker run -d --restart<span style="color:#666">=</span>always -e <span style="color:#b8860b">DOMAIN</span><span style="color:#666">=</span>cluster --name nginx-app -p 80:80 nginx
+</span></span></code></pre></div><pre tabindex="0"><code>55c103fa129692154a7652490236fee9be47d70a8dd562281ae7d2f9a339a6db
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker ps
+</span></span></code></pre></div><pre tabindex="0"><code>CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                NAMES
+55c103fa1296        nginx               "nginx -g 'daemon of…"   9 seconds ago       Up 9 seconds        0.0.0.0:80-&gt;80/tcp   nginx-app
+</code></pre><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># start the pod running nginx</span>
+</span></span><span style="display:flex"><span>kubectl create deployment --image<span style="color:#666">=</span>nginx nginx-app
+</span></span></code></pre></div><pre tabindex="0"><code>deployment.apps/nginx-app created
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># add env to nginx-app</span>
+</span></span><span style="display:flex"><span>kubectl <span style="color:#a2f">set</span> env deployment/nginx-app  <span style="color:#b8860b">DOMAIN</span><span style="color:#666">=</span>cluster
+</span></span></code></pre></div><pre tabindex="0"><code>deployment.apps/nginx-app env updated
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><code>kubectl</code> commands print the type and name of the resource created or mutated, which can then be used in subsequent commands. You can expose a new Service after a Deployment is created.</div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># expose a port through with a service</span>
+</span></span><span style="display:flex"><span>kubectl expose deployment nginx-app --port<span style="color:#666">=</span><span style="color:#666">80</span> --name<span style="color:#666">=</span>nginx-http
+</span></span></code></pre></div><pre tabindex="0"><code>service "nginx-http" exposed
+</code></pre><p>By using kubectl, you can create a <a href="/docs/concepts/workloads/controllers/deployment/">Deployment</a> to ensure that N pods are running nginx, where N is the number of replicas stated in the spec and defaults to 1. You can also create a <a href="/docs/concepts/services-networking/service/">service</a> with a selector that matches the pod labels. For more information, see <a href="/docs/tasks/access-application-cluster/service-access-application-cluster/">Use a Service to Access an Application in a Cluster</a>.</p><p>By default images run in the background, similar to <code>docker run -d ...</code>. To run things in the foreground, use <a href="/docs/reference/generated/kubectl/kubectl-commands/#run"><code>kubectl run</code></a> to create pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl run <span style="color:#666">[</span>-i<span style="color:#666">]</span> <span style="color:#666">[</span>--tty<span style="color:#666">]</span> --attach &lt;name&gt; --image<span style="color:#666">=</span>&lt;image&gt;
+</span></span></code></pre></div><p>Unlike <code>docker run ...</code>, if you specify <code>--attach</code>, then you attach <code>stdin</code>, <code>stdout</code> and <code>stderr</code>. You cannot control which streams are attached (<code>docker -a ...</code>).
+To detach from the container, you can type the escape sequence Ctrl+P followed by Ctrl+Q.</p><h2 id="docker-ps">docker ps</h2><p>To list what is currently running, see <a href="/docs/reference/generated/kubectl/kubectl-commands/#get">kubectl get</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker ps -a
+</span></span></code></pre></div><pre tabindex="0"><code>CONTAINER ID        IMAGE               COMMAND                  CREATED              STATUS                     PORTS                NAMES
+14636241935f        ubuntu:16.04        "echo test"              5 seconds ago        Exited (0) 5 seconds ago                        cocky_fermi
+55c103fa1296        nginx               "nginx -g 'daemon of…"   About a minute ago   Up About a minute          0.0.0.0:80-&gt;80/tcp   nginx-app
+</code></pre><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get po
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                        READY     STATUS      RESTARTS   AGE
+nginx-app-8df569cb7-4gd89   1/1       Running     0          3m
+ubuntu                      0/1       Completed   0          20s
+</code></pre><h2 id="docker-attach">docker attach</h2><p>To attach a process that is already running in a container, see <a href="/docs/reference/generated/kubectl/kubectl-commands/#attach">kubectl attach</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker ps
+</span></span></code></pre></div><pre tabindex="0"><code>CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                NAMES
+55c103fa1296        nginx               "nginx -g 'daemon of…"   5 minutes ago       Up 5 minutes        0.0.0.0:80-&gt;80/tcp   nginx-app
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker attach 55c103fa1296
+</span></span><span style="display:flex"><span>...
+</span></span></code></pre></div><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><pre tabindex="0"><code>NAME              READY     STATUS    RESTARTS   AGE
+nginx-app-5jyvm   1/1       Running   0          10m
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl attach -it nginx-app-5jyvm
+</span></span><span style="display:flex"><span>...
+</span></span></code></pre></div><p>To detach from the container, you can type the escape sequence Ctrl+P followed by Ctrl+Q.</p><h2 id="docker-exec">docker exec</h2><p>To execute a command in a container, see <a href="/docs/reference/generated/kubectl/kubectl-commands/#exec">kubectl exec</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker ps
+</span></span></code></pre></div><pre tabindex="0"><code>CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                NAMES
+55c103fa1296        nginx               "nginx -g 'daemon of…"   6 minutes ago       Up 6 minutes        0.0.0.0:80-&gt;80/tcp   nginx-app
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker <span style="color:#a2f">exec</span> 55c103fa1296 cat /etc/hostname
+</span></span></code></pre></div><pre tabindex="0"><code>55c103fa1296
+</code></pre><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get po
+</span></span></code></pre></div><pre tabindex="0"><code>NAME              READY     STATUS    RESTARTS   AGE
+nginx-app-5jyvm   1/1       Running   0          10m
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> nginx-app-5jyvm -- cat /etc/hostname
+</span></span></code></pre></div><pre tabindex="0"><code>nginx-app-5jyvm
+</code></pre><p>To use interactive commands.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker <span style="color:#a2f">exec</span> -ti 55c103fa1296 /bin/sh
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># exit</span>
+</span></span></code></pre></div><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -ti nginx-app-5jyvm -- /bin/sh
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># exit</span>
+</span></span></code></pre></div><p>For more information, see <a href="/docs/tasks/debug/debug-application/get-shell-running-container/">Get a Shell to a Running Container</a>.</p><h2 id="docker-logs">docker logs</h2><p>To follow stdout/stderr of a process that is running, see <a href="/docs/reference/generated/kubectl/kubectl-commands/#logs">kubectl logs</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker logs -f a9e
+</span></span></code></pre></div><pre tabindex="0"><code>192.168.9.1 - - [14/Jul/2015:01:04:02 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.35.0" "-"
+192.168.9.1 - - [14/Jul/2015:01:04:03 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.35.0" "-"
+</code></pre><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs -f nginx-app-zibvs
+</span></span></code></pre></div><pre tabindex="0"><code>10.240.63.110 - - [14/Jul/2015:01:09:01 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.26.0" "-"
+10.240.63.110 - - [14/Jul/2015:01:09:02 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.26.0" "-"
+</code></pre><p>There is a slight difference between pods and containers; by default pods do not terminate if their processes exit. Instead the pods restart the process. This is similar to the docker run option <code>--restart=always</code> with one major difference. In docker, the output for each invocation of the process is concatenated, but for Kubernetes, each invocation is separate. To see the output from a previous run in Kubernetes, do this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs --previous nginx-app-zibvs
+</span></span></code></pre></div><pre tabindex="0"><code>10.240.63.110 - - [14/Jul/2015:01:09:01 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.26.0" "-"
+10.240.63.110 - - [14/Jul/2015:01:09:02 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.26.0" "-"
+</code></pre><p>For more information, see <a href="/docs/concepts/cluster-administration/logging/">Logging Architecture</a>.</p><h2 id="docker-stop-and-docker-rm">docker stop and docker rm</h2><p>To stop and delete a running process, see <a href="/docs/reference/generated/kubectl/kubectl-commands/#delete">kubectl delete</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker ps
+</span></span></code></pre></div><pre tabindex="0"><code>CONTAINER ID        IMAGE               COMMAND                CREATED             STATUS              PORTS                         NAMES
+a9ec34d98787        nginx               "nginx -g 'daemon of"  22 hours ago        Up 22 hours         0.0.0.0:80-&gt;80/tcp, 443/tcp   nginx-app
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker stop a9ec34d98787
+</span></span></code></pre></div><pre tabindex="0"><code>a9ec34d98787
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker rm a9ec34d98787
+</span></span></code></pre></div><pre tabindex="0"><code>a9ec34d98787
+</code></pre><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get deployment nginx-app
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         READY   UP-TO-DATE   AVAILABLE   AGE
+nginx-app    1/1     1            1           2m
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get po -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>nginx-app
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                         READY     STATUS    RESTARTS   AGE
+nginx-app-2883164633-aklf7   1/1       Running   0          2m
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete deployment nginx-app
+</span></span></code></pre></div><pre tabindex="0"><code>deployment "nginx-app" deleted
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get po -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>nginx-app
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Return nothing</span>
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>When you use kubectl, you don't delete the pod directly. You have to first delete the Deployment that owns the pod. If you delete the pod directly, the Deployment recreates the pod.</div><h2 id="docker-login">docker login</h2><p>There is no direct analog of <code>docker login</code> in kubectl. If you are interested in using Kubernetes with a private registry, see <a href="/docs/concepts/containers/images/#using-a-private-registry">Using a Private Registry</a>.</p><h2 id="docker-version">docker version</h2><p>To get the version of client and server, see <a href="/docs/reference/generated/kubectl/kubectl-commands/#version">kubectl version</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker version
+</span></span></code></pre></div><pre tabindex="0"><code>Client version: 1.7.0
+Client API version: 1.19
+Go version (client): go1.4.2
+Git commit (client): 0baf609
+OS/Arch (client): linux/amd64
+Server version: 1.7.0
+Server API version: 1.19
+Go version (server): go1.4.2
+Git commit (server): 0baf609
+OS/Arch (server): linux/amd64
+</code></pre><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl version
+</span></span></code></pre></div><pre tabindex="0"><code>Client Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.6.9+a3d1dfa6f4335", GitCommit:"9b77fed11a9843ce3780f70dd251e92901c43072", GitTreeState:"dirty", BuildDate:"2017-08-29T20:32:58Z", OpenPaasKubernetesVersion:"v1.03.02", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
+Server Version: version.Info{Major:"1", Minor:"6", GitVersion:"v1.6.9+a3d1dfa6f4335", GitCommit:"9b77fed11a9843ce3780f70dd251e92901c43072", GitTreeState:"dirty", BuildDate:"2017-08-29T20:32:58Z", OpenPaasKubernetesVersion:"v1.03.02", GoVersion:"go1.7.5", Compiler:"gc", Platform:"linux/amd64"}
+</code></pre><h2 id="docker-info">docker info</h2><p>To get miscellaneous information about the environment and configuration, see <a href="/docs/reference/generated/kubectl/kubectl-commands/#cluster-info">kubectl cluster-info</a>.</p><p>docker:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>docker info
+</span></span></code></pre></div><pre tabindex="0"><code>Containers: 40
+Images: 168
+Storage Driver: aufs
+ Root Dir: /usr/local/google/docker/aufs
+ Backing Filesystem: extfs
+ Dirs: 248
+ Dirperm1 Supported: false
+Execution Driver: native-0.2
+Logging Driver: json-file
+Kernel Version: 3.13.0-53-generic
+Operating System: Ubuntu 14.04.2 LTS
+CPUs: 12
+Total Memory: 31.32 GiB
+Name: k8s-is-fun.mtv.corp.google.com
+ID: ADUV:GCYR:B3VJ:HMPO:LNPQ:KD5S:YKFQ:76VN:IANZ:7TFV:ZBF4:BYJO
+WARNING: No swap limit support
+</code></pre><p>kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl cluster-info
+</span></span></code></pre></div><pre tabindex="0"><code>Kubernetes master is running at https://203.0.113.141
+KubeDNS is running at https://203.0.113.141/api/v1/namespaces/kube-system/services/kube-dns/proxy
+kubernetes-dashboard is running at https://203.0.113.141/api/v1/namespaces/kube-system/services/kubernetes-dashboard/proxy
+Grafana is running at https://203.0.113.141/api/v1/namespaces/kube-system/services/monitoring-grafana/proxy
+Heapster is running at https://203.0.113.141/api/v1/namespaces/kube-system/services/monitoring-heapster/proxy
+InfluxDB is running at https://203.0.113.141/api/v1/namespaces/kube-system/services/monitoring-influxdb/proxy
+</code></pre></div>

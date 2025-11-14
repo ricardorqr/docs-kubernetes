@@ -1,0 +1,184 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Validate IPv4/IPv6 dual-stack</h1><p>This document shares how to validate IPv4/IPv6 dual-stack enabled Kubernetes clusters.</p><h2 id="before-you-begin">Before you begin</h2><ul><li>Provider support for dual-stack networking (Cloud provider or otherwise must be able to
+provide Kubernetes nodes with routable IPv4/IPv6 network interfaces)</li><li>A <a href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">network plugin</a>
+that supports dual-stack networking.</li><li><a href="/docs/concepts/services-networking/dual-stack/">Dual-stack enabled</a> cluster</li></ul>Your Kubernetes server must be at or later than version v1.23.<p>To check the version, enter <code>kubectl version</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>While you can validate with an earlier version, the feature is only GA and officially supported since v1.23.</div><h2 id="validate-addressing">Validate addressing</h2><h3 id="validate-node-addressing">Validate node addressing</h3><p>Each dual-stack Node should have a single IPv4 block and a single IPv6 block allocated.
+Validate that IPv4/IPv6 Pod address ranges are configured by running the following command.
+Replace the sample node name with a valid dual-stack Node from your cluster. In this example,
+the Node's name is <code>k8s-linuxpool1-34450317-0</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get nodes k8s-linuxpool1-34450317-0 -o go-template --template<span style="color:#666">=</span><span style="color:#b44">'{{range .spec.podCIDRs}}{{printf "%s\n" .}}{{end}}'</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.244.1.0/24
+2001:db8::/64
+</code></pre><p>There should be one IPv4 block and one IPv6 block allocated.</p><p>Validate that the node has an IPv4 and IPv6 interface detected.
+Replace node name with a valid node from the cluster.
+In this example the node name is <code>k8s-linuxpool1-34450317-0</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get nodes k8s-linuxpool1-34450317-0 -o go-template --template<span style="color:#666">=</span><span style="color:#b44">'{{range .status.addresses}}{{printf "%s: %s\n" .type .address}}{{end}}'</span>
+</span></span></code></pre></div><pre tabindex="0"><code>Hostname: k8s-linuxpool1-34450317-0
+InternalIP: 10.0.0.5
+InternalIP: 2001:db8:10::5
+</code></pre><h3 id="validate-pod-addressing">Validate Pod addressing</h3><p>Validate that a Pod has an IPv4 and IPv6 address assigned. Replace the Pod name with
+a valid Pod in your cluster. In this example the Pod name is <code>pod01</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods pod01 -o go-template --template<span style="color:#666">=</span><span style="color:#b44">'{{range .status.podIPs}}{{printf "%s\n" .ip}}{{end}}'</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.244.1.4
+2001:db8::4
+</code></pre><p>You can also validate Pod IPs using the Downward API via the <code>status.podIPs</code> fieldPath.
+The following snippet demonstrates how you can expose the Pod IPs via an environment variable
+called <code>MY_POD_IPS</code> within a container.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">env</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_POD_IPS<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>status.podIPs<span style="color:#bbb">
+</span></span></span></code></pre></div><p>The following command prints the value of the <code>MY_POD_IPS</code> environment variable from
+within a container. The value is a comma separated list that corresponds to the
+Pod's IPv4 and IPv6 addresses.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it pod01 -- <span style="color:#a2f">set</span> | grep MY_POD_IPS
+</span></span></code></pre></div><pre tabindex="0"><code>MY_POD_IPS=10.244.1.4,2001:db8::4
+</code></pre><p>The Pod's IP addresses will also be written to <code>/etc/hosts</code> within a container.
+The following command executes a cat on <code>/etc/hosts</code> on a dual stack Pod.
+From the output you can verify both the IPv4 and IPv6 IP address for the Pod.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it pod01 -- cat /etc/hosts
+</span></span></code></pre></div><pre tabindex="0"><code># Kubernetes-managed hosts file.
+127.0.0.1    localhost
+::1    localhost ip6-localhost ip6-loopback
+fe00::0    ip6-localnet
+fe00::0    ip6-mcastprefix
+fe00::1    ip6-allnodes
+fe00::2    ip6-allrouters
+10.244.1.4    pod01
+2001:db8::4    pod01
+</code></pre><h2 id="validate-services">Validate Services</h2><p>Create the following Service that does not explicitly define <code>.spec.ipFamilyPolicy</code>.
+Kubernetes will assign a cluster IP for the Service from the first configured
+<code>service-cluster-ip-range</code> and set the <code>.spec.ipFamilyPolicy</code> to <code>SingleStack</code>.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-default-svc.yaml" download="service/networking/dual-stack-default-svc.yaml"><code>service/networking/dual-stack-default-svc.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-default-svc-yaml&quot;)" title="Copy service/networking/dual-stack-default-svc.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-default-svc-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Use <code>kubectl</code> to view the YAML for the Service.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc my-service -o yaml
+</span></span></code></pre></div><p>The Service has <code>.spec.ipFamilyPolicy</code> set to <code>SingleStack</code> and <code>.spec.clusterIP</code> set
+to an IPv4 address from the first configured range set via <code>--service-cluster-ip-range</code>
+flag on kube-controller-manager.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>default<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIP</span>:<span style="color:#bbb"> </span><span style="color:#666">10.0.217.164</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIPs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#666">10.0.217.164</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv4<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>SingleStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">sessionAffinity</span>:<span style="color:#bbb"> </span>None<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>ClusterIP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">loadBalancer</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Create the following Service that explicitly defines <code>IPv6</code> as the first array element in
+<code>.spec.ipFamilies</code>. Kubernetes will assign a cluster IP for the Service from the IPv6 range
+configured <code>service-cluster-ip-range</code> and set the <code>.spec.ipFamilyPolicy</code> to <code>SingleStack</code>.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-ipfamilies-ipv6.yaml" download="service/networking/dual-stack-ipfamilies-ipv6.yaml"><code>service/networking/dual-stack-ipfamilies-ipv6.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-ipfamilies-ipv6-yaml&quot;)" title="Copy service/networking/dual-stack-ipfamilies-ipv6.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-ipfamilies-ipv6-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv6<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Use <code>kubectl</code> to view the YAML for the Service.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc my-service -o yaml
+</span></span></code></pre></div><p>The Service has <code>.spec.ipFamilyPolicy</code> set to <code>SingleStack</code> and <code>.spec.clusterIP</code> set to
+an IPv6 address from the IPv6 range set via <code>--service-cluster-ip-range</code> flag on kube-controller-manager.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIP</span>:<span style="color:#bbb"> </span><span style="color:#666">2001</span>:db8:fd00::5118<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIPs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#666">2001</span>:db8:fd00::5118<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv6<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>SingleStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">sessionAffinity</span>:<span style="color:#bbb"> </span>None<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>ClusterIP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">loadBalancer</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Create the following Service that explicitly defines <code>PreferDualStack</code> in <code>.spec.ipFamilyPolicy</code>.
+Kubernetes will assign both IPv4 and IPv6 addresses (as this cluster has dual-stack enabled) and
+select the <code>.spec.ClusterIP</code> from the list of <code>.spec.ClusterIPs</code> based on the address family of
+the first element in the <code>.spec.ipFamilies</code> array.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-preferred-svc.yaml" download="service/networking/dual-stack-preferred-svc.yaml"><code>service/networking/dual-stack-preferred-svc.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-preferred-svc-yaml&quot;)" title="Copy service/networking/dual-stack-preferred-svc.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-preferred-svc-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>PreferDualStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The <code>kubectl get svc</code> command will only show the primary IP in the <code>CLUSTER-IP</code> field.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc -l app.kubernetes.io/name<span style="color:#666">=</span>MyApp
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+my-service   ClusterIP   10.0.216.242   &lt;none&gt;        80/TCP    5s
+</code></pre></div><p>Validate that the Service gets cluster IPs from the IPv4 and IPv6 address blocks using
+<code>kubectl describe</code>. You may then validate access to the service via the IPs and ports.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe svc -l app.kubernetes.io/name<span style="color:#666">=</span>MyApp
+</span></span></code></pre></div><pre tabindex="0"><code>Name:              my-service
+Namespace:         default
+Labels:            app.kubernetes.io/name=MyApp
+Annotations:       &lt;none&gt;
+Selector:          app.kubernetes.io/name=MyApp
+Type:              ClusterIP
+IP Family Policy:  PreferDualStack
+IP Families:       IPv4,IPv6
+IP:                10.0.216.242
+IPs:               10.0.216.242,2001:db8:fd00::af55
+Port:              &lt;unset&gt;  80/TCP
+TargetPort:        9376/TCP
+Endpoints:         &lt;none&gt;
+Session Affinity:  None
+Events:            &lt;none&gt;
+</code></pre><h3 id="create-a-dual-stack-load-balanced-service">Create a dual-stack load balanced Service</h3><p>If the cloud provider supports the provisioning of IPv6 enabled external load balancers,
+create the following Service with <code>PreferDualStack</code> in <code>.spec.ipFamilyPolicy</code>, <code>IPv6</code> as
+the first element of the <code>.spec.ipFamilies</code> array and the <code>type</code> field set to <code>LoadBalancer</code>.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/dual-stack-prefer-ipv6-lb-svc.yaml" download="service/networking/dual-stack-prefer-ipv6-lb-svc.yaml"><code>service/networking/dual-stack-prefer-ipv6-lb-svc.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-dual-stack-prefer-ipv6-lb-svc-yaml&quot;)" title="Copy service/networking/dual-stack-prefer-ipv6-lb-svc.yaml to clipboard"/></div><div class="includecode" id="service-networking-dual-stack-prefer-ipv6-lb-svc-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilyPolicy</span>:<span style="color:#bbb"> </span>PreferDualStack<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ipFamilies</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- IPv6<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>LoadBalancer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Check the Service:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc -l app.kubernetes.io/name<span style="color:#666">=</span>MyApp
+</span></span></code></pre></div><p>Validate that the Service receives a <code>CLUSTER-IP</code> address from the IPv6 address block
+along with an <code>EXTERNAL-IP</code>. You may then validate access to the service via the IP and port.</p><pre tabindex="0"><code>NAME         TYPE           CLUSTER-IP            EXTERNAL-IP        PORT(S)        AGE
+my-service   LoadBalancer   2001:db8:fd00::7ebc   2603:1030:805::5   80:30790/TCP   35s
+</code></pre></div>

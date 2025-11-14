@@ -1,0 +1,35 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Use Cilium for NetworkPolicy</h1><p>This page shows how to use Cilium for NetworkPolicy.</p><p>For background on Cilium, read the <a href="https://docs.cilium.io/en/stable/overview/intro">Introduction to Cilium</a>.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="deploying-cilium-on-minikube-for-basic-testing">Deploying Cilium on Minikube for Basic Testing</h2><p>To get familiar with Cilium easily you can follow the
+<a href="https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/">Cilium Kubernetes Getting Started Guide</a>
+to perform a basic DaemonSet installation of Cilium in minikube.</p><p>To start minikube, minimal version required is &gt;= v1.5.2, run the with the
+following arguments:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>minikube version
+</span></span></code></pre></div><pre tabindex="0"><code>minikube version: v1.5.2
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>minikube start --network-plugin<span style="color:#666">=</span>cni
+</span></span></code></pre></div><p>For minikube you can install Cilium using its CLI tool. To do so, first download the latest
+version of the CLI with the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -LO https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz
+</span></span></code></pre></div><p>Then extract the downloaded file to your <code>/usr/local/bin</code> directory with the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo tar xzvfC cilium-linux-amd64.tar.gz /usr/local/bin
+</span></span><span style="display:flex"><span>rm cilium-linux-amd64.tar.gz
+</span></span></code></pre></div><p>After running the above commands, you can now install Cilium with the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cilium install
+</span></span></code></pre></div><p>Cilium will then automatically detect the cluster configuration and create and
+install the appropriate components for a successful installation.
+The components are:</p><ul><li>Certificate Authority (CA) in Secret <code>cilium-ca</code> and certificates for Hubble (Cilium's observability layer).</li><li>Service accounts.</li><li>Cluster roles.</li><li>ConfigMap.</li><li>Agent DaemonSet and an Operator Deployment.</li></ul><p>After the installation, you can view the overall status of the Cilium deployment with the <code>cilium status</code> command.
+See the expected output of the <code>status</code> command
+<a href="https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/#validate-the-installation">here</a>.</p><p>The remainder of the Getting Started Guide explains how to enforce both L3/L4
+(i.e., IP address + port) security policies, as well as L7 (e.g., HTTP) security
+policies using an example application.</p><h2 id="deploying-cilium-for-production-use">Deploying Cilium for Production Use</h2><p>For detailed instructions around deploying Cilium for production, see:
+<a href="https://docs.cilium.io/en/stable/network/kubernetes/concepts/">Cilium Kubernetes Installation Guide</a>
+This documentation includes detailed requirements, instructions and example
+production DaemonSet files.</p><h2 id="understanding-cilium-components">Understanding Cilium components</h2><p>Deploying a cluster with Cilium adds Pods to the <code>kube-system</code> namespace. To see
+this list of Pods run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods --namespace<span style="color:#666">=</span>kube-system -l k8s-app<span style="color:#666">=</span>cilium
+</span></span></code></pre></div><p>You'll see a list of Pods similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">NAME           READY   STATUS    RESTARTS   AGE
+</span></span></span><span style="display:flex"><span><span style="color:#888">cilium-kkdhz   1/1     Running   0          3m23s
+</span></span></span><span style="display:flex"><span><span style="color:#888">...
+</span></span></span></code></pre></div><p>A <code>cilium</code> Pod runs on each node in your cluster and enforces network policy
+on the traffic to/from Pods on that node using Linux BPF.</p><h2 id="what-s-next">What's next</h2><p>Once your cluster is running, you can follow the
+<a href="/docs/tasks/administer-cluster/declare-network-policy/">Declare Network Policy</a>
+to try out Kubernetes NetworkPolicy with Cilium.
+Have fun, and if you have questions, contact us using the
+<a href="https://cilium.herokuapp.com/">Cilium Slack Channel</a>.</p></div>

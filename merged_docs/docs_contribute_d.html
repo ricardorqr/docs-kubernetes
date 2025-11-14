@@ -1,0 +1,97 @@
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Contribute to Kubernetes Documentation</h1><p>This website is maintained by <a href="/docs/contribute/#get-involved-with-sig-docs">Kubernetes SIG Docs</a>.
+The Kubernetes project welcomes help from all contributors, new or experienced!</p><p>Kubernetes documentation contributors:</p><ul><li>Improve existing content</li><li>Create new content</li><li>Translate the documentation</li><li>Manage and publish the documentation parts of the Kubernetes release cycle</li></ul><p>The blog team, part of SIG Docs, helps manage the official blogs. Read
+<a href="/docs/contribute/blog/">contributing to Kubernetes blogs</a> to learn more.</p><hr/><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>To learn more about contributing to Kubernetes in general, see the general
+<a href="https://www.kubernetes.dev/docs/">contributor documentation</a> site.</div><h2 id="getting-started">Getting started</h2><p>Anyone can open an issue about documentation, or contribute a change with a
+pull request (PR) to the
+<a href="https://github.com/kubernetes/website"><code>kubernetes/website</code> GitHub repository</a>.
+You need to be comfortable with
+<a href="https://git-scm.com/">git</a> and
+<a href="https://skills.github.com/">GitHub</a>
+to work effectively in the Kubernetes community.</p><p>To get involved with documentation:</p><ol><li>Sign the CNCF <a href="https://github.com/kubernetes/community/blob/master/CLA.md">Contributor License Agreement</a>.</li><li>Familiarize yourself with the <a href="https://github.com/kubernetes/website">documentation repository</a>
+and the website's <a href="https://gohugo.io">static site generator</a>.</li><li>Make sure you understand the basic processes for
+<a href="/docs/contribute/new-content/open-a-pr/">opening a pull request</a> and
+<a href="/docs/contribute/review/reviewing-prs/">reviewing changes</a>.</li></ol><p><figure><div class="mermaid">flowchart TB
+subgraph third[Open PR]
+direction TB
+U[ ] -.-
+Q[Improve content] --- N[Create content]
+N --- O[Translate docs]
+O --- P[Manage/publish docs parts<br/>of K8s release cycle]
+end
+subgraph second[Review]
+direction TB
+T[ ] -.-
+D[Look over the<br/>kubernetes/website<br/>repository] --- E[Check out the<br/>Hugo static site<br/>generator]
+E --- F[Understand basic<br/>GitHub commands]
+F --- G[Review open PR<br/>and change review<br/>processes]
+end
+subgraph first[Sign up]
+direction TB
+S[ ] -.-
+B[Sign the CNCF<br/>Contributor<br/>License Agreement] --- C[Join sig-docs<br/>Slack channel]
+C --- V[Join kubernetes-sig-docs<br/>mailing list]
+V --- M[Attend weekly<br/>sig-docs calls<br/>or slack meetings]
+end
+A([fa:fa-user New<br/>Contributor]) --&gt; first
+A --&gt; second
+A --&gt; third
+A --&gt; H[Ask Questions!!!]
+classDef grey fill:#dddddd,stroke:#ffffff,stroke-width:px,color:#000000, font-size:15px;
+classDef white fill:#ffffff,stroke:#000,stroke-width:px,color:#000,font-weight:bold
+classDef spacewhite fill:#ffffff,stroke:#fff,stroke-width:0px,color:#000
+class A,B,C,D,E,F,G,H,M,Q,N,O,P,V grey
+class S,T,U spacewhite
+class first,second,third white</div></figure><noscript><div class="alert alert-secondary callout" role="alert"><em class="javascript-required">JavaScript must be <a href="https://www.enable-javascript.com/">enabled</a> to view this content</em></div></noscript>Figure 1. Getting started for a new contributor.</p><p>Figure 1 outlines a roadmap for new contributors. You can follow some or all of
+the steps for <code>Sign up</code> and <code>Review</code>. Now you are ready to open PRs that achieve
+your contribution objectives with some listed under <code>Open PR</code>. Again, questions
+are always welcome!</p><p>Some tasks require more trust and more access in the Kubernetes organization.
+See <a href="/docs/contribute/participate/">Participating in SIG Docs</a> for more details about
+roles and permissions.</p><h2 id="your-first-contribution">Your first contribution</h2><p>You can prepare for your first contribution by reviewing several steps beforehand.
+Figure 2 outlines the steps and the details follow.</p><p><figure><div class="mermaid">flowchart LR
+subgraph second[First Contribution]
+direction TB
+S[ ] -.-
+G[Review PRs from other<br/>K8s members] --&gt;
+A[Check kubernetes/website<br/>issues list for<br/>good first PRs] --&gt; B[Open a PR!!]
+end
+subgraph first[Suggested Prep]
+direction TB
+T[ ] -.-
+D[Read contribution overview] --&gt;E[Read K8s content<br/>and style guides]
+E --&gt; F[Learn about Hugo page<br/>content types<br/>and shortcodes]
+end
+first ----&gt; second
+classDef grey fill:#dddddd,stroke:#ffffff,stroke-width:px,color:#000000, font-size:15px;
+classDef white fill:#ffffff,stroke:#000,stroke-width:px,color:#000,font-weight:bold
+classDef spacewhite fill:#ffffff,stroke:#fff,stroke-width:0px,color:#000
+class A,B,D,E,F,G grey
+class S,T spacewhite
+class first,second white</div></figure><noscript><div class="alert alert-secondary callout" role="alert"><em class="javascript-required">JavaScript must be <a href="https://www.enable-javascript.com/">enabled</a> to view this content</em></div></noscript>Figure 2. Preparation for your first contribution.</p><ul><li>Read the <a href="/docs/contribute/new-content/">Contribution overview</a> to
+learn about the different ways you can contribute.</li><li>Check <a href="https://github.com/kubernetes/website/issues/"><code>kubernetes/website</code> issues list</a>
+for issues that make good entry points.</li><li><a href="/docs/contribute/new-content/open-a-pr/#changes-using-github">Open a pull request using GitHub</a>
+to existing documentation and learn more about filing issues in GitHub.</li><li><a href="/docs/contribute/review/reviewing-prs/">Review pull requests</a> from other
+Kubernetes community members for accuracy and language.</li><li>Read the Kubernetes <a href="/docs/contribute/style/content-guide/">content</a> and
+<a href="/docs/contribute/style/style-guide/">style guides</a> so you can leave informed comments.</li><li>Learn about <a href="/docs/contribute/style/page-content-types/">page content types</a>
+and <a href="/docs/contribute/style/hugo-shortcodes/">Hugo shortcodes</a>.</li></ul><h2 id="getting-help-when-contributing">Getting help when contributing</h2><p>Making your first contribution can be overwhelming. The
+<a href="https://github.com/kubernetes/website#new-contributor-ambassadors">New Contributor Ambassadors</a>
+are there to walk you through making your first few contributions. You can reach out to them in the
+<a href="https://slack.k8s.io/">Kubernetes Slack</a> preferably in the <code>#sig-docs</code> channel. There is also the
+<a href="https://www.kubernetes.dev/resources/calendar/">New Contributors Meet and Greet call</a>
+that happens on the first Tuesday of every month. You can interact with the New Contributor Ambassadors
+and get your queries resolved here.</p><h2 id="next-steps">Next steps</h2><ul><li><p>Learn to <a href="/docs/contribute/new-content/open-a-pr/#fork-the-repo">work from a local clone</a>
+of the repository.</p></li><li><p>Document <a href="/docs/contribute/new-content/new-features/">features in a release</a>.</p></li><li><p>Participate in <a href="/docs/contribute/participate/">SIG Docs</a>, and become a
+<a href="/docs/contribute/participate/roles-and-responsibilities/">member or reviewer</a>.</p></li><li><p>Start or help with a <a href="/docs/contribute/localization/">localization</a>.</p></li></ul><h2 id="get-involved-with-sig-docs">Get involved with SIG Docs</h2><p><a href="/docs/contribute/participate/">SIG Docs</a> is the group of contributors who
+publish and maintain Kubernetes documentation and the website. Getting
+involved with SIG Docs is a great way for Kubernetes contributors (feature
+development or otherwise) to have a large impact on the Kubernetes project.</p><p>SIG Docs communicates with different methods:</p><ul><li><a href="https://slack.k8s.io/">Join <code>#sig-docs</code> on the Kubernetes Slack instance</a>. Make sure to
+introduce yourself!</li><li><a href="https://groups.google.com/forum/#!forum/kubernetes-sig-docs">Join the <code>kubernetes-sig-docs</code> mailing list</a>,
+where broader discussions take place and official decisions are recorded.</li><li>Join the <a href="https://github.com/kubernetes/community/tree/master/sig-docs">SIG Docs video meeting</a>
+held every two weeks. Meetings are always announced on <code>#sig-docs</code> and added to the
+<a href="https://calendar.google.com/calendar/embed?src=cgnt364vd8s86hr2phapfjc6uk%40group.calendar.google.com&amp;ctz=America/Los_Angeles">Kubernetes community meetings calendar</a>.
+You'll need to download the <a href="https://zoom.us/download">Zoom client</a> or dial in using a phone.</li><li>Join the SIG Docs async Slack standup meeting on those weeks when the in-person Zoom
+video meeting does not take place. Meetings are always announced on <code>#sig-docs</code>.
+You can contribute to any one of the threads up to 24 hours after meeting announcement.</li></ul><h2 id="other-ways-to-contribute">Other ways to contribute</h2><ul><li>Visit the <a href="/community/">Kubernetes community site</a>. Participate on Twitter or Stack Overflow,
+learn about local Kubernetes meetups and events, and more.</li><li>Read the <a href="https://www.kubernetes.dev/docs/contributor-cheatsheet/">contributor cheatsheet</a>
+to get involved with Kubernetes feature development.</li><li>Visit the contributor site to learn more about <a href="https://www.kubernetes.dev/">Kubernetes Contributors</a>
+and <a href="https://www.kubernetes.dev/resources/">additional contributor resources</a>.</li><li>Learn how to <a href="/docs/contribute/blog/">contribute to the official blogs</a></li><li>Submit a <a href="/docs/contribute/new-content/case-studies/">case study</a></li></ul></div>

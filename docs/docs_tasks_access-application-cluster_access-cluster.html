@@ -1,0 +1,99 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Accessing Clusters</h1><p>This topic discusses multiple ways to interact with clusters.</p><h2 id="accessing-for-the-first-time-with-kubectl">Accessing for the first time with kubectl</h2><p>When accessing the Kubernetes API for the first time, we suggest using the
+Kubernetes CLI, <code>kubectl</code>.</p><p>To access a cluster, you need to know the location of the cluster and have credentials
+to access it. Typically, this is automatically set-up when you work through
+a <a href="/docs/setup/">Getting started guide</a>,
+or someone else set up the cluster and provided you with credentials and a location.</p><p>Check the location and credentials that kubectl knows about with this command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl config view
+</span></span></code></pre></div><p>Many of the <a href="/docs/reference/kubectl/quick-reference/">examples</a> provide an introduction to using
+<code>kubectl</code>, and complete documentation is found in the
+<a href="/docs/reference/kubectl/">kubectl reference</a>.</p><h2 id="directly-accessing-the-rest-api">Directly accessing the REST API</h2><p>Kubectl handles locating and authenticating to the apiserver.
+If you want to directly access the REST API with an http client like
+curl or wget, or a browser, there are several ways to locate and authenticate:</p><ul><li>Run kubectl in proxy mode.<ul><li>Recommended approach.</li><li>Uses stored apiserver location.</li><li>Verifies identity of apiserver using self-signed cert. No MITM possible.</li><li>Authenticates to apiserver.</li><li>In future, may do intelligent client-side load-balancing and failover.</li></ul></li><li>Provide the location and credentials directly to the http client.<ul><li>Alternate approach.</li><li>Works with some types of client code that are confused by using a proxy.</li><li>Need to import a root cert into your browser to protect against MITM.</li></ul></li></ul><h3 id="using-kubectl-proxy">Using kubectl proxy</h3><p>The following command runs kubectl in a mode where it acts as a reverse proxy. It handles
+locating the apiserver and authenticating.
+Run it like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl proxy --port<span style="color:#666">=</span><span style="color:#666">8080</span>
+</span></span></code></pre></div><p>See <a href="/docs/reference/generated/kubectl/kubectl-commands/#proxy">kubectl proxy</a> for more details.</p><p>Then you can explore the API with curl, wget, or a browser, replacing localhost
+with [::1] for IPv6, like so:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://localhost:8080/api/
+</span></span></code></pre></div><p>The output is similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"APIVersions"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"versions"</span>: [
+</span></span><span style="display:flex"><span>    <span style="color:#b44">"v1"</span>
+</span></span><span style="display:flex"><span>  ],
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"serverAddressByClientCIDRs"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"clientCIDR"</span>: <span style="color:#b44">"0.0.0.0/0"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"serverAddress"</span>: <span style="color:#b44">"10.0.1.149:443"</span>
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><h3 id="without-kubectl-proxy">Without kubectl proxy</h3><p>Use <code>kubectl apply</code> and <code>kubectl describe secret...</code> to create a token for the default service account with grep/cut:</p><p>First, create the Secret, requesting a token for the default ServiceAccount:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f - <span style="color:#b44">&lt;&lt;EOF
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: Secret
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: default-token
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  annotations:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    kubernetes.io/service-account.name: default
+</span></span></span><span style="display:flex"><span><span style="color:#b44">type: kubernetes.io/service-account-token
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>Next, wait for the token controller to populate the Secret with a token:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">while</span> ! kubectl describe secret default-token | grep -E <span style="color:#b44">'^token'</span> &gt;/dev/null; <span style="color:#a2f;font-weight:700">do</span>
+</span></span><span style="display:flex"><span>  <span style="color:#a2f">echo</span> <span style="color:#b44">"waiting for token..."</span> &gt;&amp;<span style="color:#666">2</span>
+</span></span><span style="display:flex"><span>  sleep <span style="color:#666">1</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">done</span>
+</span></span></code></pre></div><p>Capture and use the generated token:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">APISERVER</span><span style="color:#666">=</span><span style="color:#a2f;font-weight:700">$(</span>kubectl config view --minify | grep server | cut -f 2- -d <span style="color:#b44">":"</span> | tr -d <span style="color:#b44">" "</span><span style="color:#a2f;font-weight:700">)</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">TOKEN</span><span style="color:#666">=</span><span style="color:#a2f;font-weight:700">$(</span>kubectl describe secret default-token | grep -E <span style="color:#b44">'^token'</span> | cut -f2 -d<span style="color:#b44">':'</span> | tr -d <span style="color:#b44">" "</span><span style="color:#a2f;font-weight:700">)</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>curl <span style="color:#b8860b">$APISERVER</span>/api --header <span style="color:#b44">"Authorization: Bearer </span><span style="color:#b8860b">$TOKEN</span><span style="color:#b44">"</span> --insecure
+</span></span></code></pre></div><p>The output is similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"APIVersions"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"versions"</span>: [
+</span></span><span style="display:flex"><span>    <span style="color:#b44">"v1"</span>
+</span></span><span style="display:flex"><span>  ],
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"serverAddressByClientCIDRs"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"clientCIDR"</span>: <span style="color:#b44">"0.0.0.0/0"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"serverAddress"</span>: <span style="color:#b44">"10.0.1.149:443"</span>
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>Using <code>jsonpath</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">APISERVER</span><span style="color:#666">=</span><span style="color:#a2f;font-weight:700">$(</span>kubectl config view --minify -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.clusters[0].cluster.server}'</span><span style="color:#a2f;font-weight:700">)</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">TOKEN</span><span style="color:#666">=</span><span style="color:#a2f;font-weight:700">$(</span>kubectl get secret default-token -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.data.token}'</span> | base64 --decode<span style="color:#a2f;font-weight:700">)</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>curl <span style="color:#b8860b">$APISERVER</span>/api --header <span style="color:#b44">"Authorization: Bearer </span><span style="color:#b8860b">$TOKEN</span><span style="color:#b44">"</span> --insecure
+</span></span></code></pre></div><p>The output is similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"APIVersions"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"versions"</span>: [
+</span></span><span style="display:flex"><span>    <span style="color:#b44">"v1"</span>
+</span></span><span style="display:flex"><span>  ],
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"serverAddressByClientCIDRs"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"clientCIDR"</span>: <span style="color:#b44">"0.0.0.0/0"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"serverAddress"</span>: <span style="color:#b44">"10.0.1.149:443"</span>
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>The above examples use the <code>--insecure</code> flag. This leaves it subject to MITM
+attacks. When kubectl accesses the cluster it uses a stored root certificate
+and client certificates to access the server. (These are installed in the
+<code>~/.kube</code> directory). Since cluster certificates are typically self-signed, it
+may take special configuration to get your http client to use root
+certificate.</p><p>On some clusters, the apiserver does not require authentication; it may serve
+on localhost, or be protected by a firewall. There is not a standard
+for this. <a href="/docs/concepts/security/controlling-access/">Controlling Access to the API</a>
+describes how a cluster admin can configure this.</p><h2 id="programmatic-access-to-the-api">Programmatic access to the API</h2><p>Kubernetes officially supports <a href="#go-client">Go</a> and <a href="#python-client">Python</a>
+client libraries.</p><h3 id="go-client">Go client</h3><ul><li>To get the library, run the following command: <code>go get k8s.io/client-go@kubernetes-&lt;kubernetes-version-number&gt;</code>,
+see <a href="https://github.com/kubernetes/client-go/blob/master/INSTALL.md#for-the-casual-user">INSTALL.md</a>
+for detailed installation instructions. See
+<a href="https://github.com/kubernetes/client-go#compatibility-matrix">https://github.com/kubernetes/client-go</a>
+to see which versions are supported.</li><li>Write an application atop of the client-go clients. Note that client-go defines its own API objects,
+so if needed, please import API definitions from client-go rather than from the main repository,
+e.g., <code>import "k8s.io/client-go/kubernetes"</code> is correct.</li></ul><p>The Go client can use the same <a href="/docs/concepts/configuration/organize-cluster-access-kubeconfig/">kubeconfig file</a>
+as the kubectl CLI does to locate and authenticate to the apiserver. See this
+<a href="https://git.k8s.io/client-go/examples/out-of-cluster-client-configuration/main.go">example</a>.</p><p>If the application is deployed as a Pod in the cluster, please refer to the <a href="#accessing-the-api-from-a-pod">next section</a>.</p><h3 id="python-client">Python client</h3><p>To use <a href="https://github.com/kubernetes-client/python">Python client</a>, run the following command:
+<code>pip install kubernetes</code>. See <a href="https://github.com/kubernetes-client/python">Python Client Library page</a>
+for more installation options.</p><p>The Python client can use the same <a href="/docs/concepts/configuration/organize-cluster-access-kubeconfig/">kubeconfig file</a>
+as the kubectl CLI does to locate and authenticate to the apiserver. See this
+<a href="https://github.com/kubernetes-client/python/tree/master/examples">example</a>.</p><h3 id="other-languages">Other languages</h3><p>There are <a href="/docs/reference/using-api/client-libraries/">client libraries</a> for accessing the API from other languages.
+See documentation for other libraries for how they authenticate.</p><h2 id="accessing-the-api-from-a-pod">Accessing the API from a Pod</h2><p>When accessing the API from a pod, locating and authenticating
+to the API server are somewhat different.</p><p>Please check <a href="/docs/tasks/run-application/access-api-from-pod/">Accessing the API from within a Pod</a>
+for more details.</p><h2 id="accessing-services-running-on-the-cluster">Accessing services running on the cluster</h2><p>The previous section describes how to connect to the Kubernetes API server.
+For information about connecting to other services running on a Kubernetes cluster, see
+<a href="/docs/tasks/access-application-cluster/access-cluster-services/">Access Cluster Services</a>.</p><h2 id="requesting-redirects">Requesting redirects</h2><p>The redirect capabilities have been deprecated and removed. Please use a proxy (see below) instead.</p><h2 id="so-many-proxies">So many proxies</h2><p>There are several different proxies you may encounter when using Kubernetes:</p><ol><li><p>The <a href="#directly-accessing-the-rest-api">kubectl proxy</a>:</p><ul><li>runs on a user's desktop or in a pod</li><li>proxies from a localhost address to the Kubernetes apiserver</li><li>client to proxy uses HTTP</li><li>proxy to apiserver uses HTTPS</li><li>locates apiserver</li><li>adds authentication headers</li></ul></li><li><p>The <a href="/docs/tasks/access-application-cluster/access-cluster-services/#discovering-builtin-services">apiserver proxy</a>:</p><ul><li>is a bastion built into the apiserver</li><li>connects a user outside of the cluster to cluster IPs which otherwise might not be reachable</li><li>runs in the apiserver processes</li><li>client to proxy uses HTTPS (or http if apiserver so configured)</li><li>proxy to target may use HTTP or HTTPS as chosen by proxy using available information</li><li>can be used to reach a Node, Pod, or Service</li><li>does load balancing when used to reach a Service</li></ul></li><li><p>The <a href="/docs/concepts/services-networking/service/#ips-and-vips">kube proxy</a>:</p><ul><li>runs on each node</li><li>proxies UDP and TCP</li><li>does not understand HTTP</li><li>provides load balancing</li><li>is only used to reach services</li></ul></li><li><p>A Proxy/Load-balancer in front of apiserver(s):</p><ul><li>existence and implementation varies from cluster to cluster (e.g. nginx)</li><li>sits between all clients and one or more apiservers</li><li>acts as load balancer if there are several apiservers.</li></ul></li><li><p>Cloud Load Balancers on external services:</p><ul><li>are provided by some cloud providers (e.g. AWS ELB, Google Cloud Load Balancer)</li><li>are created automatically when the Kubernetes service has type <code>LoadBalancer</code></li><li>use UDP/TCP only</li><li>implementation varies by cloud provider.</li></ul></li></ol><p>Kubernetes users will typically not need to worry about anything other than the first two types. The cluster admin
+will typically ensure that the latter types are set up correctly.</p></div>

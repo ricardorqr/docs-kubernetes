@@ -1,0 +1,196 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Running Kubelet in Standalone Mode</h1><p>This tutorial shows you how to run a standalone kubelet instance.</p><p>You may have different motivations for running a standalone kubelet.
+This tutorial is aimed at introducing you to Kubernetes, even if you don't have
+much experience with it. You can follow this tutorial and learn about node setup,
+basic (static) Pods, and how Kubernetes manages containers.</p><p>Once you have followed this tutorial, you could try using a cluster that has a
+<a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a> to manage pods
+and nodes, and other types of objects. For example,
+<a href="/docs/tutorials/hello-minikube/">Hello, minikube</a>.</p><p>You can also run the kubelet in standalone mode to suit production use cases, such as
+to run the control plane for a highly available, resiliently deployed cluster. This
+tutorial does not cover the details you need for running a resilient control plane.</p><h2 id="objectives">Objectives</h2><ul><li>Install <code>cri-o</code>, and <code>kubelet</code> on a Linux system and run them as <code>systemd</code> services.</li><li>Launch a Pod running <code>nginx</code> that listens to requests on TCP port 80 on the Pod's IP address.</li><li>Learn how the different components of the solution interact among themselves.</li></ul><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>The kubelet configuration used for this tutorial is insecure by design and should
+<em>not</em> be used in a production environment.</div><h2 id="before-you-begin">Before you begin</h2><ul><li>Admin (<code>root</code>) access to a Linux system that uses <code>systemd</code> and <code>iptables</code>
+(or nftables with <code>iptables</code> emulation).</li><li>Access to the Internet to download the components needed for the tutorial, such as:<ul><li>A <a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>
+that implements the Kubernetes <a class="glossary-tooltip" title="Protocol for communication between the kubelet and the local container runtime." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cri" target="_blank" aria-label="(CRI)">(CRI)</a>.</li><li>Network plugins (these are often known as
+<a class="glossary-tooltip" title="Container network interface (CNI) plugins are a type of Network plugin that adheres to the appc/CNI specification." data-toggle="tooltip" data-placement="top" href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/" target="_blank" aria-label="Container Networking Interface (CNI)">Container Networking Interface (CNI)</a>)</li><li>Required CLI tools: <code>curl</code>, <code>tar</code>, <code>jq</code>.</li></ul></li></ul><h2 id="prepare-the-system">Prepare the system</h2><h3 id="swap-configuration">Swap configuration</h3><p>By default, kubelet fails to start if swap memory is detected on a node.
+This means that swap should either be disabled or tolerated by kubelet.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you configure the kubelet to tolerate swap, the kubelet still configures Pods (and the
+containers in those Pods) not to use swap space. To find out how Pods can actually
+use the available swap, you can read more about
+<a href="/docs/concepts/architecture/nodes/#swap-memory">swap memory management</a> on Linux nodes.</div><p>If you have swap memory enabled, either disable it or add <code>failSwapOn: false</code> to the
+kubelet configuration file.</p><p>To check if swap is enabled:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo swapon --show
+</span></span></code></pre></div><p>If there is no output from the command, then swap memory is already disabled.</p><p>To disable swap temporarily:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo swapoff -a
+</span></span></code></pre></div><p>To make this change persistent across reboots:</p><p>Make sure swap is disabled in either <code>/etc/fstab</code> or <code>systemd.swap</code>, depending on how it was
+configured on your system.</p><h3 id="enable-ipv4-packet-forwarding">Enable IPv4 packet forwarding</h3><p>To check if IPv4 packet forwarding is enabled:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cat /proc/sys/net/ipv4/ip_forward
+</span></span></code></pre></div><p>If the output is <code>1</code>, it is already enabled. If the output is <code>0</code>, then follow next steps.</p><p>To enable IPv4 packet forwarding, create a configuration file that sets the
+<code>net.ipv4.ip_forward</code> parameter to <code>1</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo tee /etc/sysctl.d/k8s.conf <span style="color:#b44">&lt;&lt;EOF
+</span></span></span><span style="display:flex"><span><span style="color:#b44">net.ipv4.ip_forward = 1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>Apply the changes to the system:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo sysctl --system
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>...
+* Applying /etc/sysctl.d/k8s.conf ...
+net.ipv4.ip_forward = 1
+* Applying /etc/sysctl.conf ...
+</code></pre><h2 id="download-install-and-configure-the-components">Download, install, and configure the components</h2><div class="alert alert-secondary callout third-party-content" role="alert"><strong>Note:</strong> This section links to third party projects that provide functionality required by Kubernetes. The Kubernetes project authors aren't responsible for these projects, which are listed alphabetically. To add a project to this list, read the <a href="/docs/contribute/style/content-guide/#third-party-content">content guide</a> before submitting a change. <a href="#third-party-content-disclaimer">More information.</a></div><h3 id="container-runtime">Install a container runtime</h3><p>Download the latest available versions of the required packages (recommended).</p><p>This tutorial suggests installing the <a href="https://github.com/cri-o/cri-o">CRI-O container runtime</a>
+(external link).</p><p>There are several <a href="https://github.com/cri-o/cri-o/blob/main/install.md">ways to install</a>
+the CRI-O container runtime, depending on your particular Linux distribution. Although
+CRI-O recommends using either <code>deb</code> or <code>rpm</code> packages, this tutorial uses the
+<em>static binary bundle</em> script of the
+<a href="https://github.com/cri-o/packaging/blob/main/README.md">CRI-O Packaging project</a>,
+both to streamline the overall process, and to remain distribution agnostic.</p><p>The script installs and configures additional required software, such as
+<a href="https://github.com/containernetworking/cni"><code>cni-plugins</code></a>, for container
+networking, and <a href="https://github.com/containers/crun"><code>crun</code></a> and
+<a href="https://github.com/opencontainers/runc"><code>runc</code></a>, for running containers.</p><p>The script will automatically detect your system's processor architecture
+(<code>amd64</code> or <code>arm64</code>) and select and install the latest versions of the software packages.</p><h3 id="cri-o-setup">Set up CRI-O</h3><p>Visit the <a href="https://github.com/cri-o/cri-o/releases">releases</a> page (external link).</p><p>Download the static binary bundle script:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl https://raw.githubusercontent.com/cri-o/packaging/main/get &gt; crio-install
+</span></span></code></pre></div><p>Run the installer script:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo bash crio-install
+</span></span></code></pre></div><p>Enable and start the <code>crio</code> service:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo systemctl daemon-reload
+</span></span><span style="display:flex"><span>sudo systemctl <span style="color:#a2f">enable</span> --now crio.service
+</span></span></code></pre></div><p>Quick test:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo systemctl is-active crio.service
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>active
+</code></pre><p>Detailed service check:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo journalctl -f -u crio.service
+</span></span></code></pre></div><h3 id="install-network-plugins">Install network plugins</h3><p>The <code>cri-o</code> installer installs and configures the <code>cni-plugins</code> package. You can
+verify the installation running the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>/opt/cni/bin/bridge --version
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>CNI bridge plugin v1.5.1
+CNI protocol versions supported: 0.1.0, 0.2.0, 0.3.0, 0.3.1, 0.4.0, 1.0.0
+</code></pre><p>To check the default configuration:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cat /etc/cni/net.d/11-crio-ipv4-bridge.conflist
+</span></span></code></pre></div><p>The output is similar to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"cniVersion"</span>: <span style="color:#b44">"1.0.0"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"name"</span>: <span style="color:#b44">"crio"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"plugins"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"type"</span>: <span style="color:#b44">"bridge"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"bridge"</span>: <span style="color:#b44">"cni0"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"isGateway"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"ipMasq"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"hairpinMode"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"ipam"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"type"</span>: <span style="color:#b44">"host-local"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"routes"</span>: [
+</span></span><span style="display:flex"><span>            { <span style="color:green;font-weight:700">"dst"</span>: <span style="color:#b44">"0.0.0.0/0"</span> }
+</span></span><span style="display:flex"><span>        ],
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"ranges"</span>: [
+</span></span><span style="display:flex"><span>            [{ <span style="color:green;font-weight:700">"subnet"</span>: <span style="color:#b44">"10.85.0.0/16"</span> }]
+</span></span><span style="display:flex"><span>        ]
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Make sure that the default <code>subnet</code> range (<code>10.85.0.0/16</code>) does not overlap with
+any of your active networks. If there is an overlap, you can edit the file and change it
+accordingly. Restart the service after the change.</div><h3 id="download-and-set-up-the-kubelet">Download and set up the kubelet</h3><p>Download the <a href="/releases/download/">latest stable release</a> of the kubelet.</p><ul class="nav nav-tabs" id="download-kubelet" role="tablist"><li class="nav-item"><a data-toggle="tab" class="nav-link active" href="#download-kubelet-0" role="tab" aria-controls="download-kubelet-0" aria-selected="true">x86-64</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#download-kubelet-1" role="tab" aria-controls="download-kubelet-1">ARM64</a></li></ul><div class="tab-content" id="download-kubelet"><div id="download-kubelet-0" class="tab-pane show active" role="tabpanel" aria-labelledby="download-kubelet-0"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>curl -LO <span style="color:#b44">"https://dl.k8s.io/release/</span><span style="color:#a2f;font-weight:700">$(</span>curl -L -s https://dl.k8s.io/release/stable.txt<span style="color:#a2f;font-weight:700">)</span><span style="color:#b44">/bin/linux/amd64/kubelet"</span>
+</span></span></code></pre></div></p></div><div id="download-kubelet-1" class="tab-pane" role="tabpanel" aria-labelledby="download-kubelet-1"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>curl -LO <span style="color:#b44">"https://dl.k8s.io/release/</span><span style="color:#a2f;font-weight:700">$(</span>curl -L -s https://dl.k8s.io/release/stable.txt<span style="color:#a2f;font-weight:700">)</span><span style="color:#b44">/bin/linux/arm64/kubelet"</span>
+</span></span></code></pre></div></p></div></div><p>Configure:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo mkdir -p /etc/kubernetes/manifests
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo tee /etc/kubernetes/kubelet.yaml <span style="color:#b44">&lt;&lt;EOF
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: kubelet.config.k8s.io/v1beta1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: KubeletConfiguration
+</span></span></span><span style="display:flex"><span><span style="color:#b44">authentication:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  webhook:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    enabled: false # Do NOT use in production clusters!
+</span></span></span><span style="display:flex"><span><span style="color:#b44">authorization:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  mode: AlwaysAllow # Do NOT use in production clusters!
+</span></span></span><span style="display:flex"><span><span style="color:#b44">enableServer: false
+</span></span></span><span style="display:flex"><span><span style="color:#b44">logging:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  format: text
+</span></span></span><span style="display:flex"><span><span style="color:#b44">address: 127.0.0.1 # Restrict access to localhost
+</span></span></span><span style="display:flex"><span><span style="color:#b44">readOnlyPort: 10255 # Do NOT use in production clusters!
+</span></span></span><span style="display:flex"><span><span style="color:#b44">staticPodPath: /etc/kubernetes/manifests
+</span></span></span><span style="display:flex"><span><span style="color:#b44">containerRuntimeEndpoint: unix:///var/run/crio/crio.sock
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>Because you are not setting up a production cluster, you are using plain HTTP
+(<code>readOnlyPort: 10255</code>) for unauthenticated queries to the kubelet's API.</p><p>The <em>authentication webhook</em> is disabled and <em>authorization mode</em> is set to <code>AlwaysAllow</code>
+for the purpose of this tutorial. You can learn more about
+<a href="/docs/reference/access-authn-authz/authorization/#authorization-modules">authorization modes</a>
+and <a href="/docs/reference/access-authn-authz/webhook/">webhook authentication</a> to properly
+configure kubelet in standalone mode in your environment.</p><p>See <a href="/docs/reference/networking/ports-and-protocols/">Ports and Protocols</a> to
+understand which ports Kubernetes components use.</p></div><p>Install:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>chmod +x kubelet
+</span></span><span style="display:flex"><span>sudo cp kubelet /usr/bin/
+</span></span></code></pre></div><p>Create a <code>systemd</code> service unit file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo tee /etc/systemd/system/kubelet.service <span style="color:#b44">&lt;&lt;EOF
+</span></span></span><span style="display:flex"><span><span style="color:#b44">[Unit]
+</span></span></span><span style="display:flex"><span><span style="color:#b44">Description=Kubelet
+</span></span></span><span style="display:flex"><span><span style="color:#b44">
+</span></span></span><span style="display:flex"><span><span style="color:#b44">[Service]
+</span></span></span><span style="display:flex"><span><span style="color:#b44">ExecStart=/usr/bin/kubelet \
+</span></span></span><span style="display:flex"><span><span style="color:#b44"> --config=/etc/kubernetes/kubelet.yaml
+</span></span></span><span style="display:flex"><span><span style="color:#b44">Restart=always
+</span></span></span><span style="display:flex"><span><span style="color:#b44">
+</span></span></span><span style="display:flex"><span><span style="color:#b44">[Install]
+</span></span></span><span style="display:flex"><span><span style="color:#b44">WantedBy=multi-user.target
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>The command line argument <code>--kubeconfig</code> has been intentionally omitted in the
+service configuration file. This argument sets the path to a
+<a href="/docs/concepts/configuration/organize-cluster-access-kubeconfig/">kubeconfig</a>
+file that specifies how to connect to the API server, enabling API server mode.
+Omitting it, enables standalone mode.</p><p>Enable and start the <code>kubelet</code> service:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo systemctl daemon-reload
+</span></span><span style="display:flex"><span>sudo systemctl <span style="color:#a2f">enable</span> --now kubelet.service
+</span></span></code></pre></div><p>Quick test:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo systemctl is-active kubelet.service
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>active
+</code></pre><p>Detailed service check:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo journalctl -u kubelet.service
+</span></span></code></pre></div><p>Check the kubelet's API <code>/healthz</code> endpoint:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://localhost:10255/healthz?verbose
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>[+]ping ok
+[+]log ok
+[+]syncloop ok
+healthz check passed
+</code></pre><p>Query the kubelet's API <code>/pods</code> endpoint:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://localhost:10255/pods | jq <span style="color:#b44">'.'</span>
+</span></span></code></pre></div><p>The output is similar to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"PodList"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"v1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"metadata"</span>: {},
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"items"</span>: <span style="color:#a2f;font-weight:700">null</span>
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><h2 id="run-a-pod-in-the-kubelet">Run a Pod in the kubelet</h2><p>In standalone mode, you can run Pods using Pod manifests. The manifests can either
+be on the local filesystem, or fetched via HTTP from a configuration source.</p><p>Create a manifest for a Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cat <span style="color:#b44">&lt;&lt;EOF &gt; static-web.yaml
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: Pod
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: static-web
+</span></span></span><span style="display:flex"><span><span style="color:#b44">spec:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  containers:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    - name: web
+</span></span></span><span style="display:flex"><span><span style="color:#b44">      image: nginx
+</span></span></span><span style="display:flex"><span><span style="color:#b44">      ports:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">        - name: web
+</span></span></span><span style="display:flex"><span><span style="color:#b44">          containerPort: 80
+</span></span></span><span style="display:flex"><span><span style="color:#b44">          protocol: TCP
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>Copy the <code>static-web.yaml</code> manifest file to the <code>/etc/kubernetes/manifests</code> directory.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo cp static-web.yaml /etc/kubernetes/manifests/
+</span></span></code></pre></div><h3 id="find-out-information">Find out information about the kubelet and the Pod</h3><p>The Pod networking plugin creates a network bridge (<code>cni0</code>) and a pair of <code>veth</code> interfaces
+for each Pod (one of the pair is inside the newly made Pod, and the other is at the host level).</p><p>Query the kubelet's API endpoint at <code>http://localhost:10255/pods</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://localhost:10255/pods | jq <span style="color:#b44">'.'</span>
+</span></span></code></pre></div><p>To obtain the IP address of the <code>static-web</code> Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://localhost:10255/pods | jq <span style="color:#b44">'.items[].status.podIP'</span>
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>"10.85.0.4"
+</code></pre><p>Connect to the <code>nginx</code> server Pod on <code>http://&lt;IP&gt;:&lt;Port&gt;</code> (port 80 is the default), in this case:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://10.85.0.4
+</span></span></code></pre></div><p>The output is similar to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-html" data-lang="html"><span style="display:flex"><span><span style="color:#080">&lt;!DOCTYPE html&gt;</span>
+</span></span><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">html</span>&gt;
+</span></span><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">head</span>&gt;
+</span></span><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">title</span>&gt;Welcome to nginx!&lt;/<span style="color:green;font-weight:700">title</span>&gt;
+</span></span><span style="display:flex"><span>...
+</span></span></code></pre></div><h2 id="where-to-look-for-more-details">Where to look for more details</h2><p>If you need to diagnose a problem getting this tutorial to work, you can look
+within the following directories for monitoring and troubleshooting:</p><pre tabindex="0"><code>/var/lib/cni
+/var/lib/containers
+/var/lib/kubelet
+
+/var/log/containers
+/var/log/pods
+</code></pre><h2 id="clean-up">Clean up</h2><h3 id="kubelet">kubelet</h3><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo systemctl disable --now kubelet.service
+</span></span><span style="display:flex"><span>sudo systemctl daemon-reload
+</span></span><span style="display:flex"><span>sudo rm /etc/systemd/system/kubelet.service
+</span></span><span style="display:flex"><span>sudo rm /usr/bin/kubelet
+</span></span><span style="display:flex"><span>sudo rm -rf /etc/kubernetes
+</span></span><span style="display:flex"><span>sudo rm -rf /var/lib/kubelet
+</span></span><span style="display:flex"><span>sudo rm -rf /var/log/containers
+</span></span><span style="display:flex"><span>sudo rm -rf /var/log/pods
+</span></span></code></pre></div><h3 id="container-runtime-1">Container Runtime</h3><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo systemctl disable --now crio.service
+</span></span><span style="display:flex"><span>sudo systemctl daemon-reload
+</span></span><span style="display:flex"><span>sudo rm -rf /usr/local/bin
+</span></span><span style="display:flex"><span>sudo rm -rf /usr/local/lib
+</span></span><span style="display:flex"><span>sudo rm -rf /usr/local/share
+</span></span><span style="display:flex"><span>sudo rm -rf /usr/libexec/crio
+</span></span><span style="display:flex"><span>sudo rm -rf /etc/crio
+</span></span><span style="display:flex"><span>sudo rm -rf /etc/containers
+</span></span></code></pre></div><h3 id="network-plugins">Network Plugins</h3><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo rm -rf /opt/cni
+</span></span><span style="display:flex"><span>sudo rm -rf /etc/cni
+</span></span><span style="display:flex"><span>sudo rm -rf /var/lib/cni
+</span></span></code></pre></div><h2 id="conclusion">Conclusion</h2><p>This page covered the basic aspects of deploying a kubelet in standalone mode.
+You are now ready to deploy Pods and test additional functionality.</p><p>Notice that in standalone mode the kubelet does <em>not</em> support fetching Pod
+configurations from the control plane (because there is no control plane connection).</p><p>You also cannot use a <a class="glossary-tooltip" title="An API object used to store non-confidential data in key-value pairs. Can be consumed as environment variables, command-line arguments, or configuration files in a volume." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/configmap/" target="_blank" aria-label="ConfigMap">ConfigMap</a> or a
+<a class="glossary-tooltip" title="Stores sensitive information, such as passwords, OAuth tokens, and ssh keys." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/secret/" target="_blank" aria-label="Secret">Secret</a> to configure the containers
+in a static Pod.</p><h2 id="what-s-next">What's next</h2><ul><li>Follow <a href="/docs/tutorials/hello-minikube/">Hello, minikube</a> to learn about running Kubernetes
+<em>with</em> a control plane. The minikube tool helps you set up a practice cluster on your own computer.</li><li>Learn more about <a href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">Network Plugins</a></li><li>Learn more about <a href="/docs/setup/production-environment/container-runtimes/">Container Runtimes</a></li><li>Learn more about <a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet</a></li><li>Learn more about <a href="/docs/tasks/configure-pod-container/static-pod/">static Pods</a></li></ul></div>

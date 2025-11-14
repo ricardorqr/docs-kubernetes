@@ -1,0 +1,82 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Control CPU Management Policies on the Node</h1><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [stable]</code></div><p>Kubernetes keeps many aspects of how pods execute on nodes abstracted
+from the user. This is by design.  However, some workloads require
+stronger guarantees in terms of latency and/or performance in order to operate
+acceptably. The kubelet provides methods to enable more complex workload
+placement policies while keeping the abstraction free from explicit placement
+directives.</p><p>For detailed information on resource management, please refer to the
+<a href="/docs/concepts/configuration/manage-resources-containers/">Resource Management for Pods and Containers</a>
+documentation.</p><p>For detailed information on how the kubelet implements resource management, please refer to the
+<a href="/docs/concepts/policy/node-resource-managers/">Node ResourceManagers</a> documentation.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.26.<p>To check the version, enter <code>kubectl version</code>.</p></p><p>If you are running an older version of Kubernetes, please look at the documentation for the version you are actually running.</p><h2 id="configuring-cpu-management-policies">Configuring CPU management policies</h2><p>By default, the kubelet uses <a href="https://en.wikipedia.org/wiki/Completely_Fair_Scheduler">CFS quota</a>
+to enforce pod CPU limits.  When the node runs many CPU-bound pods,
+the workload can move to different CPU cores depending on
+whether the pod is throttled and which CPU cores are available at
+scheduling time. Many workloads are not sensitive to this migration and thus
+work fine without any intervention.</p><p>However, in workloads where CPU cache affinity and scheduling latency
+significantly affect workload performance, the kubelet allows alternative CPU
+management policies to determine some placement preferences on the node.</p><h2 id="windows-support">Windows Support</h2><div class="feature-state-notice feature-alpha" title="Feature Gate: WindowsCPUAndMemoryAffinity"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [alpha]</code> (enabled by default: false)</div><p>CPU Manager support can be enabled on Windows by using the <code>WindowsCPUAndMemoryAffinity</code> feature gate
+and it requires support in the container runtime.
+Once the feature gate is enabled, follow the steps below to configure the <a href="#configuration">CPU manager policy</a>.</p><h2 id="configuration">Configuration</h2><p>The CPU Manager policy is set with the <code>--cpu-manager-policy</code> kubelet
+flag or the <code>cpuManagerPolicy</code> field in <a href="/docs/reference/config-api/kubelet-config.v1beta1/">KubeletConfiguration</a>.
+There are two supported policies:</p><ul><li><a href="#none-policy"><code>none</code></a>: the default policy.</li><li><a href="#static-policy"><code>static</code></a>: allows pods with certain resource characteristics to be
+granted increased CPU affinity and exclusivity on the node.</li></ul><p>The CPU manager periodically writes resource updates through the CRI in
+order to reconcile in-memory CPU assignments with cgroupfs. The reconcile
+frequency is set through a new Kubelet configuration value
+<code>--cpu-manager-reconcile-period</code>. If not specified, it defaults to the same
+duration as <code>--node-status-update-frequency</code>.</p><p>The behavior of the static policy can be fine-tuned using the <code>--cpu-manager-policy-options</code> flag.
+The flag takes a comma-separated list of <code>key=value</code> policy options.
+If you disable the <code>CPUManagerPolicyOptions</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>
+then you cannot fine-tune CPU manager policies. In that case, the CPU manager
+operates only using its default settings.</p><p>In addition to the top-level <code>CPUManagerPolicyOptions</code> feature gate, the policy options are split
+into two groups: alpha quality (hidden by default) and beta quality (visible by default).
+The groups are guarded respectively by the <code>CPUManagerPolicyAlphaOptions</code>
+and <code>CPUManagerPolicyBetaOptions</code> feature gates. Diverging from the Kubernetes standard, these
+feature gates guard groups of options, because it would have been too cumbersome to add a feature
+gate for each individual option.</p><h2 id="changing-the-cpu-manager-policy">Changing the CPU Manager Policy</h2><p>Since the CPU manager policy can only be applied when kubelet spawns new pods, simply changing from
+"none" to "static" won't apply to existing pods. So in order to properly change the CPU manager
+policy on a node, perform the following steps:</p><ol><li><a href="/docs/tasks/administer-cluster/safely-drain-node/">Drain</a> the node.</li><li>Stop kubelet.</li><li>Remove the old CPU manager state file. The path to this file is
+<code>/var/lib/kubelet/cpu_manager_state</code> by default. This clears the state maintained by the
+CPUManager so that the cpu-sets set up by the new policy won’t conflict with it.</li><li>Edit the kubelet configuration to change the CPU manager policy to the desired value.</li><li>Start kubelet.</li></ol><p>Repeat this process for every node that needs its CPU manager policy changed. Skipping this
+process will result in kubelet crashlooping with the following error:</p><pre tabindex="0"><code>could not restore state from checkpoint: configured policy "static" differs from state checkpoint policy "none", please drain this node and delete the CPU manager checkpoint file "/var/lib/kubelet/cpu_manager_state" before restarting Kubelet
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>if the set of online CPUs changes on the node, the node must be drained and CPU manager manually reset by deleting the
+state file <code>cpu_manager_state</code> in the kubelet root directory.</div><h3 id="none-policy-configuration"><code>none</code> policy configuration</h3><p>This policy has no extra configuration items.</p><h3 id="static-policy-configuration"><code>static</code> policy configuration</h3><p>This policy manages a shared pool of CPUs that initially contains all CPUs in the
+node. The amount of exclusively allocatable CPUs is equal to the total
+number of CPUs in the node minus any CPU reservations by the kubelet <code>--kube-reserved</code> or
+<code>--system-reserved</code> options. From 1.17, the CPU reservation list can be specified
+explicitly by kubelet <code>--reserved-cpus</code> option. The explicit CPU list specified by
+<code>--reserved-cpus</code> takes precedence over the CPU reservation specified by
+<code>--kube-reserved</code> and <code>--system-reserved</code>. CPUs reserved by these options are taken, in
+integer quantity, from the initial shared pool in ascending order by physical
+core ID.  This shared pool is the set of CPUs on which any containers in
+<code>BestEffort</code> and <code>Burstable</code> pods run. Containers in <code>Guaranteed</code> pods with fractional
+CPU <code>requests</code> also run on CPUs in the shared pool. Only containers that are
+both part of a <code>Guaranteed</code> pod and have integer CPU <code>requests</code> are assigned
+exclusive CPUs.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The kubelet requires a CPU reservation greater than zero be made
+using either <code>--kube-reserved</code> and/or <code>--system-reserved</code> or <code>--reserved-cpus</code> when
+the static policy is enabled. This is because zero CPU reservation would allow the shared
+pool to become empty.</div><h3 id="cpu-policy-static--options">Static policy options</h3><p>You can toggle groups of options on and off based upon their maturity level
+using the following feature gates:</p><ul><li><code>CPUManagerPolicyBetaOptions</code> default enabled. Disable to hide beta-level options.</li><li><code>CPUManagerPolicyAlphaOptions</code> default disabled. Enable to show alpha-level options.
+You will still have to enable each option using the <code>CPUManagerPolicyOptions</code> kubelet option.</li></ul><p>The following policy options exist for the static <code>CPUManager</code> policy:</p><ul><li><code>full-pcpus-only</code> (GA, visible by default) (1.33 or higher)</li><li><code>distribute-cpus-across-numa</code> (beta, visible by default) (1.33 or higher)</li><li><code>align-by-socket</code> (alpha, hidden by default) (1.25 or higher)</li><li><code>distribute-cpus-across-cores</code> (alpha, hidden by default) (1.31 or higher)</li><li><code>strict-cpu-reservation</code> (beta, visible by default) (1.32 or higher)</li><li><code>prefer-align-cpus-by-uncorecache</code> (beta, visible by default) (1.34 or higher)</li></ul><p>The <code>full-pcpus-only</code> option can be enabled by adding <code>full-pcpus-only=true</code> to
+the CPUManager policy options.
+Likewise, the <code>distribute-cpus-across-numa</code> option can be enabled by adding
+<code>distribute-cpus-across-numa=true</code> to the CPUManager policy options.
+When both are set, they are "additive" in the sense that CPUs will be
+distributed across NUMA nodes in chunks of full-pcpus rather than individual
+cores.
+The <code>align-by-socket</code> policy option can be enabled by adding <code>align-by-socket=true</code>
+to the <code>CPUManager</code> policy options. It is also additive to the <code>full-pcpus-only</code>
+and <code>distribute-cpus-across-numa</code> policy options.</p><p>The <code>distribute-cpus-across-cores</code> option can be enabled by adding
+<code>distribute-cpus-across-cores=true</code> to the <code>CPUManager</code> policy options.
+It cannot be used with <code>full-pcpus-only</code> or <code>distribute-cpus-across-numa</code> policy
+options together at this moment.</p><p>The <code>strict-cpu-reservation</code> option can be enabled by adding <code>strict-cpu-reservation=true</code> to
+the CPUManager policy options followed by removing the <code>/var/lib/kubelet/cpu_manager_state</code> file and restart kubelet.</p><p>The <code>prefer-align-cpus-by-uncorecache</code> option can be enabled by adding the
+<code>prefer-align-cpus-by-uncorecache</code> to the <code>CPUManager</code> policy options. If
+incompatible options are used, the kubelet will fail to start with the error
+explained in the logs.</p><p>For mode detail about the behavior of the individual options you can configure, please refer to the
+<a href="/docs/concepts/policy/node-resource-managers/">Node ResourceManagers</a> documentation.</p></div>

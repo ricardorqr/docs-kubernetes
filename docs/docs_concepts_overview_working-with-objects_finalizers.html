@@ -1,0 +1,62 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Finalizers</h1><p>Finalizers are namespaced keys that tell Kubernetes to wait until specific
+conditions are met before it fully deletes <a class="glossary-tooltip" title="A Kubernetes entity, representing an endpoint on the Kubernetes API server." data-toggle="tooltip" data-placement="top" href="/docs/reference/using-api/api-concepts/#standard-api-terminology" target="_blank" aria-label="resources">resources</a>
+that are marked for deletion.
+Finalizers alert <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controllers">controllers</a>
+to clean up resources the deleted object owned.</p><p>When you tell Kubernetes to delete an object that has finalizers specified for
+it, the Kubernetes API marks the object for deletion by populating <code>.metadata.deletionTimestamp</code>,
+and returns a <code>202</code> status code (HTTP "Accepted"). The target object remains in a terminating state while the
+control plane, or other components, take the actions defined by the finalizers.
+After these actions are complete, the controller removes the relevant finalizers
+from the target object. When the <code>metadata.finalizers</code> field is empty,
+Kubernetes considers the deletion complete and deletes the object.</p><p>You can use finalizers to control <a class="glossary-tooltip" title="A collective term for the various mechanisms Kubernetes uses to clean up cluster resources." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/garbage-collection/" target="_blank" aria-label="garbage collection">garbage collection</a>
+of resources. For example, you can define a finalizer to clean up related
+<a class="glossary-tooltip" title="A Kubernetes entity, representing an endpoint on the Kubernetes API server." data-toggle="tooltip" data-placement="top" href="/docs/reference/using-api/api-concepts/#standard-api-terminology" target="_blank" aria-label="API resources">API resources</a> or infrastructure before the controller
+deletes the object being finalized.</p><p>You can use finalizers to control <a class="glossary-tooltip" title="A collective term for the various mechanisms Kubernetes uses to clean up cluster resources." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/garbage-collection/" target="_blank" aria-label="garbage collection">garbage collection</a>
+of <a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="objects">objects</a> by alerting <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controllers">controllers</a>
+to perform specific cleanup tasks before deleting the target resource.</p><p>Finalizers don't usually specify the code to execute. Instead, they are
+typically lists of keys on a specific resource similar to annotations.
+Kubernetes specifies some finalizers automatically, but you can also specify
+your own.</p><h2 id="how-finalizers-work">How finalizers work</h2><p>When you create a resource using a manifest file, you can specify finalizers in
+the <code>metadata.finalizers</code> field. When you attempt to delete the resource, the
+API server handling the delete request notices the values in the <code>finalizers</code> field
+and does the following:</p><ul><li>Modifies the object to add a <code>metadata.deletionTimestamp</code> field with the
+time you started the deletion.</li><li>Prevents the object from being removed until all items are removed from its <code>metadata.finalizers</code> field</li><li>Returns a <code>202</code> status code (HTTP "Accepted")</li></ul><p>The controller managing that finalizer notices the update to the object setting the
+<code>metadata.deletionTimestamp</code>, indicating deletion of the object has been requested.
+The controller then attempts to satisfy the requirements of the finalizers
+specified for that resource. Each time a finalizer condition is satisfied, the
+controller removes that key from the resource's <code>finalizers</code> field. When the
+<code>finalizers</code> field is emptied, an object with a <code>deletionTimestamp</code> field set
+is automatically deleted. You can also use finalizers to prevent deletion of unmanaged resources.</p><p>A common example of a finalizer is <code>kubernetes.io/pv-protection</code>, which prevents
+accidental deletion of <code>PersistentVolume</code> objects. When a <code>PersistentVolume</code>
+object is in use by a Pod, Kubernetes adds the <code>pv-protection</code> finalizer. If you
+try to delete the <code>PersistentVolume</code>, it enters a <code>Terminating</code> status, but the
+controller can't delete it because the finalizer exists. When the Pod stops
+using the <code>PersistentVolume</code>, Kubernetes clears the <code>pv-protection</code> finalizer,
+and the controller deletes the volume.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><ul><li><p>When you <code>DELETE</code> an object, Kubernetes adds the deletion timestamp for that object and then
+immediately starts to restrict changes to the <code>.metadata.finalizers</code> field for the object that is
+now pending deletion. You can remove existing finalizers (deleting an entry from the <code>finalizers</code>
+list) but you cannot add a new finalizer. You also cannot modify the <code>deletionTimestamp</code> for an
+object once it is set.</p></li><li><p>After the deletion is requested, you can not resurrect this object. The only way is to delete it and make a new similar object.</p></li></ul></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Custom finalizer names <strong>must</strong> be publicly qualified finalizer names, such as <code>example.com/finalizer-name</code>.
+Kubernetes enforces this format; the API server rejects writes to objects where the change does not use qualified finalizer names for any custom finalizer.</div><h2 id="owners-labels-finalizers">Owner references, labels, and finalizers</h2><p>Like <a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="labels">labels</a>,
+<a href="/docs/concepts/overview/working-with-objects/owners-dependents/">owner references</a>
+describe the relationships between objects in Kubernetes, but are used for a
+different purpose. When a
+<a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a> manages objects
+like Pods, it uses labels to track changes to groups of related objects. For
+example, when a <a class="glossary-tooltip" title="A finite or batch task that runs to completion." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/job/" target="_blank" aria-label="Job">Job</a> creates one or
+more Pods, the Job controller applies labels to those pods and tracks changes to
+any Pods in the cluster with the same label.</p><p>The Job controller also adds <em>owner references</em> to those Pods, pointing at the
+Job that created the Pods. If you delete the Job while these Pods are running,
+Kubernetes uses the owner references (not labels) to determine which Pods in the
+cluster need cleanup.</p><p>Kubernetes also processes finalizers when it identifies owner references on a
+resource targeted for deletion.</p><p>In some situations, finalizers can block the deletion of dependent objects,
+which can cause the targeted owner object to remain for
+longer than expected without being fully deleted. In these situations, you
+should check finalizers and owner references on the target owner and dependent
+objects to troubleshoot the cause.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>In cases where objects are stuck in a deleting state, avoid manually
+removing finalizers to allow deletion to continue. Finalizers are usually added
+to resources for a reason, so forcefully removing them can lead to issues in
+your cluster. This should only be done when the purpose of the finalizer is
+understood and is accomplished in another way (for example, manually cleaning
+up some dependent object).</div><h2 id="what-s-next">What's next</h2><ul><li>Read <a href="/blog/2021/05/14/using-finalizers-to-control-deletion/">Using Finalizers to Control Deletion</a>
+on the Kubernetes blog.</li></ul></div>

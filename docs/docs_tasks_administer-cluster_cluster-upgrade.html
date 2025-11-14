@@ -1,0 +1,29 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Upgrade A Cluster</h1><p>This page provides an overview of the steps you should follow to upgrade a
+Kubernetes cluster.</p><p>The Kubernetes project recommends upgrading to the latest patch releases promptly, and
+to ensure that you are running a supported minor release of Kubernetes.
+Following this recommendation helps you to stay secure.</p><p>The way that you upgrade a cluster depends on how you initially deployed it
+and on any subsequent changes.</p><p>At a high level, the steps you perform are:</p><ul><li>Upgrade the <a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a></li><li>Upgrade the nodes in your cluster</li><li>Upgrade clients such as <a class="glossary-tooltip" title="A command line tool for communicating with a Kubernetes cluster." data-toggle="tooltip" data-placement="top" href="/docs/reference/kubectl/" target="_blank" aria-label="kubectl">kubectl</a></li><li>Adjust manifests and other resources based on the API changes that accompany the
+new Kubernetes version</li></ul><h2 id="before-you-begin">Before you begin</h2><p>You must have an existing cluster. This page is about upgrading from Kubernetes
+1.33 to Kubernetes 1.34. If your cluster
+is not currently running Kubernetes 1.33 then please check
+the documentation for the version of Kubernetes that you plan to upgrade to.</p><h2 id="upgrade-approaches">Upgrade approaches</h2><h3 id="upgrade-kubeadm">kubeadm</h3><p>If your cluster was deployed using the <code>kubeadm</code> tool, refer to
+<a href="/docs/tasks/administer-cluster/kubeadm/kubeadm-upgrade/">Upgrading kubeadm clusters</a>
+for detailed information on how to upgrade the cluster.</p><p>Once you have upgraded the cluster, remember to
+<a href="/docs/tasks/tools/">install the latest version of <code>kubectl</code></a>.</p><h3 id="manual-deployments">Manual deployments</h3><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>These steps do not account for third-party extensions such as network and storage
+plugins.</div><p>You should manually update the control plane following this sequence:</p><ul><li>etcd (all instances)</li><li>kube-apiserver (all control plane hosts)</li><li>kube-controller-manager</li><li>kube-scheduler</li><li>cloud controller manager, if you use one</li></ul><p>At this point you should
+<a href="/docs/tasks/tools/">install the latest version of <code>kubectl</code></a>.</p><p>For each node in your cluster, <a href="/docs/tasks/administer-cluster/safely-drain-node/">drain</a>
+that node and then either replace it with a new node that uses the 1.34
+kubelet, or upgrade the kubelet on that node and bring the node back into service.</p><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>Draining nodes before upgrading kubelet ensures that pods are re-admitted and containers are
+re-created, which may be necessary to resolve some security issues or other important bugs.</div><h3 id="upgrade-other">Other deployments</h3><p>Refer to the documentation for your cluster deployment tool to learn the recommended set
+up steps for maintenance.</p><h2 id="post-upgrade-tasks">Post-upgrade tasks</h2><h3 id="switch-your-cluster-s-storage-api-version">Switch your cluster's storage API version</h3><p>The objects that are serialized into etcd for a cluster's internal
+representation of the Kubernetes resources active in the cluster are
+written using a particular version of the API.</p><p>When the supported API changes, these objects may need to be rewritten
+in the newer API. Failure to do this will eventually result in resources
+that are no longer decodable or usable by the Kubernetes API server.</p><p>For each affected object, fetch it using the latest supported API and then
+write it back also using the latest supported API.</p><h3 id="update-manifests">Update manifests</h3><p>Upgrading to a new Kubernetes version can provide new APIs.</p><p>You can use <code>kubectl convert</code> command to convert manifests between different API versions.
+For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl convert -f pod.yaml --output-version v1
+</span></span></code></pre></div><p>The <code>kubectl</code> tool replaces the contents of <code>pod.yaml</code> with a manifest that sets <code>kind</code> to
+Pod (unchanged), but with a revised <code>apiVersion</code>.</p><h3 id="device-plugins">Device Plugins</h3><p>If your cluster is running device plugins and the node needs to be upgraded to a Kubernetes
+release with a newer device plugin API version, device plugins must be upgraded to support
+both version before the node is upgraded in order to guarantee that device allocations
+continue to complete successfully during the upgrade.</p><p>Refer to <a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#api-compatibility">API compatibility</a> and <a href="/docs/reference/node/device-plugin-api-versions/">Kubelet Device Manager API Versions</a> for more details.</p></div>

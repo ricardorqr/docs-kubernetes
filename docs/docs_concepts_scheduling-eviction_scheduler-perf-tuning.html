@@ -1,0 +1,70 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Scheduler Performance Tuning</h1><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.14 [beta]</code></div><p><a href="/docs/concepts/scheduling-eviction/kube-scheduler/#kube-scheduler">kube-scheduler</a>
+is the Kubernetes default scheduler. It is responsible for placement of Pods
+on Nodes in a cluster.</p><p>Nodes in a cluster that meet the scheduling requirements of a Pod are
+called <em>feasible</em> Nodes for the Pod. The scheduler finds feasible Nodes
+for a Pod and then runs a set of functions to score the feasible Nodes,
+picking a Node with the highest score among the feasible ones to run
+the Pod. The scheduler then notifies the API server about this decision
+in a process called <em>Binding</em>.</p><p>This page explains performance tuning optimizations that are relevant for
+large Kubernetes clusters.</p><p>In large clusters, you can tune the scheduler's behaviour balancing
+scheduling outcomes between latency (new Pods are placed quickly) and
+accuracy (the scheduler rarely makes poor placement decisions).</p><p>You configure this tuning setting via kube-scheduler setting
+<code>percentageOfNodesToScore</code>. This KubeSchedulerConfiguration setting determines
+a threshold for scheduling nodes in your cluster.</p><h3 id="setting-the-threshold">Setting the threshold</h3><p>The <code>percentageOfNodesToScore</code> option accepts whole numeric values between 0
+and 100. The value 0 is a special number which indicates that the kube-scheduler
+should use its compiled-in default.
+If you set <code>percentageOfNodesToScore</code> above 100, kube-scheduler acts as if you
+had set a value of 100.</p><p>To change the value, edit the
+<a href="/docs/reference/config-api/kube-scheduler-config.v1/">kube-scheduler configuration file</a>
+and then restart the scheduler.
+In many cases, the configuration file can be found at <code>/etc/kubernetes/config/kube-scheduler.yaml</code>.</p><p>After you have made this change, you can run</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl get pods -n kube-system | grep kube-scheduler
+</span></span></code></pre></div><p>to verify that the kube-scheduler component is healthy.</p><h2 id="percentage-of-nodes-to-score">Node scoring threshold</h2><p>To improve scheduling performance, the kube-scheduler can stop looking for
+feasible nodes once it has found enough of them. In large clusters, this saves
+time compared to a naive approach that would consider every node.</p><p>You specify a threshold for how many nodes are enough, as a whole number percentage
+of all the nodes in your cluster. The kube-scheduler converts this into an
+integer number of nodes. During scheduling, if the kube-scheduler has identified
+enough feasible nodes to exceed the configured percentage, the kube-scheduler
+stops searching for more feasible nodes and moves on to the
+<a href="/docs/concepts/scheduling-eviction/kube-scheduler/#kube-scheduler-implementation">scoring phase</a>.</p><p><a href="#how-the-scheduler-iterates-over-nodes">How the scheduler iterates over Nodes</a>
+describes the process in detail.</p><h3 id="default-threshold">Default threshold</h3><p>If you don't specify a threshold, Kubernetes calculates a figure using a
+linear formula that yields 50% for a 100-node cluster and yields 10%
+for a 5000-node cluster. The lower bound for the automatic value is 5%.</p><p>This means that the kube-scheduler always scores at least 5% of your cluster no
+matter how large the cluster is, unless you have explicitly set
+<code>percentageOfNodesToScore</code> to be smaller than 5.</p><p>If you want the scheduler to score all nodes in your cluster, set
+<code>percentageOfNodesToScore</code> to 100.</p><h2 id="example">Example</h2><p>Below is an example configuration that sets <code>percentageOfNodesToScore</code> to 50%.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubescheduler.config.k8s.io/v1alpha1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeSchedulerConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">algorithmSource</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">provider</span>:<span style="color:#bbb"> </span>DefaultProvider<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">percentageOfNodesToScore</span>:<span style="color:#bbb"> </span><span style="color:#666">50</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="tuning-percentageofnodestoscore">Tuning percentageOfNodesToScore</h2><p><code>percentageOfNodesToScore</code> must be a value between 1 and 100 with the default
+value being calculated based on the cluster size. There is also a hardcoded
+minimum value of 100 nodes.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>In clusters with less than 100 feasible nodes, the scheduler still
+checks all the nodes because there are not enough feasible nodes to stop
+the scheduler's search early.</p><p>In a small cluster, if you set a low value for <code>percentageOfNodesToScore</code>, your
+change will have no or little effect, for a similar reason.</p><p>If your cluster has several hundred Nodes or fewer, leave this configuration option
+at its default value. Making changes is unlikely to improve the
+scheduler's performance significantly.</p></div><p>An important detail to consider when setting this value is that when a smaller
+number of nodes in a cluster are checked for feasibility, some nodes are not
+sent to be scored for a given Pod. As a result, a Node which could possibly
+score a higher value for running the given Pod might not even be passed to the
+scoring phase. This would result in a less than ideal placement of the Pod.</p><p>You should avoid setting <code>percentageOfNodesToScore</code> very low so that kube-scheduler
+does not make frequent, poor Pod placement decisions. Avoid setting the
+percentage to anything below 10%, unless the scheduler's throughput is critical
+for your application and the score of nodes is not important. In other words, you
+prefer to run the Pod on any Node as long as it is feasible.</p><h2 id="how-the-scheduler-iterates-over-nodes">How the scheduler iterates over Nodes</h2><p>This section is intended for those who want to understand the internal details
+of this feature.</p><p>In order to give all the Nodes in a cluster a fair chance of being considered
+for running Pods, the scheduler iterates over the nodes in a round robin
+fashion. You can imagine that Nodes are in an array. The scheduler starts from
+the start of the array and checks feasibility of the nodes until it finds enough
+Nodes as specified by <code>percentageOfNodesToScore</code>. For the next Pod, the
+scheduler continues from the point in the Node array that it stopped at when
+checking feasibility of Nodes for the previous Pod.</p><p>If Nodes are in multiple zones, the scheduler iterates over Nodes in various
+zones to ensure that Nodes from different zones are considered in the
+feasibility checks. As an example, consider six nodes in two zones:</p><pre tabindex="0"><code>Zone 1: Node 1, Node 2, Node 3, Node 4
+Zone 2: Node 5, Node 6
+</code></pre><p>The Scheduler evaluates feasibility of the nodes in this order:</p><pre tabindex="0"><code>Node 1, Node 5, Node 2, Node 6, Node 3, Node 4
+</code></pre><p>After going over all the Nodes, it goes back to Node 1.</p><h2 id="what-s-next">What's next</h2><ul><li>Check the <a href="/docs/reference/config-api/kube-scheduler-config.v1/">kube-scheduler configuration reference (v1)</a></li></ul></div>

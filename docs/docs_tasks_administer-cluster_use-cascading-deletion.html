@@ -1,0 +1,83 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Use Cascading Deletion in a Cluster</h1><p>This page shows you how to specify the type of
+<a href="/docs/concepts/architecture/garbage-collection/#cascading-deletion">cascading deletion</a>
+to use in your cluster during <a class="glossary-tooltip" title="A collective term for the various mechanisms Kubernetes uses to clean up cluster resources." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/garbage-collection/" target="_blank" aria-label="garbage collection">garbage collection</a>.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>You also need to <a href="/docs/tasks/run-application/run-stateless-application-deployment/#creating-and-exploring-an-nginx-deployment">create a sample Deployment</a>
+to experiment with the different types of cascading deletion. You will need to
+recreate the Deployment for each type.</p><h2 id="check-owner-references-on-your-pods">Check owner references on your pods</h2><p>Check that the <code>ownerReferences</code> field is present on your pods:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>nginx --output<span style="color:#666">=</span>yaml
+</span></span></code></pre></div><p>The output has an <code>ownerReferences</code> field similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>...<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">ownerReferences</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">blockOwnerDeletion</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">controller</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ReplicaSet<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx-deployment-6b474476c4<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">uid</span>:<span style="color:#bbb"> </span>4fdcd81c-bd5d-41f7-97af-3a3b759af9a7<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>...<span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="use-foreground-cascading-deletion">Use foreground cascading deletion</h2><p>By default, Kubernetes uses <a href="/docs/concepts/architecture/garbage-collection/#background-deletion">background cascading deletion</a>
+to delete dependents of an object. You can switch to foreground cascading deletion
+using either <code>kubectl</code> or the Kubernetes API, depending on the Kubernetes
+version your cluster runs.<p>To check the version, enter <code>kubectl version</code>.</p></p><p>You can delete objects using foreground cascading deletion using <code>kubectl</code> or the
+Kubernetes API.</p><p><strong>Using kubectl</strong></p><p>Run the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete deployment nginx-deployment --cascade<span style="color:#666">=</span>foreground
+</span></span></code></pre></div><p><strong>Using the Kubernetes API</strong></p><ol><li><p>Start a local proxy session:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl proxy --port<span style="color:#666">=</span><span style="color:#666">8080</span>
+</span></span></code></pre></div></li><li><p>Use <code>curl</code> to trigger deletion:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -X DELETE localhost:8080/apis/apps/v1/namespaces/default/deployments/nginx-deployment <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>    -d <span style="color:#b44">'{"kind":"DeleteOptions","apiVersion":"v1","propagationPolicy":"Foreground"}'</span> <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>    -H <span style="color:#b44">"Content-Type: application/json"</span>
+</span></span></code></pre></div><p>The output contains a <code>foregroundDeletion</code> <a class="glossary-tooltip" title="A namespaced key that tells Kubernetes to wait until specific conditions are met before it fully deletes an object marked for deletion." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/finalizers/" target="_blank" aria-label="finalizer">finalizer</a>
+like this:</p><pre tabindex="0"><code>"kind": "Deployment",
+"apiVersion": "apps/v1",
+"metadata": {
+    "name": "nginx-deployment",
+    "namespace": "default",
+    "uid": "d1ce1b02-cae8-4288-8a53-30e84d8fa505",
+    "resourceVersion": "1363097",
+    "creationTimestamp": "2021-07-08T20:24:37Z",
+    "deletionTimestamp": "2021-07-08T20:27:39Z",
+    "finalizers": [
+      "foregroundDeletion"
+    ]
+    ...
+</code></pre></li></ol><h2 id="use-background-cascading-deletion">Use background cascading deletion</h2><ol><li><a href="/docs/tasks/run-application/run-stateless-application-deployment/#creating-and-exploring-an-nginx-deployment">Create a sample Deployment</a>.</li><li>Use either <code>kubectl</code> or the Kubernetes API to delete the Deployment,
+depending on the Kubernetes version your cluster runs.<p>To check the version, enter <code>kubectl version</code>.</p></li></ol><p>You can delete objects using background cascading deletion using <code>kubectl</code>
+or the Kubernetes API.</p><p>Kubernetes uses background cascading deletion by default, and does so
+even if you run the following commands without the <code>--cascade</code> flag or the
+<code>propagationPolicy</code> argument.</p><p><strong>Using kubectl</strong></p><p>Run the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete deployment nginx-deployment --cascade<span style="color:#666">=</span>background
+</span></span></code></pre></div><p><strong>Using the Kubernetes API</strong></p><ol><li><p>Start a local proxy session:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl proxy --port<span style="color:#666">=</span><span style="color:#666">8080</span>
+</span></span></code></pre></div></li><li><p>Use <code>curl</code> to trigger deletion:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -X DELETE localhost:8080/apis/apps/v1/namespaces/default/deployments/nginx-deployment <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>    -d <span style="color:#b44">'{"kind":"DeleteOptions","apiVersion":"v1","propagationPolicy":"Background"}'</span> <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>    -H <span style="color:#b44">"Content-Type: application/json"</span>
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>"kind": "Status",
+"apiVersion": "v1",
+...
+"status": "Success",
+"details": {
+    "name": "nginx-deployment",
+    "group": "apps",
+    "kind": "deployments",
+    "uid": "cc9eefb9-2d49-4445-b1c1-d261c9396456"
+}
+</code></pre></li></ol><h2 id="set-orphan-deletion-policy">Delete owner objects and orphan dependents</h2><p>By default, when you tell Kubernetes to delete an object, the
+<a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a> also deletes
+dependent objects. You can make Kubernetes <em>orphan</em> these dependents using
+<code>kubectl</code> or the Kubernetes API, depending on the Kubernetes version your
+cluster runs.<p>To check the version, enter <code>kubectl version</code>.</p></p><p><strong>Using kubectl</strong></p><p>Run the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete deployment nginx-deployment --cascade<span style="color:#666">=</span>orphan
+</span></span></code></pre></div><p><strong>Using the Kubernetes API</strong></p><ol><li><p>Start a local proxy session:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl proxy --port<span style="color:#666">=</span><span style="color:#666">8080</span>
+</span></span></code></pre></div></li><li><p>Use <code>curl</code> to trigger deletion:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -X DELETE localhost:8080/apis/apps/v1/namespaces/default/deployments/nginx-deployment <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>    -d <span style="color:#b44">'{"kind":"DeleteOptions","apiVersion":"v1","propagationPolicy":"Orphan"}'</span> <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>    -H <span style="color:#b44">"Content-Type: application/json"</span>
+</span></span></code></pre></div><p>The output contains <code>orphan</code> in the <code>finalizers</code> field, similar to this:</p><pre tabindex="0"><code>"kind": "Deployment",
+"apiVersion": "apps/v1",
+"namespace": "default",
+"uid": "6f577034-42a0-479d-be21-78018c466f1f",
+"creationTimestamp": "2021-07-09T16:46:37Z",
+"deletionTimestamp": "2021-07-09T16:47:08Z",
+"deletionGracePeriodSeconds": 0,
+"finalizers": [
+  "orphan"
+],
+...
+</code></pre></li></ol><p>You can check that the Pods managed by the Deployment are still running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>nginx
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li>Learn about <a href="/docs/concepts/overview/working-with-objects/owners-dependents/">owners and dependents</a> in Kubernetes.</li><li>Learn about Kubernetes <a href="/docs/concepts/overview/working-with-objects/finalizers/">finalizers</a>.</li><li>Learn about <a href="/docs/concepts/architecture/garbage-collection/">garbage collection</a>.</li></ul></div>

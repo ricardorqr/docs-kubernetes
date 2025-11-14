@@ -1,0 +1,534 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Service</h1><div class="lead">Expose an application running in your cluster behind a single outward-facing endpoint, even when the workload is split across multiple backends.</div><p>In Kubernetes, a Service is a method for exposing a network application that is running as one or more
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a> in your cluster.</p><p>A key aim of Services in Kubernetes is that you don't need to modify your existing
+application to use an unfamiliar service discovery mechanism.
+You can run code in Pods, whether this is a code designed for a cloud-native world, or
+an older app you've containerized. You use a Service to make that set of Pods available
+on the network so that clients can interact with it.</p><p>If you use a <a class="glossary-tooltip" title="Manages a replicated application on your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/deployment/" target="_blank" aria-label="Deployment">Deployment</a> to run your app,
+that Deployment can create and destroy Pods dynamically. From one moment to the next,
+you don't know how many of those Pods are working and healthy; you might not even know
+what those healthy Pods are named.
+Kubernetes <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a> are created and destroyed
+to match the desired state of your cluster. Pods are ephemeral resources (you should not
+expect that an individual Pod is reliable and durable).</p><p>Each Pod gets its own IP address (Kubernetes expects network plugins to ensure this).
+For a given Deployment in your cluster, the set of Pods running in one moment in
+time could be different from the set of Pods running that application a moment later.</p><p>This leads to a problem: if some set of Pods (call them "backends") provides
+functionality to other Pods (call them "frontends") inside your cluster,
+how do the frontends find out and keep track of which IP address to connect
+to, so that the frontend can use the backend part of the workload?</p><p>Enter <em>Services</em>.</p><h2 id="services-in-kubernetes">Services in Kubernetes</h2><p>The Service API, part of Kubernetes, is an abstraction to help you expose groups of
+Pods over a network. Each Service object defines a logical set of endpoints (usually
+these endpoints are Pods) along with a policy about how to make those pods accessible.</p><p>For example, consider a stateless image-processing backend which is running with
+3 replicas. Those replicas are fungible—frontends do not care which backend
+they use. While the actual Pods that compose the backend set may change, the
+frontend clients should not need to be aware of that, nor should they need to keep
+track of the set of backends themselves.</p><p>The Service abstraction enables this decoupling.</p><p>The set of Pods targeted by a Service is usually determined
+by a <a class="glossary-tooltip" title="Allows users to filter a list of resources based on labels." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels/" target="_blank" aria-label="selector">selector</a> that you
+define.
+To learn about other ways to define Service endpoints,
+see <a href="#services-without-selectors">Services <em>without</em> selectors</a>.</p><p>If your workload speaks HTTP, you might choose to use an
+<a href="/docs/concepts/services-networking/ingress/">Ingress</a> to control how web traffic
+reaches that workload.
+Ingress is not a Service type, but it acts as the entry point for your
+cluster. An Ingress lets you consolidate your routing rules into a single resource, so
+that you can expose multiple components of your workload, running separately in your
+cluster, behind a single listener.</p><p>The <a href="https://gateway-api.sigs.k8s.io/#what-is-the-gateway-api">Gateway</a> API for Kubernetes
+provides extra capabilities beyond Ingress and Service. You can add Gateway to your cluster -
+it is a family of extension APIs, implemented using
+<a class="glossary-tooltip" title="Custom code that defines a resource to add to your Kubernetes API server without building a complete custom server." data-toggle="tooltip" data-placement="top" href="/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/" target="_blank" aria-label="CustomResourceDefinitions">CustomResourceDefinitions</a> -
+and then use these to configure access to network services that are running in your cluster.</p><h3 id="cloud-native-service-discovery">Cloud-native service discovery</h3><p>If you're able to use Kubernetes APIs for service discovery in your application,
+you can query the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a>
+for matching EndpointSlices. Kubernetes updates the EndpointSlices for a Service
+whenever the set of Pods in a Service changes.</p><p>For non-native applications, Kubernetes offers ways to place a network port or load
+balancer in between your application and the backend Pods.</p><p>Either way, your workload can use these <a href="#discovering-services">service discovery</a>
+mechanisms to find the target it wants to connect to.</p><h2 id="defining-a-service">Defining a Service</h2><p>A Service is an <a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="object">object</a>
+(the same way that a Pod or a ConfigMap is an object). You can create,
+view or modify Service definitions using the Kubernetes API. Usually
+you use a tool such as <code>kubectl</code> to make those API calls for you.</p><p>For example, suppose you have a set of Pods that each listen on TCP port 9376
+and are labelled as <code>app.kubernetes.io/name=MyApp</code>. You can define a Service to
+publish that TCP listener:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/simple-service.yaml" download="service/simple-service.yaml"><code>service/simple-service.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-simple-service-yaml&quot;)" title="Copy service/simple-service.yaml to clipboard"/></div><div class="includecode" id="service-simple-service-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Applying this manifest creates a new Service named "my-service" with the default
+ClusterIP <a href="#publishing-services-service-types">service type</a>. The Service
+targets TCP port 9376 on any Pod with the <code>app.kubernetes.io/name: MyApp</code> label.</p><p>Kubernetes assigns this Service an IP address (the <em>cluster IP</em>),
+that is used by the virtual IP address mechanism. For more details on that mechanism,
+read <a href="/docs/reference/networking/virtual-ips/">Virtual IPs and Service Proxies</a>.</p><p>The controller for that Service continuously scans for Pods that
+match its selector, and then makes any necessary updates to the set of
+EndpointSlices for the Service.</p><p>The name of a Service object must be a valid
+<a href="/docs/concepts/overview/working-with-objects/names/#rfc-1035-label-names">RFC 1035 label name</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>A Service can map <em>any</em> incoming <code>port</code> to a <code>targetPort</code>. By default and
+for convenience, the <code>targetPort</code> is set to the same value as the <code>port</code>
+field.</div><h3 id="relaxed-naming-requirements-for-service-objects">Relaxed naming requirements for Service objects</h3><div class="feature-state-notice feature-alpha" title="Feature Gate: RelaxedServiceNameValidation"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [alpha]</code> (enabled by default: false)</div><p>The <code>RelaxedServiceNameValidation</code> feature gate allows Service object names to start with a digit. When this feature gate is enabled, Service object names must be valid <a href="/docs/concepts/overview/working-with-objects/names/#dns-label-names">RFC 1123 label names</a>.</p><h3 id="field-spec-ports">Port definitions</h3><p>Port definitions in Pods have names, and you can reference these names in the
+<code>targetPort</code> attribute of a Service. For example, we can bind the <code>targetPort</code>
+of the Service to the Pod port in the following way:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>proxy<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx:stable<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>http-web-svc<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>proxy<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>name-of-service-port<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span>http-web-svc<span style="color:#bbb">
+</span></span></span></code></pre></div><p>This works even if there is a mixture of Pods in the Service using a single
+configured name, with the same network protocol available via different
+port numbers. This offers a lot of flexibility for deploying and evolving
+your Services. For example, you can change the port numbers that Pods expose
+in the next version of your backend software, without breaking clients.</p><p>The default protocol for Services is
+<a href="/docs/reference/networking/service-protocols/#protocol-tcp">TCP</a>; you can also
+use any other <a href="/docs/reference/networking/service-protocols/">supported protocol</a>.</p><p>Because many Services need to expose more than one port, Kubernetes supports
+<a href="#multi-port-services">multiple port definitions</a> for a single Service.
+Each port definition can have the same <code>protocol</code>, or a different one.</p><h3 id="services-without-selectors">Services without selectors</h3><p>Services most commonly abstract access to Kubernetes Pods thanks to the selector,
+but when used with a corresponding set of
+<a class="glossary-tooltip" title="EndpointSlices track the IP addresses of Pods for Services." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/endpoint-slices/" target="_blank" aria-label="EndpointSlices">EndpointSlices</a>
+objects and without a selector, the Service can abstract other kinds of backends,
+including ones that run outside the cluster.</p><p>For example:</p><ul><li>You want to have an external database cluster in production, but in your
+test environment you use your own databases.</li><li>You want to point your Service to a Service in a different
+<a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="Namespace">Namespace</a> or on another cluster.</li><li>You are migrating a workload to Kubernetes. While evaluating the approach,
+you run only a portion of your backends in Kubernetes.</li></ul><p>In any of these scenarios you can define a Service <em>without</em> specifying a
+selector to match Pods. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>http<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Because this Service has no selector, the corresponding EndpointSlice
+objects are not created automatically. You can map the Service
+to the network address and port where it's running, by adding an EndpointSlice
+object manually. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>discovery.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>EndpointSlice<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service-1<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># by convention, use the name of the Service</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">                     </span><span style="color:#080;font-style:italic"># as a prefix for the name of the EndpointSlice</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:#080;font-style:italic"># You should set the "kubernetes.io/service-name" label.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:#080;font-style:italic"># Set its value to match the name of the Service</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">kubernetes.io/service-name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">addressType</span>:<span style="color:#bbb"> </span>IPv4<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>http<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># should match with the name of the service port defined above</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">appProtocol</span>:<span style="color:#bbb"> </span>http<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">endpoints</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">addresses</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:#b44">"10.4.5.6"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">addresses</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:#b44">"10.1.2.3"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h4 id="custom-endpointslices">Custom EndpointSlices</h4><p>When you create an <a href="#endpointslices">EndpointSlice</a> object for a Service, you can
+use any name for the EndpointSlice. Each EndpointSlice in a namespace must have a
+unique name. You link an EndpointSlice to a Service by setting the
+<code>kubernetes.io/service-name</code> <a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="label">label</a>
+on that EndpointSlice.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The endpoint IPs <em>must not</em> be: loopback (127.0.0.0/8 for IPv4, ::1/128 for IPv6), or
+link-local (169.254.0.0/16 and 224.0.0.0/24 for IPv4, fe80::/64 for IPv6).</p><p>The endpoint IP addresses cannot be the cluster IPs of other Kubernetes Services,
+because <a class="glossary-tooltip" title="kube-proxy is a network proxy that runs on each node in the cluster." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-proxy/" target="_blank" aria-label="kube-proxy">kube-proxy</a> doesn't support virtual IPs
+as a destination.</p></div><p>For an EndpointSlice that you create yourself, or in your own code,
+you should also pick a value to use for the label
+<a href="/docs/reference/labels-annotations-taints/#endpointslicekubernetesiomanaged-by"><code>endpointslice.kubernetes.io/managed-by</code></a>.
+If you create your own controller code to manage EndpointSlices, consider using a
+value similar to <code>"my-domain.example/name-of-controller"</code>. If you are using a third
+party tool, use the name of the tool in all-lowercase and change spaces and other
+punctuation to dashes (<code>-</code>).
+If people are directly using a tool such as <code>kubectl</code> to manage EndpointSlices,
+use a name that describes this manual management, such as <code>"staff"</code> or
+<code>"cluster-admins"</code>. You should
+avoid using the reserved value <code>"controller"</code>, which identifies EndpointSlices
+managed by Kubernetes' own control plane.</p><h4 id="service-no-selector-access">Accessing a Service without a selector</h4><p>Accessing a Service without a selector works the same as if it had a selector.
+In the <a href="#services-without-selectors">example</a> for a Service without a selector,
+traffic is routed to one of the two endpoints defined in
+the EndpointSlice manifest: a TCP connection to 10.1.2.3 or 10.4.5.6, on port 9376.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The Kubernetes API server does not allow proxying to endpoints that are not mapped to
+pods. Actions such as <code>kubectl port-forward service/&lt;service-name&gt; forwardedPort:servicePort</code> where the service has no
+selector will fail due to this constraint. This prevents the Kubernetes API server
+from being used as a proxy to endpoints the caller may not be authorized to access.</div><p>An <code>ExternalName</code> Service is a special case of Service that does not have
+selectors and uses DNS names instead. For more information, see the
+<a href="#externalname">ExternalName</a> section.</p><h3 id="endpointslices">EndpointSlices</h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.21 [stable]</code></div><p><a href="/docs/concepts/services-networking/endpoint-slices/">EndpointSlices</a> are objects that
+represent a subset (a <em>slice</em>) of the backing network endpoints for a Service.</p><p>Your Kubernetes cluster tracks how many endpoints each EndpointSlice represents.
+If there are so many endpoints for a Service that a threshold is reached, then
+Kubernetes adds another empty EndpointSlice and stores new endpoint information
+there.
+By default, Kubernetes makes a new EndpointSlice once the existing EndpointSlices
+all contain at least 100 endpoints. Kubernetes does not make the new EndpointSlice
+until an extra endpoint needs to be added.</p><p>See <a href="/docs/concepts/services-networking/endpoint-slices/">EndpointSlices</a> for more
+information about this API.</p><h3 id="endpoints">Endpoints (deprecated)</h3><div class="feature-state-notice feature-deprecated"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [deprecated]</code></div><p>The EndpointSlice API is the evolution of the older
+<a href="/docs/reference/kubernetes-api/service-resources/endpoints-v1/">Endpoints</a>
+API. The deprecated Endpoints API has several problems relative to
+EndpointSlice:</p><ul><li>It does not support dual-stack clusters.</li><li>It does not contain information needed to support newer features, such as
+<a href="/docs/concepts/services-networking/service/#traffic-distribution">trafficDistribution</a>.</li><li>It will truncate the list of endpoints if it is too long to fit in a single object.</li></ul><p>Because of this, it is recommended that all clients use the
+EndpointSlice API rather than Endpoints.</p><h4 id="over-capacity-endpoints">Over-capacity endpoints</h4><p>Kubernetes limits the number of endpoints that can fit in a single Endpoints
+object. When there are over 1000 backing endpoints for a Service, Kubernetes
+truncates the data in the Endpoints object. Because a Service can be linked
+with more than one EndpointSlice, the 1000 backing endpoint limit only
+affects the legacy Endpoints API.</p><p>In that case, Kubernetes selects at most 1000 possible backend endpoints to store
+into the Endpoints object, and sets an
+<a class="glossary-tooltip" title="A key-value pair that is used to attach arbitrary non-identifying metadata to objects." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/annotations" target="_blank" aria-label="annotation">annotation</a> on the Endpoints:
+<a href="/docs/reference/labels-annotations-taints/#endpoints-kubernetes-io-over-capacity"><code>endpoints.kubernetes.io/over-capacity: truncated</code></a>.
+The control plane also removes that annotation if the number of backend Pods drops below 1000.</p><p>Traffic is still sent to backends, but any load balancing mechanism that relies on the
+legacy Endpoints API only sends traffic to at most 1000 of the available backing endpoints.</p><p>The same API limit means that you cannot manually update an Endpoints to have more than 1000 endpoints.</p><h3 id="application-protocol">Application protocol</h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.20 [stable]</code></div><p>The <code>appProtocol</code> field provides a way to specify an application protocol for
+each Service port. This is used as a hint for implementations to offer
+richer behavior for protocols that they understand.
+The value of this field is mirrored by the corresponding
+Endpoints and EndpointSlice objects.</p><p>This field follows standard Kubernetes label syntax. Valid values are one of:</p><ul><li><p><a href="https://www.iana.org/assignments/service-names">IANA standard service names</a>.</p></li><li><p>Implementation-defined prefixed names such as <code>mycompany.com/my-custom-protocol</code>.</p></li><li><p>Kubernetes-defined prefixed names:</p></li></ul><table><thead><tr><th>Protocol</th><th>Description</th></tr></thead><tbody><tr><td><code>kubernetes.io/h2c</code></td><td>HTTP/2 over cleartext as described in <a href="https://www.rfc-editor.org/rfc/rfc7540">RFC 7540</a></td></tr><tr><td><code>kubernetes.io/ws</code></td><td>WebSocket over cleartext as described in <a href="https://www.rfc-editor.org/rfc/rfc6455">RFC 6455</a></td></tr><tr><td><code>kubernetes.io/wss</code></td><td>WebSocket over TLS as described in <a href="https://www.rfc-editor.org/rfc/rfc6455">RFC 6455</a></td></tr></tbody></table><h3 id="multi-port-services">Multi-port Services</h3><p>For some Services, you need to expose more than one port.
+Kubernetes lets you configure multiple port definitions on a Service object.
+When using multiple ports for a Service, you must give all of your ports names
+so that these are unambiguous.
+For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>http<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>https<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">443</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9377</span><span style="color:#bbb">
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>As with Kubernetes <a class="glossary-tooltip" title="A client-provided string that refers to an object in a resource URL, such as /api/v1/pods/some-name." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/names" target="_blank" aria-label="names">names</a> in general, names for ports
+must only contain lowercase alphanumeric characters and <code>-</code>. Port names must
+also start and end with an alphanumeric character.</p><p>For example, the names <code>123-abc</code> and <code>web</code> are valid, but <code>123_abc</code> and <code>-web</code> are not.</p></div><h2 id="publishing-services-service-types">Service type</h2><p>For some parts of your application (for example, frontends) you may want to expose a
+Service onto an external IP address, one that's accessible from outside of your
+cluster.</p><p>Kubernetes Service types allow you to specify what kind of Service you want.</p><p>The available <code>type</code> values and their behaviors are:</p><dl><dt><a href="#type-clusterip"><code>ClusterIP</code></a></dt><dd>Exposes the Service on a cluster-internal IP. Choosing this value
+makes the Service only reachable from within the cluster. This is the
+default that is used if you don't explicitly specify a <code>type</code> for a Service.
+You can expose the Service to the public internet using an
+<a href="/docs/concepts/services-networking/ingress/">Ingress</a> or a
+<a href="https://gateway-api.sigs.k8s.io/">Gateway</a>.</dd><dt><a href="#type-nodeport"><code>NodePort</code></a></dt><dd>Exposes the Service on each Node's IP at a static port (the <code>NodePort</code>).
+To make the node port available, Kubernetes sets up a cluster IP address,
+the same as if you had requested a Service of <code>type: ClusterIP</code>.</dd><dt><a href="#loadbalancer"><code>LoadBalancer</code></a></dt><dd>Exposes the Service externally using an external load balancer. Kubernetes
+does not directly offer a load balancing component; you must provide one, or
+you can integrate your Kubernetes cluster with a cloud provider.</dd><dt><a href="#externalname"><code>ExternalName</code></a></dt><dd>Maps the Service to the contents of the <code>externalName</code> field (for example,
+to the hostname <code>api.foo.bar.example</code>). The mapping configures your cluster's
+DNS server to return a <code>CNAME</code> record with that external hostname value.
+No proxying of any kind is set up.</dd></dl><p>The <code>type</code> field in the Service API is designed as nested functionality - each level
+adds to the previous. However there is an exception to this nested design. You can
+define a <code>LoadBalancer</code> Service by
+<a href="/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation">disabling the load balancer <code>NodePort</code> allocation</a>.</p><h3 id="type-clusterip"><code>type: ClusterIP</code></h3><p>This default Service type assigns an IP address from a pool of IP addresses that
+your cluster has reserved for that purpose.</p><p>Several of the other types for Service build on the <code>ClusterIP</code> type as a
+foundation.</p><p>If you define a Service that has the <code>.spec.clusterIP</code> set to <code>"None"</code> then
+Kubernetes does not assign an IP address. See <a href="#headless-services">headless Services</a>
+for more information.</p><h4 id="choosing-your-own-ip-address">Choosing your own IP address</h4><p>You can specify your own cluster IP address as part of a <code>Service</code> creation
+request. To do this, set the <code>.spec.clusterIP</code> field. For example, if you
+already have an existing DNS entry that you wish to reuse, or legacy systems
+that are configured for a specific IP address and difficult to re-configure.</p><p>The IP address that you choose must be a valid IPv4 or IPv6 address from within the
+<code>service-cluster-ip-range</code> CIDR range that is configured for the API server.
+If you try to create a Service with an invalid <code>clusterIP</code> address value, the API
+server will return a 422 HTTP status code to indicate that there's a problem.</p><p>Read <a href="/docs/reference/networking/virtual-ips/#avoiding-collisions">avoiding collisions</a>
+to learn how Kubernetes helps reduce the risk and impact of two different Services
+both trying to use the same IP address.</p><h3 id="type-nodeport"><code>type: NodePort</code></h3><p>If you set the <code>type</code> field to <code>NodePort</code>, the Kubernetes control plane
+allocates a port from a range specified by <code>--service-node-port-range</code> flag (default: 30000-32767).
+Each node proxies that port (the same port number on every Node) into your Service.
+Your Service reports the allocated port in its <code>.spec.ports[*].nodePort</code> field.</p><p>Using a NodePort gives you the freedom to set up your own load balancing solution,
+to configure environments that are not fully supported by Kubernetes, or even
+to expose one or more nodes' IP addresses directly.</p><p>For a node port Service, Kubernetes additionally allocates a port (TCP, UDP or
+SCTP to match the protocol of the Service). Every node in the cluster configures
+itself to listen on that assigned port and to forward traffic to one of the ready
+endpoints associated with that Service. You'll be able to contact the <code>type: NodePort</code>
+Service, from outside the cluster, by connecting to any node using the appropriate
+protocol (for example: TCP), and the appropriate port (as assigned to that Service).</p><h4 id="nodeport-custom-port">Choosing your own port</h4><p>If you want a specific port number, you can specify a value in the <code>nodePort</code>
+field. The control plane will either allocate you that port or report that
+the API transaction failed.
+This means that you need to take care of possible port collisions yourself.
+You also have to use a valid port number, one that's inside the range configured
+for NodePort use.</p><p>Here is an example manifest for a Service of <code>type: NodePort</code> that specifies
+a NodePort value (30007, in this example):</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>NodePort<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># By default and for convenience, the `targetPort` is set to</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># the same value as the `port` field.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># Optional field</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># By default and for convenience, the Kubernetes control plane</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># will allocate a port from a range (default: 30000-32767)</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">nodePort</span>:<span style="color:#bbb"> </span><span style="color:#666">30007</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h4 id="avoid-nodeport-collisions">Reserve Nodeport ranges to avoid collisions</h4><p>The policy for assigning ports to NodePort services applies to both the auto-assignment and
+the manual assignment scenarios. When a user wants to create a NodePort service that
+uses a specific port, the target port may conflict with another port that has already been assigned.</p><p>To avoid this problem, the port range for NodePort services is divided into two bands.
+Dynamic port assignment uses the upper band by default, and it may use the lower band once the
+upper band has been exhausted. Users can then allocate from the lower band with a lower risk of port collision.</p><h4 id="service-nodeport-custom-listen-address">Custom IP address configuration for <code>type: NodePort</code> Services</h4><p>You can set up nodes in your cluster to use a particular IP address for serving node port
+services. You might want to do this if each node is connected to multiple networks (for example:
+one network for application traffic, and another network for traffic between nodes and the
+control plane).</p><p>If you want to specify particular IP address(es) to proxy the port, you can set the
+<code>--nodeport-addresses</code> flag for kube-proxy or the equivalent <code>nodePortAddresses</code>
+field of the <a href="/docs/reference/config-api/kube-proxy-config.v1alpha1/">kube-proxy configuration file</a>
+to particular IP block(s).</p><p>This flag takes a comma-delimited list of IP blocks (e.g. <code>10.0.0.0/8</code>, <code>192.0.2.0/25</code>)
+to specify IP address ranges that kube-proxy should consider as local to this node.</p><p>For example, if you start kube-proxy with the <code>--nodeport-addresses=127.0.0.0/8</code> flag,
+kube-proxy only selects the loopback interface for NodePort Services.
+The default for <code>--nodeport-addresses</code> is an empty list.
+This means that kube-proxy should consider all available network interfaces for NodePort.
+(That's also compatible with earlier Kubernetes releases.)<div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This Service is visible as <code>&lt;NodeIP&gt;:spec.ports[*].nodePort</code> and <code>.spec.clusterIP:spec.ports[*].port</code>.
+If the <code>--nodeport-addresses</code> flag for kube-proxy or the equivalent field
+in the kube-proxy configuration file is set, <code>&lt;NodeIP&gt;</code> would be a filtered
+node IP address (or possibly IP addresses).</div></p><h3 id="loadbalancer"><code>type: LoadBalancer</code></h3><p>On cloud providers which support external load balancers, setting the <code>type</code>
+field to <code>LoadBalancer</code> provisions a load balancer for your Service.
+The actual creation of the load balancer happens asynchronously, and
+information about the provisioned balancer is published in the Service's
+<code>.status.loadBalancer</code> field.
+For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIP</span>:<span style="color:#bbb"> </span><span style="color:#666">10.0.171.239</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>LoadBalancer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">loadBalancer</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">ingress</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">ip</span>:<span style="color:#bbb"> </span><span style="color:#666">192.0.2.127</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Traffic from the external load balancer is directed at the backend Pods. The cloud
+provider decides how it is load balanced.</p><p>To implement a Service of <code>type: LoadBalancer</code>, Kubernetes typically starts off
+by making the changes that are equivalent to you requesting a Service of
+<code>type: NodePort</code>. The cloud-controller-manager component then configures the external
+load balancer to forward traffic to that assigned node port.</p><p>You can configure a load balanced Service to
+<a href="#load-balancer-nodeport-allocation">omit</a> assigning a node port, provided that the
+cloud provider implementation supports this.</p><p>Some cloud providers allow you to specify the <code>loadBalancerIP</code>. In those cases, the load-balancer is created
+with the user-specified <code>loadBalancerIP</code>. If the <code>loadBalancerIP</code> field is not specified,
+the load balancer is set up with an ephemeral IP address. If you specify a <code>loadBalancerIP</code>
+but your cloud provider does not support the feature, the <code>loadbalancerIP</code> field that you
+set is ignored.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The<code>.spec.loadBalancerIP</code> field for a Service was deprecated in Kubernetes v1.24.</p><p>This field was under-specified and its meaning varies across implementations.
+It also cannot support dual-stack networking. This field may be removed in a future API version.</p><p>If you're integrating with a provider that supports specifying the load balancer IP address(es)
+for a Service via a (provider specific) annotation, you should switch to doing that.</p><p>If you are writing code for a load balancer integration with Kubernetes, avoid using this field.
+You can integrate with <a href="https://gateway-api.sigs.k8s.io/">Gateway</a> rather than Service, or you
+can define your own (provider specific) annotations on the Service that specify the equivalent detail.</p></div><h4 id="node-liveness-impact-on-load-balancer-traffic">Node liveness impact on load balancer traffic</h4><p>Load balancer health checks are critical to modern applications. They are used to
+determine which server (virtual machine, or IP address) the load balancer should
+dispatch traffic to. The Kubernetes APIs do not define how health checks have to be
+implemented for Kubernetes managed load balancers, instead it's the cloud providers
+(and the people implementing integration code) who decide on the behavior. Load
+balancer health checks are extensively used within the context of supporting the
+<code>externalTrafficPolicy</code> field for Services.</p><h4 id="load-balancers-with-mixed-protocol-types">Load balancers with mixed protocol types</h4><div class="feature-state-notice feature-stable" title="Feature Gate: MixedProtocolLBService"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [stable]</code> (enabled by default: true)</div><p>By default, for LoadBalancer type of Services, when there is more than one port defined, all
+ports must have the same protocol, and the protocol must be one which is supported
+by the cloud provider.</p><p>The feature gate <code>MixedProtocolLBService</code> (enabled by default for the kube-apiserver as of v1.24) allows the use of
+different protocols for LoadBalancer type of Services, when there is more than one port defined.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The set of protocols that can be used for load balanced Services is defined by your
+cloud provider; they may impose restrictions beyond what the Kubernetes API enforces.</div><h4 id="load-balancer-nodeport-allocation">Disabling load balancer NodePort allocation</h4><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.24 [stable]</code></div><p>You can optionally disable node port allocation for a Service of <code>type: LoadBalancer</code>, by setting
+the field <code>spec.allocateLoadBalancerNodePorts</code> to <code>false</code>. This should only be used for load balancer implementations
+that route traffic directly to pods as opposed to using node ports. By default, <code>spec.allocateLoadBalancerNodePorts</code>
+is <code>true</code> and type LoadBalancer Services will continue to allocate node ports. If <code>spec.allocateLoadBalancerNodePorts</code>
+is set to <code>false</code> on an existing Service with allocated node ports, those node ports will <strong>not</strong> be de-allocated automatically.
+You must explicitly remove the <code>nodePorts</code> entry in every Service port to de-allocate those node ports.</p><h4 id="load-balancer-class">Specifying class of load balancer implementation</h4><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.24 [stable]</code></div><p>For a Service with <code>type</code> set to <code>LoadBalancer</code>, the <code>.spec.loadBalancerClass</code> field
+enables you to use a load balancer implementation other than the cloud provider default.</p><p>By default, <code>.spec.loadBalancerClass</code> is not set and a <code>LoadBalancer</code>
+type of Service uses the cloud provider's default load balancer implementation if the
+cluster is configured with a cloud provider using the <code>--cloud-provider</code> component
+flag.</p><p>If you specify <code>.spec.loadBalancerClass</code>, it is assumed that a load balancer
+implementation that matches the specified class is watching for Services.
+Any default load balancer implementation (for example, the one provided by
+the cloud provider) will ignore Services that have this field set.
+<code>spec.loadBalancerClass</code> can be set on a Service of type <code>LoadBalancer</code> only.
+Once set, it cannot be changed.
+The value of <code>spec.loadBalancerClass</code> must be a label-style identifier,
+with an optional prefix such as "<code>internal-vip</code>" or "<code>example.com/internal-vip</code>".
+Unprefixed names are reserved for end-users.</p><h4 id="load-balancer-ip-mode">Load balancer IP address mode</h4><div class="feature-state-notice feature-stable" title="Feature Gate: LoadBalancerIPMode"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [stable]</code> (enabled by default: true)</div><p>For a Service of <code>type: LoadBalancer</code>, a controller can set <code>.status.loadBalancer.ingress.ipMode</code>.
+The <code>.status.loadBalancer.ingress.ipMode</code> specifies how the load-balancer IP behaves.
+It may be specified only when the <code>.status.loadBalancer.ingress.ip</code> field is also specified.</p><p>There are two possible values for <code>.status.loadBalancer.ingress.ipMode</code>: "VIP" and "Proxy".
+The default value is "VIP" meaning that traffic is delivered to the node
+with the destination set to the load-balancer's IP and port.
+There are two cases when setting this to "Proxy", depending on how the load-balancer
+from the cloud provider delivers the traffics:</p><ul><li>If the traffic is delivered to the node then DNATed to the pod, the destination would be set to the node's IP and node port;</li><li>If the traffic is delivered directly to the pod, the destination would be set to the pod's IP and port.</li></ul><p>Service implementations may use this information to adjust traffic routing.</p><h4 id="internal-load-balancer">Internal load balancer</h4><p>In a mixed environment it is sometimes necessary to route traffic from Services inside the same
+(virtual) network address block.</p><p>In a split-horizon DNS environment you would need two Services to be able to route both external
+and internal traffic to your endpoints.</p><p>To set an internal load balancer, add one of the following annotations to your Service
+depending on the cloud service provider you're using:</p><ul class="nav nav-tabs" id="service-tabs" role="tablist"><li class="nav-item"><a data-toggle="tab" class="nav-link active" href="#service-tabs-0" role="tab" aria-controls="service-tabs-0" aria-selected="true">Default</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-1" role="tab" aria-controls="service-tabs-1">GCP</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-2" role="tab" aria-controls="service-tabs-2">AWS</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-3" role="tab" aria-controls="service-tabs-3">Azure</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-4" role="tab" aria-controls="service-tabs-4">IBM Cloud</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-5" role="tab" aria-controls="service-tabs-5">OpenStack</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-6" role="tab" aria-controls="service-tabs-6">Baidu Cloud</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-7" role="tab" aria-controls="service-tabs-7">Tencent Cloud</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-8" role="tab" aria-controls="service-tabs-8">Alibaba Cloud</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#service-tabs-9" role="tab" aria-controls="service-tabs-9">OCI</a></li></ul><div class="tab-content" id="service-tabs"><div id="service-tabs-0" class="tab-pane show active" role="tabpanel" aria-labelledby="service-tabs-0"><p><p>Select one of the tabs.</p></p></div><div id="service-tabs-1" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-1"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">networking.gke.io/load-balancer-type</span>:<span style="color:#bbb"> </span><span style="color:#b44">"Internal"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-2" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-2"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.beta.kubernetes.io/aws-load-balancer-scheme</span>:<span style="color:#bbb"> </span><span style="color:#b44">"internal"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-3" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-3"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.beta.kubernetes.io/azure-load-balancer-internal</span>:<span style="color:#bbb"> </span><span style="color:#b44">"true"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-4" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-4"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.kubernetes.io/ibm-load-balancer-cloud-provider-ip-type</span>:<span style="color:#bbb"> </span><span style="color:#b44">"private"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-5" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-5"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.beta.kubernetes.io/openstack-internal-load-balancer</span>:<span style="color:#bbb"> </span><span style="color:#b44">"true"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-6" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-6"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.beta.kubernetes.io/cce-load-balancer-internal-vpc</span>:<span style="color:#bbb"> </span><span style="color:#b44">"true"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-7" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-7"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.kubernetes.io/qcloud-loadbalancer-internal-subnetid</span>:<span style="color:#bbb"> </span>subnet-xxxxx<span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-8" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-8"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.beta.kubernetes.io/alibaba-cloud-loadbalancer-address-type</span>:<span style="color:#bbb"> </span><span style="color:#b44">"intranet"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div><div id="service-tabs-9" class="tab-pane" role="tabpanel" aria-labelledby="service-tabs-9"><p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">service.beta.kubernetes.io/oci-load-balancer-internal</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span></code></pre></div></p></div></div><h3 id="externalname"><code>type: ExternalName</code></h3><p>Services of type ExternalName map a Service to a DNS name, not to a typical selector such as
+<code>my-service</code> or <code>cassandra</code>. You specify these Services with the <code>spec.externalName</code> parameter.</p><p>This Service definition, for example, maps
+the <code>my-service</code> Service in the <code>prod</code> namespace to <code>my.database.example.com</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>prod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>ExternalName<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">externalName</span>:<span style="color:#bbb"> </span>my.database.example.com<span style="color:#bbb">
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>A Service of <code>type: ExternalName</code> accepts an IPv4 address string,
+but treats that string as a DNS name comprised of digits,
+not as an IP address (the internet does not however allow such names in DNS).
+Services with external names that resemble IPv4
+addresses are not resolved by DNS servers.</p><p>If you want to map a Service directly to a specific IP address, consider using
+<a href="#headless-services">headless Services</a>.</p></div><p>When looking up the host <code>my-service.prod.svc.cluster.local</code>, the cluster DNS Service
+returns a <code>CNAME</code> record with the value <code>my.database.example.com</code>. Accessing
+<code>my-service</code> works in the same way as other Services but with the crucial
+difference that redirection happens at the DNS level rather than via proxying or
+forwarding. Should you later decide to move your database into your cluster, you
+can start its Pods, add appropriate selectors or endpoints, and change the
+Service's <code>type</code>.</p><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4><p>You may have trouble using ExternalName for some common protocols, including HTTP and HTTPS.
+If you use ExternalName then the hostname used by clients inside your cluster is different from
+the name that the ExternalName references.</p><p>For protocols that use hostnames this difference may lead to errors or unexpected responses.
+HTTP requests will have a <code>Host:</code> header that the origin server does not recognize;
+TLS servers will not be able to provide a certificate matching the hostname that the client connected to.</p></div><h2 id="headless-services">Headless Services</h2><p>Sometimes you don't need load-balancing and a single Service IP. In
+this case, you can create what are termed <em>headless Services</em>, by explicitly
+specifying <code>"None"</code> for the cluster IP address (<code>.spec.clusterIP</code>).</p><p>You can use a headless Service to interface with other service discovery mechanisms,
+without being tied to Kubernetes' implementation.</p><p>For headless Services, a cluster IP is not allocated, kube-proxy does not handle
+these Services, and there is no load balancing or proxying done by the platform for them.</p><p>A headless Service allows a client to connect to whichever Pod it prefers, directly. Services that are headless don't
+configure routes and packet forwarding using
+<a href="/docs/reference/networking/virtual-ips/">virtual IP addresses and proxies</a>; instead, headless Services report the
+endpoint IP addresses of the individual pods via internal DNS records, served through the cluster's
+<a href="/docs/concepts/services-networking/dns-pod-service/">DNS service</a>.
+To define a headless Service, you make a Service with <code>.spec.type</code> set to ClusterIP (which is also the default for <code>type</code>),
+and you additionally set <code>.spec.clusterIP</code> to None.</p><p>The string value None is a special case and is not the same as leaving the <code>.spec.clusterIP</code> field unset.</p><p>How DNS is automatically configured depends on whether the Service has selectors defined:</p><h3 id="with-selectors">With selectors</h3><p>For headless Services that define selectors, the endpoints controller creates
+EndpointSlices in the Kubernetes API, and modifies the DNS configuration to return
+A or AAAA records (IPv4 or IPv6 addresses) that point directly to the Pods backing the Service.</p><h3 id="without-selectors">Without selectors</h3><p>For headless Services that do not define selectors, the control plane does
+not create EndpointSlice objects. However, the DNS system looks for and configures
+either:</p><ul><li>DNS CNAME records for <a href="#externalname"><code>type: ExternalName</code></a> Services.</li><li>DNS A / AAAA records for all IP addresses of the Service's ready endpoints,
+for all Service types other than <code>ExternalName</code>.<ul><li>For IPv4 endpoints, the DNS system creates A records.</li><li>For IPv6 endpoints, the DNS system creates AAAA records.</li></ul></li></ul><p>When you define a headless Service without a selector, the <code>port</code> must
+match the <code>targetPort</code>.</p><h2 id="discovering-services">Discovering services</h2><p>For clients running inside your cluster, Kubernetes supports two primary modes of
+finding a Service: environment variables and DNS.</p><h3 id="environment-variables">Environment variables</h3><p>When a Pod is run on a Node, the kubelet adds a set of environment variables
+for each active Service. It adds <code>{SVCNAME}_SERVICE_HOST</code> and <code>{SVCNAME}_SERVICE_PORT</code> variables,
+where the Service name is upper-cased and dashes are converted to underscores.</p><p>For example, the Service <code>redis-primary</code> which exposes TCP port 6379 and has been
+allocated cluster IP address 10.0.0.11, produces the following environment
+variables:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">REDIS_PRIMARY_SERVICE_HOST</span><span style="color:#666">=</span>10.0.0.11
+</span></span><span style="display:flex"><span><span style="color:#b8860b">REDIS_PRIMARY_SERVICE_PORT</span><span style="color:#666">=</span><span style="color:#666">6379</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">REDIS_PRIMARY_PORT</span><span style="color:#666">=</span>tcp://10.0.0.11:6379
+</span></span><span style="display:flex"><span><span style="color:#b8860b">REDIS_PRIMARY_PORT_6379_TCP</span><span style="color:#666">=</span>tcp://10.0.0.11:6379
+</span></span><span style="display:flex"><span><span style="color:#b8860b">REDIS_PRIMARY_PORT_6379_TCP_PROTO</span><span style="color:#666">=</span>tcp
+</span></span><span style="display:flex"><span><span style="color:#b8860b">REDIS_PRIMARY_PORT_6379_TCP_PORT</span><span style="color:#666">=</span><span style="color:#666">6379</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">REDIS_PRIMARY_PORT_6379_TCP_ADDR</span><span style="color:#666">=</span>10.0.0.11
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>When you have a Pod that needs to access a Service, and you are using
+the environment variable method to publish the port and cluster IP to the client
+Pods, you must create the Service <em>before</em> the client Pods come into existence.
+Otherwise, those client Pods won't have their environment variables populated.</p><p>If you only use DNS to discover the cluster IP for a Service, you don't need to
+worry about this ordering issue.</p></div><p>Kubernetes also supports and provides variables that are compatible with Docker
+Engine's "<em><a href="https://docs.docker.com/network/links/">legacy container links</a></em>" feature.
+You can read <a href="https://github.com/kubernetes/kubernetes/blob/dd2d12f6dc0e654c15d5db57a5f9f6ba61192726/pkg/kubelet/envvars/envvars.go#L72"><code>makeLinkVariables</code></a>
+to see how this is implemented in Kubernetes.</p><h3 id="dns">DNS</h3><p>You can (and almost always should) set up a DNS service for your Kubernetes
+cluster using an <a href="/docs/concepts/cluster-administration/addons/">add-on</a>.</p><p>A cluster-aware DNS server, such as CoreDNS, watches the Kubernetes API for new
+Services and creates a set of DNS records for each one. If DNS has been enabled
+throughout your cluster then all Pods should automatically be able to resolve
+Services by their DNS name.</p><p>For example, if you have a Service called <code>my-service</code> in a Kubernetes
+namespace <code>my-ns</code>, the control plane and the DNS Service acting together
+create a DNS record for <code>my-service.my-ns</code>. Pods in the <code>my-ns</code> namespace
+should be able to find the service by doing a name lookup for <code>my-service</code>
+(<code>my-service.my-ns</code> would also work).</p><p>Pods in other namespaces must qualify the name as <code>my-service.my-ns</code>. These names
+will resolve to the cluster IP assigned for the Service.</p><p>Kubernetes also supports DNS SRV (Service) records for named ports. If the
+<code>my-service.my-ns</code> Service has a port named <code>http</code> with the protocol set to
+<code>TCP</code>, you can do a DNS SRV query for <code>_http._tcp.my-service.my-ns</code> to discover
+the port number for <code>http</code>, as well as the IP address.</p><p>The Kubernetes DNS server is the only way to access <code>ExternalName</code> Services.
+You can find more information about <code>ExternalName</code> resolution in
+<a href="/docs/concepts/services-networking/dns-pod-service/">DNS for Services and Pods</a>.</p><a id="shortcomings"><a id="the-gory-details-of-virtual-ips"><a id="proxy-modes"><a id="proxy-mode-userspace"><a id="proxy-mode-iptables"><a id="proxy-mode-ipvs"><a id="ips-and-vips"><h2 id="virtual-ip-addressing-mechanism">Virtual IP addressing mechanism</h2><p>Read <a href="/docs/reference/networking/virtual-ips/">Virtual IPs and Service Proxies</a> explains the
+mechanism Kubernetes provides to expose a Service with a virtual IP address.</p><h3 id="traffic-policies">Traffic policies</h3><p>You can set the <code>.spec.internalTrafficPolicy</code> and <code>.spec.externalTrafficPolicy</code> fields
+to control how Kubernetes routes traffic to healthy (“ready”) backends.</p><p>See <a href="/docs/reference/networking/virtual-ips/#traffic-policies">Traffic Policies</a> for more details.</p><h3 id="traffic-distribution">Traffic distribution</h3><div class="feature-state-notice feature-stable" title="Feature Gate: ServiceTrafficDistribution"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p>The <code>.spec.trafficDistribution</code> field provides another way to influence traffic
+routing within a Kubernetes Service. While traffic policies focus on strict
+semantic guarantees, traffic distribution allows you to express <em>preferences</em>
+(such as routing to topologically closer endpoints). This can help optimize for
+performance, cost, or reliability. In Kubernetes 1.34, the
+following field value is supported:</p><dl><dt><code>PreferClose</code></dt><dd>Indicates a preference for routing traffic to endpoints that are in the same
+zone as the client.</dd></dl><div class="feature-state-notice feature-beta" title="Feature Gate: PreferSameTrafficDistribution"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [beta]</code> (enabled by default: true)</div><p>In Kubernetes 1.34, two additional values are
+available (unless the <code>PreferSameTrafficDistribution</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature
+gate</a> is
+disabled):</p><dl><dt><code>PreferSameZone</code></dt><dd>This is an alias for <code>PreferClose</code> that is clearer about the intended semantics.</dd><dt><code>PreferSameNode</code></dt><dd>Indicates a preference for routing traffic to endpoints that are on the same
+node as the client.</dd></dl><p>If the field is not set, the implementation will apply its default routing strategy.</p><p>See <a href="/docs/reference/networking/virtual-ips/#traffic-distribution">Traffic
+Distribution</a> for
+more details</p><h3 id="session-stickiness">Session stickiness</h3><p>If you want to make sure that connections from a particular client are passed to
+the same Pod each time, you can configure session affinity based on the client's
+IP address. Read <a href="/docs/reference/networking/virtual-ips/#session-affinity">session affinity</a>
+to learn more.</p><h2 id="external-ips">External IPs</h2><p>If there are external IPs that route to one or more cluster nodes, Kubernetes Services
+can be exposed on those <code>externalIPs</code>. When network traffic arrives into the cluster, with
+the external IP (as destination IP) and the port matching that Service, rules and routes
+that Kubernetes has configured ensure that the traffic is routed to one of the endpoints
+for that Service.</p><p>When you define a Service, you can specify <code>externalIPs</code> for any
+<a href="#publishing-services-service-types">service type</a>.
+In the example below, the Service named <code>"my-service"</code> can be accessed by clients using TCP,
+on <code>"198.51.100.32:80"</code> (calculated from <code>.spec.externalIPs[]</code> and <code>.spec.ports[].port</code>).</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>http<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">49152</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">externalIPs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#666">198.51.100.32</span><span style="color:#bbb">
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Kubernetes does not manage allocation of <code>externalIPs</code>; these are the responsibility
+of the cluster administrator.</div><h2 id="api-object">API Object</h2><p>Service is a top-level resource in the Kubernetes REST API. You can find more details
+about the <a href="/docs/reference/generated/kubernetes-api/v1.34/#service-v1-core">Service API object</a>.</p><h2 id="what-s-next">What's next</h2><p>Learn more about Services and how they fit into Kubernetes:</p><ul><li>Follow the <a href="/docs/tutorials/services/connect-applications-service/">Connecting Applications with Services</a>
+tutorial.</li><li>Read about <a href="/docs/concepts/services-networking/ingress/">Ingress</a>, which
+exposes HTTP and HTTPS routes from outside the cluster to Services within
+your cluster.</li><li>Read about <a href="/docs/concepts/services-networking/gateway/">Gateway</a>, an extension to
+Kubernetes that provides more flexibility than Ingress.</li></ul><p>For more context, read the following:</p><ul><li><a href="/docs/reference/networking/virtual-ips/">Virtual IPs and Service Proxies</a></li><li><a href="/docs/concepts/services-networking/endpoint-slices/">EndpointSlices</a></li><li><a href="/docs/reference/kubernetes-api/service-resources/service-v1/">Service API reference</a></li><li><a href="/docs/reference/kubernetes-api/service-resources/endpoint-slice-v1/">EndpointSlice API reference</a></li><li><a href="/docs/reference/kubernetes-api/service-resources/endpoints-v1/">Endpoint API reference (legacy)</a></li></ul></a></a></a></a></a></a></a></div>

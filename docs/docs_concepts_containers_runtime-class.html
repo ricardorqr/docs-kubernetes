@@ -1,0 +1,63 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Runtime Class</h1><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.20 [stable]</code></div><p>This page describes the RuntimeClass resource and runtime selection mechanism.</p><p>RuntimeClass is a feature for selecting the container runtime configuration. The container runtime
+configuration is used to run a Pod's containers.</p><h2 id="motivation">Motivation</h2><p>You can set a different RuntimeClass between different Pods to provide a balance of
+performance versus security. For example, if part of your workload deserves a high
+level of information security assurance, you might choose to schedule those Pods so
+that they run in a container runtime that uses hardware virtualization. You'd then
+benefit from the extra isolation of the alternative runtime, at the expense of some
+additional overhead.</p><p>You can also use RuntimeClass to run different Pods with the same container runtime
+but with different settings.</p><h2 id="setup">Setup</h2><ol><li>Configure the CRI implementation on nodes (runtime dependent)</li><li>Create the corresponding RuntimeClass resources</li></ol><h3 id="1-configure-the-cri-implementation-on-nodes">1. Configure the CRI implementation on nodes</h3><p>The configurations available through RuntimeClass are Container Runtime Interface (CRI)
+implementation dependent. See the corresponding documentation (<a href="#cri-configuration">below</a>) for your
+CRI implementation for how to configure.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>RuntimeClass assumes a homogeneous node configuration across the cluster by default (which means
+that all nodes are configured the same way with respect to container runtimes). To support
+heterogeneous node configurations, see <a href="#scheduling">Scheduling</a> below.</div><p>The configurations have a corresponding <code>handler</code> name, referenced by the RuntimeClass. The
+handler must be a valid <a href="/docs/concepts/overview/working-with-objects/names/#dns-label-names">DNS label name</a>.</p><h3 id="2-create-the-corresponding-runtimeclass-resources">2. Create the corresponding RuntimeClass resources</h3><p>The configurations setup in step 1 should each have an associated <code>handler</code> name, which identifies
+the configuration. For each handler, create a corresponding RuntimeClass object.</p><p>The RuntimeClass resource currently only has 2 significant fields: the RuntimeClass name
+(<code>metadata.name</code>) and the handler (<code>handler</code>). The object definition looks like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#080;font-style:italic"># RuntimeClass is defined in the node.k8s.io API group</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>node.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>RuntimeClass<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># The name the RuntimeClass will be referenced by.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># RuntimeClass is a non-namespaced resource.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myclass <span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># The name of the corresponding CRI configuration</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">handler</span>:<span style="color:#bbb"> </span>myconfiguration <span style="color:#bbb">
+</span></span></span></code></pre></div><p>The name of a RuntimeClass object must be a valid
+<a href="/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names">DNS subdomain name</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>It is recommended that RuntimeClass write operations (create/update/patch/delete) be
+restricted to the cluster administrator. This is typically the default. See
+<a href="/docs/reference/access-authn-authz/authorization/">Authorization Overview</a> for more details.</div><h2 id="usage">Usage</h2><p>Once RuntimeClasses are configured for the cluster, you can specify a
+<code>runtimeClassName</code> in the Pod spec to use it. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mypod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">runtimeClassName</span>:<span style="color:#bbb"> </span>myclass<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># ...</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>This will instruct the kubelet to use the named RuntimeClass to run this pod. If the named
+RuntimeClass does not exist, or the CRI cannot run the corresponding handler, the pod will enter the
+<code>Failed</code> terminal <a href="/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase">phase</a>. Look for a
+corresponding <a href="/docs/tasks/debug/debug-application/debug-running-pod/">event</a> for an
+error message.</p><p>If no <code>runtimeClassName</code> is specified, the default RuntimeHandler will be used, which is equivalent
+to the behavior when the RuntimeClass feature is disabled.</p><h3 id="cri-configuration">CRI Configuration</h3><p>For more details on setting up CRI runtimes, see <a href="/docs/setup/production-environment/container-runtimes/">CRI installation</a>.</p><h4 id="hahahugoshortcode1751s3hbhb"><a class="glossary-tooltip" title="A container runtime with an emphasis on simplicity, robustness and portability" data-toggle="tooltip" data-placement="top" href="https://containerd.io/docs/" target="_blank" aria-label="containerd">containerd</a></h4><p>Runtime handlers are configured through containerd's configuration at
+<code>/etc/containerd/config.toml</code>. Valid handlers are configured under the runtimes section:</p><pre tabindex="0"><code>[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.${HANDLER_NAME}]
+</code></pre><p>See containerd's <a href="https://github.com/containerd/containerd/blob/main/docs/cri/config.md">config documentation</a>
+for more details:</p><h4 id="hahahugoshortcode1751s4hbhb"><a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" data-toggle="tooltip" data-placement="top" href="https://cri-o.io/#what-is-cri-o" target="_blank" aria-label="CRI-O">CRI-O</a></h4><p>Runtime handlers are configured through CRI-O's configuration at <code>/etc/crio/crio.conf</code>. Valid
+handlers are configured under the
+<a href="https://github.com/cri-o/cri-o/blob/master/docs/crio.conf.5.md#crioruntime-table">crio.runtime table</a>:</p><pre tabindex="0"><code>[crio.runtime.runtimes.${HANDLER_NAME}]
+  runtime_path = "${PATH_TO_BINARY}"
+</code></pre><p>See CRI-O's <a href="https://github.com/cri-o/cri-o/blob/master/docs/crio.conf.5.md">config documentation</a> for more details.</p><h2 id="scheduling">Scheduling</h2><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.16 [beta]</code></div><p>By specifying the <code>scheduling</code> field for a RuntimeClass, you can set constraints to
+ensure that Pods running with this RuntimeClass are scheduled to nodes that support it.
+If <code>scheduling</code> is not set, this RuntimeClass is assumed to be supported by all nodes.</p><p>To ensure pods land on nodes supporting a specific RuntimeClass, that set of nodes should have a
+common label which is then selected by the <code>runtimeclass.scheduling.nodeSelector</code> field. The
+RuntimeClass's nodeSelector is merged with the pod's nodeSelector in admission, effectively taking
+the intersection of the set of nodes selected by each. If there is a conflict, the pod will be
+rejected.</p><p>If the supported nodes are tainted to prevent other RuntimeClass pods from running on the node, you
+can add <code>tolerations</code> to the RuntimeClass. As with the <code>nodeSelector</code>, the tolerations are merged
+with the pod's tolerations in admission, effectively taking the union of the set of nodes tolerated
+by each.</p><p>To learn more about configuring the node selector and tolerations, see
+<a href="/docs/concepts/scheduling-eviction/assign-pod-node/">Assigning Pods to Nodes</a>.</p><h3 id="pod-overhead">Pod Overhead</h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.24 [stable]</code></div><p>You can specify <em>overhead</em> resources that are associated with running a Pod. Declaring overhead allows
+the cluster (including the scheduler) to account for it when making decisions about Pods and resources.</p><p>Pod overhead is defined in RuntimeClass through the <code>overhead</code> field. Through the use of this field,
+you can specify the overhead of running pods utilizing this RuntimeClass and ensure these overheads
+are accounted for in Kubernetes.</p><h2 id="what-s-next">What's next</h2><ul><li><a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/585-runtime-class/README.md">RuntimeClass Design</a></li><li><a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/585-runtime-class/README.md#runtimeclass-scheduling">RuntimeClass Scheduling Design</a></li><li>Read about the <a href="/docs/concepts/scheduling-eviction/pod-overhead/">Pod Overhead</a> concept</li><li><a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/688-pod-overhead">PodOverhead Feature Design</a></li></ul></div>

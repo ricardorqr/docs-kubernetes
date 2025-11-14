@@ -1,0 +1,131 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Gateway API</h1><div class="lead">Gateway API is a family of API kinds that provide dynamic infrastructure provisioning and advanced traffic routing.</div><p>Make network services available by using an extensible, role-oriented, protocol-aware configuration
+mechanism. <a href="https://gateway-api.sigs.k8s.io/">Gateway API</a> is an <a class="glossary-tooltip" title="Resources that extend the functionality of Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/cluster-administration/addons/" target="_blank" aria-label="add-on">add-on</a>
+containing API <a href="https://gateway-api.sigs.k8s.io/references/spec/">kinds</a> that provide dynamic infrastructure
+provisioning and advanced traffic routing.</p><h2 id="design-principles">Design principles</h2><p>The following principles shaped the design and architecture of Gateway API:</p><ul><li><strong>Role-oriented:</strong> Gateway API kinds are modeled after organizational roles that are
+responsible for managing Kubernetes service networking:<ul><li><strong>Infrastructure Provider:</strong> Manages infrastructure that allows multiple isolated clusters
+to serve multiple tenants, e.g. a cloud provider.</li><li><strong>Cluster Operator:</strong> Manages clusters and is typically concerned with policies, network
+access, application permissions, etc.</li><li><strong>Application Developer:</strong> Manages an application running in a cluster and is typically
+concerned with application-level configuration and <a href="/docs/concepts/services-networking/service/">Service</a>
+composition.</li></ul></li><li><strong>Portable:</strong> Gateway API specifications are defined as <a href="/docs/concepts/extend-kubernetes/api-extension/custom-resources/">custom resources</a>
+and are supported by many <a href="https://gateway-api.sigs.k8s.io/implementations/">implementations</a>.</li><li><strong>Expressive:</strong> Gateway API kinds support functionality for common traffic routing use cases
+such as header-based matching, traffic weighting, and others that were only possible in
+<a href="/docs/concepts/services-networking/ingress/">Ingress</a> by using custom annotations.</li><li><strong>Extensible:</strong> Gateway allows for custom resources to be linked at various layers of the API.
+This makes granular customization possible at the appropriate places within the API structure.</li></ul><h2 id="resource-model">Resource model</h2><p>Gateway API has four stable API kinds:</p><ul><li><p><strong>GatewayClass:</strong> Defines a set of gateways with common configuration and managed by a controller
+that implements the class.</p></li><li><p><strong>Gateway:</strong> Defines an instance of traffic handling infrastructure, such as cloud load balancer.</p></li><li><p><strong>HTTPRoute:</strong> Defines HTTP-specific rules for mapping traffic from a Gateway listener to a
+representation of backend network endpoints. These endpoints are often represented as a
+<a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a>.</p></li><li><p><strong>GRPCRoute:</strong> Defines gRPC-specific rules for mapping traffic from a Gateway listener to a
+representation of backend network endpoints. These endpoints are often represented as a
+<a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a>.</p></li></ul><p>Gateway API is organized into different API kinds that have interdependent relationships to support
+the role-oriented nature of organizations. A Gateway object is associated with exactly one GatewayClass;
+the GatewayClass describes the gateway controller responsible for managing Gateways of this class.
+One or more route kinds such as HTTPRoute, are then associated to Gateways. A Gateway can filter the routes
+that may be attached to its <code>listeners</code>, forming a bidirectional trust model with routes.</p><p>The following figure illustrates the relationships of the three stable Gateway API kinds:</p><figure class="diagram-medium"><img src="/docs/images/gateway-kind-relationships.svg" alt="A figure illustrating the relationships of the three stable Gateway API kinds"/></figure><h3 id="api-kind-gateway-class">GatewayClass</h3><p>Gateways can be implemented by different controllers, often with different configurations. A Gateway
+must reference a GatewayClass that contains the name of the controller that implements the
+class.</p><p>A minimal GatewayClass example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>gateway.networking.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>GatewayClass<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-class<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">controllerName</span>:<span style="color:#bbb"> </span>example.com/gateway-controller<span style="color:#bbb">
+</span></span></span></code></pre></div><p>In this example, a controller that has implemented Gateway API is configured to manage GatewayClasses
+with the controller name <code>example.com/gateway-controller</code>. Gateways of this class will be managed by
+the implementation's controller.</p><p>See the <a href="https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.GatewayClass">GatewayClass</a>
+reference for a full definition of this API kind.</p><h3 id="api-kind-gateway">Gateway</h3><p>A Gateway describes an instance of traffic handling infrastructure. It defines a network endpoint
+that can be used for processing traffic, i.e. filtering, balancing, splitting, etc. for backends
+such as a Service. For example, a Gateway may represent a cloud load balancer or an in-cluster proxy
+server that is configured to accept HTTP traffic.</p><p>A minimal Gateway resource example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>gateway.networking.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Gateway<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-gateway<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">gatewayClassName</span>:<span style="color:#bbb"> </span>example-class<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">listeners</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>http<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>HTTP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>In this example, an instance of traffic handling infrastructure is programmed to listen for HTTP
+traffic on port 80. Since the <code>addresses</code> field is unspecified, an address or hostname is assigned
+to the Gateway by the implementation's controller. This address is used as a network endpoint for
+processing traffic of backend network endpoints defined in routes.</p><p>See the <a href="https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.Gateway">Gateway</a>
+reference for a full definition of this API kind.</p><h3 id="api-kind-httproute">HTTPRoute</h3><p>The HTTPRoute kind specifies routing behavior of HTTP requests from a Gateway listener to backend network
+endpoints. For a Service backend, an implementation may represent the backend network endpoint as a Service
+IP or the backing EndpointSlices of the Service. An HTTPRoute represents configuration that is applied to the
+underlying Gateway implementation. For example, defining a new HTTPRoute may result in configuring additional
+traffic routes in a cloud load balancer or in-cluster proxy server.</p><p>A minimal HTTPRoute example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>gateway.networking.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>HTTPRoute<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-httproute<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">parentRefs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-gateway<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostnames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"www.example.com"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">rules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">matches</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">path</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>PathPrefix<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">value</span>:<span style="color:#bbb"> </span>/login<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">backendRefs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-svc<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">8080</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>In this example, HTTP traffic from Gateway <code>example-gateway</code> with the Host: header set to <code>www.example.com</code>
+and the request path specified as <code>/login</code> will be routed to Service <code>example-svc</code> on port <code>8080</code>.</p><p>See the <a href="https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.HTTPRoute">HTTPRoute</a>
+reference for a full definition of this API kind.</p><h3 id="api-kind-grpcroute">GRPCRoute</h3><p>The GRPCRoute kind specifies routing behavior of gRPC requests from a Gateway listener to backend network
+endpoints. For a Service backend, an implementation may represent the backend network endpoint as a Service
+IP or the backing EndpointSlices of the Service. A GRPCRoute represents configuration that is applied to the
+underlying Gateway implementation. For example, defining a new GRPCRoute may result in configuring additional
+traffic routes in a cloud load balancer or in-cluster proxy server.</p><p>Gateways supporting GRPCRoute are required to support HTTP/2 without an initial upgrade from HTTP/1,
+so gRPC traffic is guaranteed to flow properly.</p><p>A minimal GRPCRoute example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>gateway.networking.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>GRPCRoute<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-grpcroute<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">parentRefs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-gateway<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostnames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"svc.example.com"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">rules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">backendRefs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-svc<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">50051</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>In this example, gRPC traffic from Gateway <code>example-gateway</code> with the host set to <code>svc.example.com</code>
+will be directed to the service <code>example-svc</code> on port <code>50051</code> from the same namespace.</p><p>GRPCRoute allows matching specific gRPC services, as per the following example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>gateway.networking.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>GRPCRoute<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-grpcroute<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">parentRefs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-gateway<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostnames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"svc.example.com"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">rules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">matches</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">method</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">service</span>:<span style="color:#bbb"> </span>com.example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">method</span>:<span style="color:#bbb"> </span>Login<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">backendRefs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>foo-svc<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">50051</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>In this case, the GRPCRoute will match any traffic for svc.example.com and apply its routing rules
+to forward the traffic to the correct backend. Since there is only one match specified,only requests
+for the com.example.User.Login method to svc.example.com will be forwarded.
+RPCs of any other method` will not be matched by this Route.</p><p>See the <a href="https://gateway-api.sigs.k8s.io/reference/spec/#grpcroute">GRPCRoute</a>
+reference for a full definition of this API kind.</p><h2 id="request-flow">Request flow</h2><p>Here is a simple example of HTTP traffic being routed to a Service by using a Gateway and an HTTPRoute:</p><figure class="diagram-medium"><img src="/docs/images/gateway-request-flow.svg" alt="A diagram that provides an example of HTTP traffic being routed to a Service by using a Gateway and an HTTPRoute"/></figure><p>In this example, the request flow for a Gateway implemented as a reverse proxy is:</p><ol><li>The client starts to prepare an HTTP request for the URL <code>http://www.example.com</code></li><li>The client's DNS resolver queries for the destination name and learns a mapping to
+one or more IP addresses associated with the Gateway.</li><li>The client sends a request to the Gateway IP address; the reverse proxy receives the HTTP
+request and uses the Host: header to match a configuration that was derived from the Gateway
+and attached HTTPRoute.</li><li>Optionally, the reverse proxy can perform request header and/or path matching based
+on match rules of the HTTPRoute.</li><li>Optionally, the reverse proxy can modify the request; for example, to add or remove headers,
+based on filter rules of the HTTPRoute.</li><li>Lastly, the reverse proxy forwards the request to one or more backends.</li></ol><h2 id="conformance">Conformance</h2><p>Gateway API covers a broad set of features and is widely implemented. This combination requires
+clear conformance definitions and tests to ensure that the API provides a consistent experience
+wherever it is used.</p><p>See the <a href="https://gateway-api.sigs.k8s.io/concepts/conformance/">conformance</a> documentation to
+understand details such as release channels, support levels, and running conformance tests.</p><h2 id="migrating-from-ingress">Migrating from Ingress</h2><p>Gateway API is the successor to the <a href="/docs/concepts/services-networking/ingress/">Ingress</a> API.
+However, it does not include the Ingress kind. As a result, a one-time conversion from your existing
+Ingress resources to Gateway API resources is necessary.</p><p>Refer to the <a href="https://gateway-api.sigs.k8s.io/guides/migrating-from-ingress/#migrating-from-ingress">ingress migration</a>
+guide for details on migrating Ingress resources to Gateway API resources.</p><h2 id="what-s-next">What's next</h2><p>Instead of Gateway API resources being natively implemented by Kubernetes, the specifications
+are defined as <a href="/docs/concepts/extend-kubernetes/api-extension/custom-resources/">Custom Resources</a>
+supported by a wide range of <a href="https://gateway-api.sigs.k8s.io/implementations/">implementations</a>.
+<a href="https://gateway-api.sigs.k8s.io/guides/#installing-gateway-api">Install</a> the Gateway API CRDs or
+follow the installation instructions of your selected implementation. After installing an
+implementation, use the <a href="https://gateway-api.sigs.k8s.io/guides/">Getting Started</a> guide to help
+you quickly start working with Gateway API.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Make sure to review the documentation of your selected implementation to understand any caveats.</div><p>Refer to the <a href="https://gateway-api.sigs.k8s.io/reference/spec/">API specification</a> for additional
+details of all Gateway API kinds.</p></div>

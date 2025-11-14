@@ -1,0 +1,38 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Workload Management</h1><p>Kubernetes provides several built-in APIs for declarative management of your
+<a class="glossary-tooltip" title="A workload is an application running on Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/" target="_blank" aria-label="workloads">workloads</a>
+and the components of those workloads.</p><p>Ultimately, your applications run as containers inside
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a>; however, managing individual
+Pods would be a lot of effort. For example, if a Pod fails, you probably want to
+run a new Pod to replace it. Kubernetes can do that for you.</p><p>You use the Kubernetes API to create a workload
+<a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="object">object</a> that represents a higher abstraction level
+than a Pod, and then the Kubernetes
+<a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a> automatically manages
+Pod objects on your behalf, based on the specification for the workload object you defined.</p><p>The built-in APIs for managing workloads are:</p><p><a href="/docs/concepts/workloads/controllers/deployment/">Deployment</a> (and, indirectly, <a href="/docs/concepts/workloads/controllers/replicaset/">ReplicaSet</a>),
+the most common way to run an application on your cluster.
+Deployment is a good fit for managing a stateless application workload on your cluster, where
+any Pod in the Deployment is interchangeable and can be replaced if needed.
+(Deployments are a replacement for the legacy
+<a class="glossary-tooltip" title="A (deprecated) API object that manages a replicated application." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-replication-controller" target="_blank" aria-label="ReplicationController">ReplicationController</a> API).</p><p>A <a href="/docs/concepts/workloads/controllers/statefulset/">StatefulSet</a> lets you
+manage one or more Pods – all running the same application code – where the Pods rely
+on having a distinct identity. This is different from a Deployment where the Pods are
+expected to be interchangeable.
+The most common use for a StatefulSet is to be able to make a link between its Pods and
+their persistent storage. For example, you can run a StatefulSet that associates each Pod
+with a <a href="/docs/concepts/storage/persistent-volumes/">PersistentVolume</a>. If one of the Pods
+in the StatefulSet fails, Kubernetes makes a replacement Pod that is connected to the
+same PersistentVolume.</p><p>A <a href="/docs/concepts/workloads/controllers/daemonset/">DaemonSet</a> defines Pods that provide
+facilities that are local to a specific <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a>;
+for example, a driver that lets containers on that node access a storage system. You use a DaemonSet
+when the driver, or other node-level service, has to run on the node where it's useful.
+Each Pod in a DaemonSet performs a role similar to a system daemon on a classic Unix / POSIX
+server.
+A DaemonSet might be fundamental to the operation of your cluster,
+such as a plugin to let that node access
+<a href="/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-network-model">cluster networking</a>,
+it might help you to manage the node,
+or it could provide less essential facilities that enhance the container platform you are running.
+You can run DaemonSets (and their pods) across every node in your cluster, or across just a subset (for example,
+only install the GPU accelerator driver on nodes that have a GPU installed).</p><p>You can use a <a href="/docs/concepts/workloads/controllers/job/">Job</a> and / or
+a <a href="/docs/concepts/workloads/controllers/cron-jobs/">CronJob</a> to
+define tasks that run to completion and then stop. A Job represents a one-off task,
+whereas each CronJob repeats according to a schedule.</p><p>Other topics in this section:</p><div class="section-index"><ul><li><a href="/docs/concepts/workloads/controllers/ttlafterfinished/">Automatic Cleanup for Finished Jobs</a></li><li><a href="/docs/concepts/workloads/controllers/replicationcontroller/">ReplicationController</a></li></ul></div></div>

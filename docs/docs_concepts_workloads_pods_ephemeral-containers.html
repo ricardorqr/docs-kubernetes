@@ -1,0 +1,28 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Ephemeral Containers</h1><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.25 [stable]</code></div><p>This page provides an overview of ephemeral containers: a special type of container
+that runs temporarily in an existing <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a> to
+accomplish user-initiated actions such as troubleshooting. You use ephemeral
+containers to inspect services rather than to build applications.</p><h2 id="understanding-ephemeral-containers">Understanding ephemeral containers</h2><p><a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a> are the fundamental building
+block of Kubernetes applications. Since Pods are intended to be disposable and
+replaceable, you cannot add a container to a Pod once it has been created.
+Instead, you usually delete and replace Pods in a controlled fashion using
+<a class="glossary-tooltip" title="Manages a replicated application on your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/deployment/" target="_blank" aria-label="deployments">deployments</a>.</p><p>Sometimes it's necessary to inspect the state of an existing Pod, however, for
+example to troubleshoot a hard-to-reproduce bug. In these cases you can run
+an ephemeral container in an existing Pod to inspect its state and run
+arbitrary commands.</p><h3 id="what-is-an-ephemeral-container">What is an ephemeral container?</h3><p>Ephemeral containers differ from other containers in that they lack guarantees
+for resources or execution, and they will never be automatically restarted, so
+they are not appropriate for building applications. Ephemeral containers are
+described using the same <code>ContainerSpec</code> as regular containers, but many fields
+are incompatible and disallowed for ephemeral containers.</p><ul><li>Ephemeral containers may not have ports, so fields such as <code>ports</code>,
+<code>livenessProbe</code>, <code>readinessProbe</code> are disallowed.</li><li>Pod resource allocations are immutable, so setting <code>resources</code> is disallowed.</li><li>For a complete list of allowed fields, see the <a href="/docs/reference/generated/kubernetes-api/v1.34/#ephemeralcontainer-v1-core">EphemeralContainer reference
+documentation</a>.</li></ul><p>Ephemeral containers are created using a special <code>ephemeralcontainers</code> handler
+in the API rather than by adding them directly to <code>pod.spec</code>, so it's not
+possible to add an ephemeral container using <code>kubectl edit</code>.</p><p>Like regular containers, you may not change or remove an ephemeral container
+after you have added it to a Pod.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Ephemeral containers are not supported by <a href="/docs/tasks/configure-pod-container/static-pod/">static pods</a>.</div><h2 id="uses-for-ephemeral-containers">Uses for ephemeral containers</h2><p>Ephemeral containers are useful for interactive troubleshooting when <code>kubectl exec</code> is insufficient because a container has crashed or a container image
+doesn't include debugging utilities.</p><p>In particular, <a href="https://github.com/GoogleContainerTools/distroless">distroless images</a>
+enable you to deploy minimal container images that reduce attack surface
+and exposure to bugs and vulnerabilities. Since distroless images do not include a
+shell or any debugging utilities, it's difficult to troubleshoot distroless
+images using <code>kubectl exec</code> alone.</p><p>When using ephemeral containers, it's helpful to enable <a href="/docs/tasks/configure-pod-container/share-process-namespace/">process namespace
+sharing</a> so
+you can view processes in other containers.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn how to <a href="/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container">debug pods using ephemeral containers</a>.</li></ul></div>

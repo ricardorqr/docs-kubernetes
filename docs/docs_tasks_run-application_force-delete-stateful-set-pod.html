@@ -1,0 +1,43 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Force Delete StatefulSet Pods</h1><p>This page shows how to delete Pods which are part of a
+<a class="glossary-tooltip" title="A StatefulSet manages deployment and scaling of a set of Pods, with durable storage and persistent identifiers for each Pod." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/statefulset/" target="_blank" aria-label="stateful set">stateful set</a>,
+and explains the considerations to keep in mind when doing so.</p><h2 id="before-you-begin">Before you begin</h2><ul><li>This is a fairly advanced task and has the potential to violate some of the properties
+inherent to StatefulSet.</li><li>Before proceeding, make yourself familiar with the considerations enumerated below.</li></ul><h2 id="statefulset-considerations">StatefulSet considerations</h2><p>In normal operation of a StatefulSet, there is <strong>never</strong> a need to force delete a StatefulSet Pod.
+The <a href="/docs/concepts/workloads/controllers/statefulset/">StatefulSet controller</a> is responsible for
+creating, scaling and deleting members of the StatefulSet. It tries to ensure that the specified
+number of Pods from ordinal 0 through N-1 are alive and ready. StatefulSet ensures that, at any time,
+there is at most one Pod with a given identity running in a cluster. This is referred to as
+<em>at most one</em> semantics provided by a StatefulSet.</p><p>Manual force deletion should be undertaken with caution, as it has the potential to violate the
+at most one semantics inherent to StatefulSet. StatefulSets may be used to run distributed and
+clustered applications which have a need for a stable network identity and stable storage.
+These applications often have configuration which relies on an ensemble of a fixed number of
+members with fixed identities. Having multiple members with the same identity can be disastrous
+and may lead to data loss (e.g. split brain scenario in quorum-based systems).</p><h2 id="delete-pods">Delete Pods</h2><p>You can perform a graceful pod deletion with the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete pods &lt;pod&gt;
+</span></span></code></pre></div><p>For the above to lead to graceful termination, the Pod <strong>must not</strong> specify a
+<code>pod.Spec.TerminationGracePeriodSeconds</code> of 0. The practice of setting a
+<code>pod.Spec.TerminationGracePeriodSeconds</code> of 0 seconds is unsafe and strongly discouraged
+for StatefulSet Pods. Graceful deletion is safe and will ensure that the Pod
+<a href="/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination">shuts down gracefully</a>
+before the kubelet deletes the name from the apiserver.</p><p>A Pod is not deleted automatically when a node is unreachable.
+The Pods running on an unreachable Node enter the 'Terminating' or 'Unknown' state after a
+<a href="/docs/concepts/architecture/nodes/#condition">timeout</a>.
+Pods may also enter these states when the user attempts graceful deletion of a Pod
+on an unreachable Node.
+The only ways in which a Pod in such a state can be removed from the apiserver are as follows:</p><ul><li>The Node object is deleted (either by you, or by the
+<a href="/docs/concepts/architecture/nodes/#node-controller">Node Controller</a>).</li><li>The kubelet on the unresponsive Node starts responding, kills the Pod and removes the entry
+from the apiserver.</li><li>Force deletion of the Pod by the user.</li></ul><p>The recommended best practice is to use the first or second approach. If a Node is confirmed
+to be dead (e.g. permanently disconnected from the network, powered down, etc), then delete
+the Node object. If the Node is suffering from a network partition, then try to resolve this
+or wait for it to resolve. When the partition heals, the kubelet will complete the deletion
+of the Pod and free up its name in the apiserver.</p><p>Normally, the system completes the deletion once the Pod is no longer running on a Node, or
+the Node is deleted by an administrator. You may override this by force deleting the Pod.</p><h3 id="force-deletion">Force Deletion</h3><p>Force deletions <strong>do not</strong> wait for confirmation from the kubelet that the Pod has been terminated.
+Irrespective of whether a force deletion is successful in killing a Pod, it will immediately
+free up the name from the apiserver. This would let the StatefulSet controller create a replacement
+Pod with that same identity; this can lead to the duplication of a still-running Pod,
+and if said Pod can still communicate with the other members of the StatefulSet,
+will violate the at most one semantics that StatefulSet is designed to guarantee.</p><p>When you force delete a StatefulSet pod, you are asserting that the Pod in question will never
+again make contact with other Pods in the StatefulSet and its name can be safely freed up for a
+replacement to be created.</p><p>If you want to delete a Pod forcibly using kubectl version &gt;= 1.5, do the following:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete pods &lt;pod&gt; --grace-period<span style="color:#666">=</span><span style="color:#666">0</span> --force
+</span></span></code></pre></div><p>If you're using any version of kubectl &lt;= 1.4, you should omit the <code>--force</code> option and use:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete pods &lt;pod&gt; --grace-period<span style="color:#666">=</span><span style="color:#666">0</span>
+</span></span></code></pre></div><p>If even after these commands the pod is stuck on <code>Unknown</code> state, use the following command to
+remove the pod from the cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl patch pod &lt;pod&gt; -p <span style="color:#b44">'{"metadata":{"finalizers":null}}'</span>
+</span></span></code></pre></div><p>Always perform force deletion of StatefulSet Pods carefully and with complete knowledge of the risks involved.</p><h2 id="what-s-next">What's next</h2><p>Learn more about <a href="/docs/tasks/debug/debug-application/debug-statefulset/">debugging a StatefulSet</a>.</p></div>

@@ -1,0 +1,148 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Extend kubectl with plugins</h1><div class="lead">Extend kubectl by creating and installing kubectl plugins.</div><p>This guide demonstrates how to install and write extensions for <a href="/docs/reference/kubectl/kubectl/">kubectl</a>.
+By thinking of core <code>kubectl</code> commands as essential building blocks for interacting with a Kubernetes cluster,
+a cluster administrator can think of plugins as a means of utilizing these building blocks to create more complex behavior.
+Plugins extend <code>kubectl</code> with new sub-commands, allowing for new and custom features not included in the main distribution of <code>kubectl</code>.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a working <code>kubectl</code> binary installed.</p><h2 id="installing-kubectl-plugins">Installing kubectl plugins</h2><p>A plugin is a standalone executable file, whose name begins with <code>kubectl-</code>. To install a plugin, move its executable file to anywhere on your <code>PATH</code>.</p><p>You can also discover and install kubectl plugins available in the open source
+using <a href="https://krew.dev/">Krew</a>. Krew is a plugin manager maintained by
+the Kubernetes SIG CLI community.</p><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>Kubectl plugins available via the Krew <a href="https://krew.sigs.k8s.io/plugins/">plugin index</a>
+are not audited for security. You should install and run third-party plugins at your
+own risk, since they are arbitrary programs running on your machine.</div><h3 id="discovering-plugins">Discovering plugins</h3><p><code>kubectl</code> provides a command <code>kubectl plugin list</code> that searches your <code>PATH</code> for valid plugin executables.
+Executing this command causes a traversal of all files in your <code>PATH</code>. Any files that are executable, and
+begin with <code>kubectl-</code> will show up <em>in the order in which they are present in your <code>PATH</code></em> in this command's output.
+A warning will be included for any files beginning with <code>kubectl-</code> that are <em>not</em> executable.
+A warning will also be included for any valid plugin files that overlap each other's name.</p><p>You can use <a href="https://krew.dev/">Krew</a> to discover and install <code>kubectl</code>
+plugins from a community-curated
+<a href="https://krew.sigs.k8s.io/plugins/">plugin index</a>.</p><h4 id="create-plugins">Create plugins</h4><p><code>kubectl</code> allows plugins to add custom create commands of the shape <code>kubectl create something</code> by providing a <code>kubectl-create-something</code> binary in the <code>PATH</code>.</p><h4 id="limitations">Limitations</h4><p>It is currently not possible to create plugins that overwrite existing <code>kubectl</code> commands or extend commands other than <code>create</code>.
+For example, creating a plugin <code>kubectl-version</code> will cause that plugin to never be executed, as the existing <code>kubectl version</code>
+command will always take precedence over it.
+Due to this limitation, it is also <em>not</em> possible to use plugins to add new subcommands to existing <code>kubectl</code> commands.
+For example, adding a subcommand <code>kubectl attach vm</code> by naming your plugin <code>kubectl-attach-vm</code> will cause that plugin to be ignored.</p><p><code>kubectl plugin list</code> shows warnings for any valid plugins that attempt to do this.</p><h2 id="writing-kubectl-plugins">Writing kubectl plugins</h2><p>You can write a plugin in any programming language or script that allows you to write command-line commands.</p><p>There is no plugin installation or pre-loading required. Plugin executables receive
+the inherited environment from the <code>kubectl</code> binary.
+A plugin determines which command path it wishes to implement based on its name.
+For example, a plugin named <code>kubectl-foo</code> provides a command <code>kubectl foo</code>. You must
+install the plugin executable somewhere in your <code>PATH</code>.</p><h3 id="example-plugin">Example plugin</h3><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080">#!/bin/bash
+</span></span></span><span style="display:flex"><span><span style="color:#080"/>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># optional argument handling</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">if</span> <span style="color:#666">[[</span> <span style="color:#b44">"</span><span style="color:#b8860b">$1</span><span style="color:#b44">"</span> <span style="color:#666">==</span> <span style="color:#b44">"version"</span> <span style="color:#666">]]</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">then</span>
+</span></span><span style="display:flex"><span>    <span style="color:#a2f">echo</span> <span style="color:#b44">"1.0.0"</span>
+</span></span><span style="display:flex"><span>    <span style="color:#a2f">exit</span> <span style="color:#666">0</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">fi</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># optional argument handling</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">if</span> <span style="color:#666">[[</span> <span style="color:#b44">"</span><span style="color:#b8860b">$1</span><span style="color:#b44">"</span> <span style="color:#666">==</span> <span style="color:#b44">"config"</span> <span style="color:#666">]]</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">then</span>
+</span></span><span style="display:flex"><span>    <span style="color:#a2f">echo</span> <span style="color:#b44">"</span><span style="color:#b8860b">$KUBECONFIG</span><span style="color:#b44">"</span>
+</span></span><span style="display:flex"><span>    <span style="color:#a2f">exit</span> <span style="color:#666">0</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">fi</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">"I am a plugin named kubectl-foo"</span>
+</span></span></code></pre></div><h3 id="using-a-plugin">Using a plugin</h3><p>To use a plugin, make the plugin executable:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo chmod +x ./kubectl-foo
+</span></span></code></pre></div><p>and place it anywhere in your <code>PATH</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo mv ./kubectl-foo /usr/local/bin
+</span></span></code></pre></div><p>You may now invoke your plugin as a <code>kubectl</code> command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl foo
+</span></span></code></pre></div><pre tabindex="0"><code>I am a plugin named kubectl-foo
+</code></pre><p>All args and flags are passed as-is to the executable:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl foo version
+</span></span></code></pre></div><pre tabindex="0"><code>1.0.0
+</code></pre><p>All environment variables are also passed as-is to the executable:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">KUBECONFIG</span><span style="color:#666">=</span>~/.kube/config
+</span></span><span style="display:flex"><span>kubectl foo config
+</span></span></code></pre></div><pre tabindex="0"><code>/home/&lt;user&gt;/.kube/config
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">KUBECONFIG</span><span style="color:#666">=</span>/etc/kube/config kubectl foo config
+</span></span></code></pre></div><pre tabindex="0"><code>/etc/kube/config
+</code></pre><p>Additionally, the first argument that is passed to a plugin will always be the full path to the location where it was invoked (<code>$0</code> would equal <code>/usr/local/bin/kubectl-foo</code> in the example above).</p><h3 id="naming-a-plugin">Naming a plugin</h3><p>As seen in the example above, a plugin determines the command path that it will implement based on its filename. Every sub-command in the command path that a plugin targets, is separated by a dash (<code>-</code>).
+For example, a plugin that wishes to be invoked whenever the command <code>kubectl foo bar baz</code> is invoked by the user, would have the filename of <code>kubectl-foo-bar-baz</code>.</p><h4 id="flags-and-argument-handling">Flags and argument handling</h4><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The plugin mechanism does <em>not</em> create any custom, plugin-specific values or environment variables for a plugin process.</p><p>An older kubectl plugin mechanism provided environment variables such as <code>KUBECTL_PLUGINS_CURRENT_NAMESPACE</code>; that no longer happens.</p></div><p>kubectl plugins must parse and validate all of the arguments passed to them.
+See <a href="#using-the-command-line-runtime-package">using the command line runtime package</a> for details of a Go library aimed at plugin authors.</p><p>Here are some additional cases where users invoke your plugin while providing additional flags and arguments. This builds upon the <code>kubectl-foo-bar-baz</code> plugin from the scenario above.</p><p>If you run <code>kubectl foo bar baz arg1 --flag=value arg2</code>, kubectl's plugin mechanism will first try to find the plugin with the longest possible name, which in this case
+would be <code>kubectl-foo-bar-baz-arg1</code>. Upon not finding that plugin, kubectl then treats the last dash-separated value as an argument (<code>arg1</code> in this case), and attempts to find the next longest possible name, <code>kubectl-foo-bar-baz</code>.
+Upon having found a plugin with this name, kubectl then invokes that plugin, passing all args and flags after the plugin's name as arguments to the plugin process.</p><p>Example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># create a plugin</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> -e <span style="color:#b44">'#!/bin/bash\n\necho "My first command-line argument was $1"'</span> &gt; kubectl-foo-bar-baz
+</span></span><span style="display:flex"><span>sudo chmod +x ./kubectl-foo-bar-baz
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># "install" your plugin by moving it to a directory in your $PATH</span>
+</span></span><span style="display:flex"><span>sudo mv ./kubectl-foo-bar-baz /usr/local/bin
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># check that kubectl recognizes your plugin</span>
+</span></span><span style="display:flex"><span>kubectl plugin list
+</span></span></code></pre></div><pre tabindex="0"><code>The following kubectl-compatible plugins are available:
+
+/usr/local/bin/kubectl-foo-bar-baz
+</code></pre><pre tabindex="0"><code># test that calling your plugin via a "kubectl" command works
+# even when additional arguments and flags are passed to your
+# plugin executable by the user.
+kubectl foo bar baz arg1 --meaningless-flag=true
+</code></pre><pre tabindex="0"><code>My first command-line argument was arg1
+</code></pre><p>As you can see, your plugin was found based on the <code>kubectl</code> command specified by a user, and all extra arguments and flags were passed as-is to the plugin executable once it was found.</p><h4 id="names-with-dashes-and-underscores">Names with dashes and underscores</h4><p>Although the <code>kubectl</code> plugin mechanism uses the dash (<code>-</code>) in plugin filenames to separate the sequence of sub-commands processed by the plugin, it is still possible to create a plugin
+command containing dashes in its commandline invocation by using underscores (<code>_</code>) in its filename.</p><p>Example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># create a plugin containing an underscore in its filename</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> -e <span style="color:#b44">'#!/bin/bash\n\necho "I am a plugin with a dash in my name"'</span> &gt; ./kubectl-foo_bar
+</span></span><span style="display:flex"><span>sudo chmod +x ./kubectl-foo_bar
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># move the plugin into your $PATH</span>
+</span></span><span style="display:flex"><span>sudo mv ./kubectl-foo_bar /usr/local/bin
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># You can now invoke your plugin via kubectl:</span>
+</span></span><span style="display:flex"><span>kubectl foo-bar
+</span></span></code></pre></div><pre tabindex="0"><code>I am a plugin with a dash in my name
+</code></pre><p>Note that the introduction of underscores to a plugin filename does not prevent you from having commands such as <code>kubectl foo_bar</code>.
+The command from the above example, can be invoked using either a dash (<code>-</code>) or an underscore (<code>_</code>):</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># You can invoke your custom command with a dash</span>
+</span></span><span style="display:flex"><span>kubectl foo-bar
+</span></span></code></pre></div><pre tabindex="0"><code>I am a plugin with a dash in my name
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># You can also invoke your custom command with an underscore</span>
+</span></span><span style="display:flex"><span>kubectl foo_bar
+</span></span></code></pre></div><pre tabindex="0"><code>I am a plugin with a dash in my name
+</code></pre><h4 id="name-conflicts-and-overshadowing">Name conflicts and overshadowing</h4><p>It is possible to have multiple plugins with the same filename in different locations throughout your <code>PATH</code>.
+For example, given a <code>PATH</code> with the following value: <code>PATH=/usr/local/bin/plugins:/usr/local/bin/moreplugins</code>, a copy of plugin <code>kubectl-foo</code> could exist in <code>/usr/local/bin/plugins</code> and <code>/usr/local/bin/moreplugins</code>,
+such that the output of the <code>kubectl plugin list</code> command is:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#b8860b">PATH</span><span style="color:#666">=</span>/usr/local/bin/plugins:/usr/local/bin/moreplugins kubectl plugin list
+</span></span></code></pre></div><pre tabindex="0"><code>The following kubectl-compatible plugins are available:
+
+/usr/local/bin/plugins/kubectl-foo
+/usr/local/bin/moreplugins/kubectl-foo
+  - warning: /usr/local/bin/moreplugins/kubectl-foo is overshadowed by a similarly named plugin: /usr/local/bin/plugins/kubectl-foo
+
+error: one plugin warning was found
+</code></pre><p>In the above scenario, the warning under <code>/usr/local/bin/moreplugins/kubectl-foo</code> tells you that this plugin will never be executed. Instead, the executable that appears first in your <code>PATH</code>, <code>/usr/local/bin/plugins/kubectl-foo</code>, will always be found and executed first by the <code>kubectl</code> plugin mechanism.</p><p>A way to resolve this issue is to ensure that the location of the plugin that you wish to use with <code>kubectl</code> always comes first in your <code>PATH</code>. For example, if you want to always use <code>/usr/local/bin/moreplugins/kubectl-foo</code> anytime that the <code>kubectl</code> command <code>kubectl foo</code> was invoked, change the value of your <code>PATH</code> to be <code>/usr/local/bin/moreplugins:/usr/local/bin/plugins</code>.</p><h4 id="invocation-of-the-longest-executable-filename">Invocation of the longest executable filename</h4><p>There is another kind of overshadowing that can occur with plugin filenames. Given two plugins present in a user's <code>PATH</code>: <code>kubectl-foo-bar</code> and <code>kubectl-foo-bar-baz</code>, the <code>kubectl</code> plugin mechanism will always choose the longest possible plugin name for a given user command. Some examples below, clarify this further:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># for a given kubectl command, the plugin with the longest possible filename will always be preferred</span>
+</span></span><span style="display:flex"><span>kubectl foo bar baz
+</span></span></code></pre></div><pre tabindex="0"><code>Plugin kubectl-foo-bar-baz is executed
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl foo bar
+</span></span></code></pre></div><pre tabindex="0"><code>Plugin kubectl-foo-bar is executed
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl foo bar baz buz
+</span></span></code></pre></div><pre tabindex="0"><code>Plugin kubectl-foo-bar-baz is executed, with "buz" as its first argument
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl foo bar buz
+</span></span></code></pre></div><pre tabindex="0"><code>Plugin kubectl-foo-bar is executed, with "buz" as its first argument
+</code></pre><p>This design choice ensures that plugin sub-commands can be implemented across multiple files, if needed, and that these sub-commands can be nested under a "parent" plugin command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>ls ./plugin_command_tree
+</span></span></code></pre></div><pre tabindex="0"><code>kubectl-parent
+kubectl-parent-subcommand
+kubectl-parent-subcommand-subsubcommand
+</code></pre><h3 id="checking-for-plugin-warnings">Checking for plugin warnings</h3><p>You can use the aforementioned <code>kubectl plugin list</code> command to ensure that your plugin is visible by <code>kubectl</code>, and verify that there are no warnings preventing it from being called as a <code>kubectl</code> command.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl plugin list
+</span></span></code></pre></div><pre tabindex="0"><code>The following kubectl-compatible plugins are available:
+
+test/fixtures/pkg/kubectl/plugins/kubectl-foo
+/usr/local/bin/kubectl-foo
+  - warning: /usr/local/bin/kubectl-foo is overshadowed by a similarly named plugin: test/fixtures/pkg/kubectl/plugins/kubectl-foo
+plugins/kubectl-invalid
+  - warning: plugins/kubectl-invalid identified as a kubectl plugin, but it is not executable
+
+error: 2 plugin warnings were found
+</code></pre><h3 id="using-the-command-line-runtime-package">Using the command line runtime package</h3><p>If you're writing a plugin for kubectl and you're using Go, you can make use
+of the
+<a href="https://github.com/kubernetes/cli-runtime">cli-runtime</a> utility libraries.</p><p>These libraries provide helpers for parsing or updating a user's
+<a href="/docs/concepts/configuration/organize-cluster-access-kubeconfig/">kubeconfig</a>
+file, for making REST-style requests to the API server, or to bind flags
+associated with configuration and printing.</p><p>See the <a href="https://github.com/kubernetes/sample-cli-plugin">Sample CLI Plugin</a> for
+an example usage of the tools provided in the CLI Runtime repo.</p><h2 id="distributing-kubectl-plugins">Distributing kubectl plugins</h2><p>If you have developed a plugin for others to use, you should consider how you
+package it, distribute it and deliver updates to your users.</p><h3 id="distributing-krew">Krew</h3><p><a href="https://krew.dev/">Krew</a> offers a cross-platform way to package and
+distribute your plugins. This way, you use a single packaging format for all
+target platforms (Linux, Windows, macOS etc) and deliver updates to your users.
+Krew also maintains a <a href="https://krew.sigs.k8s.io/plugins/">plugin
+index</a> so that other people can
+discover your plugin and install it.</p><h3 id="distributing-native">Native / platform specific package management</h3><p>Alternatively, you can use traditional package managers such as, <code>apt</code> or <code>yum</code>
+on Linux, Chocolatey on Windows, and Homebrew on macOS. Any package
+manager will be suitable if it can place new executables placed somewhere
+in the user's <code>PATH</code>.
+As a plugin author, if you pick this option then you also have the burden
+of updating your kubectl plugin's distribution package across multiple
+platforms for each release.</p><h3 id="distributing-source-code">Source code</h3><p>You can publish the source code; for example, as a Git repository. If you
+choose this option, someone who wants to use that plugin must fetch the code,
+set up a build environment (if it needs compiling), and deploy the plugin.
+If you also make compiled packages available, or use Krew, that will make
+installs easier.</p><h2 id="what-s-next">What's next</h2><ul><li>Check the Sample CLI Plugin repository for a
+<a href="https://github.com/kubernetes/sample-cli-plugin">detailed example</a> of a
+plugin written in Go.
+In case of any questions, feel free to reach out to the
+<a href="https://github.com/kubernetes/community/tree/master/sig-cli">SIG CLI team</a>.</li><li>Read about <a href="https://krew.dev/">Krew</a>, a package manager for kubectl plugins.</li></ul></div>

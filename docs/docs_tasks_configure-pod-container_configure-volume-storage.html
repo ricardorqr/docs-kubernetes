@@ -1,0 +1,61 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Configure a Pod to Use a Volume for Storage</h1><p>This page shows how to configure a Pod to use a Volume for storage.</p><p>A Container's file system lives only as long as the Container does. So when a
+Container terminates and restarts, filesystem changes are lost. For more
+consistent storage that is independent of the Container, you can use a
+<a href="/docs/concepts/storage/volumes/">Volume</a>. This is especially important for stateful
+applications, such as key-value stores (such as Redis) and databases.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="configure-a-volume-for-a-pod">Configure a volume for a Pod</h2><p>In this exercise, you create a Pod that runs one Container. This Pod has a
+Volume of type
+<a href="/docs/concepts/storage/volumes/#emptydir">emptyDir</a>
+that lasts for the life of the Pod, even if the Container terminates and
+restarts. Here is the configuration file for the Pod:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/storage/redis.yaml" download="pods/storage/redis.yaml"><code>pods/storage/redis.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-storage-redis-yaml&quot;)" title="Copy pods/storage/redis.yaml to clipboard"/></div><div class="includecode" id="pods-storage-redis-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>redis<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>redis<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>redis<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>redis-storage<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/data/redis<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>redis-storage<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><ol><li><p>Create the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/storage/redis.yaml
+</span></span></code></pre></div></li><li><p>Verify that the Pod's Container is running, and then watch for changes to
+the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pod redis --watch
+</span></span></code></pre></div><p>The output looks like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">NAME      READY     STATUS    RESTARTS   AGE
+</span></span></span><span style="display:flex"><span><span style="color:#888">redis     1/1       Running   0          13s
+</span></span></span></code></pre></div></li><li><p>In another terminal, get a shell to the running Container:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it redis -- /bin/bash
+</span></span></code></pre></div></li><li><p>In your shell, go to <code>/data/redis</code>, and then create a file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>root@redis:/data# <span style="color:#a2f">cd</span> /data/redis/
+</span></span><span style="display:flex"><span>root@redis:/data/redis# <span style="color:#a2f">echo</span> Hello &gt; test-file
+</span></span></code></pre></div></li><li><p>In your shell, list the running processes:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>root@redis:/data/redis# apt-get update
+</span></span><span style="display:flex"><span>root@redis:/data/redis# apt-get install procps
+</span></span><span style="display:flex"><span>root@redis:/data/redis# ps aux
+</span></span></code></pre></div><p>The output is similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">USER       PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+</span></span></span><span style="display:flex"><span><span style="color:#888">redis        1  0.1  0.1  33308  3828 ?        Ssl  00:46   0:00 redis-server *:6379
+</span></span></span><span style="display:flex"><span><span style="color:#888">root        12  0.0  0.0  20228  3020 ?        Ss   00:47   0:00 /bin/bash
+</span></span></span><span style="display:flex"><span><span style="color:#888">root        15  0.0  0.0  17500  2072 ?        R+   00:48   0:00 ps aux
+</span></span></span></code></pre></div></li><li><p>In your shell, kill the Redis process:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>root@redis:/data/redis# <span style="color:#a2f">kill</span> &lt;pid&gt;
+</span></span></code></pre></div><p>where <code>&lt;pid&gt;</code> is the Redis process ID (PID).</p></li><li><p>In your original terminal, watch for changes to the Redis Pod. Eventually,
+you will see something like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">NAME      READY     STATUS     RESTARTS   AGE
+</span></span></span><span style="display:flex"><span><span style="color:#888">redis     1/1       Running    0          13s
+</span></span></span><span style="display:flex"><span><span style="color:#888">redis     0/1       Completed  0         6m
+</span></span></span><span style="display:flex"><span><span style="color:#888">redis     1/1       Running    1         6m
+</span></span></span></code></pre></div></li></ol><p>At this point, the Container has terminated and restarted. This is because the
+Redis Pod has a
+<a href="/docs/reference/generated/kubernetes-api/v1.34/#podspec-v1-core">restartPolicy</a>
+of <code>Always</code>.</p><ol><li><p>Get a shell into the restarted Container:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it redis -- /bin/bash
+</span></span></code></pre></div></li><li><p>In your shell, go to <code>/data/redis</code>, and verify that <code>test-file</code> is still there.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>root@redis:/data/redis# <span style="color:#a2f">cd</span> /data/redis/
+</span></span><span style="display:flex"><span>root@redis:/data/redis# ls
+</span></span><span style="display:flex"><span>test-file
+</span></span></code></pre></div></li><li><p>Delete the Pod that you created for this exercise:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete pod redis
+</span></span></code></pre></div></li></ol><h2 id="what-s-next">What's next</h2><ul><li><p>See <a href="/docs/reference/generated/kubernetes-api/v1.34/#volume-v1-core">Volume</a>.</p></li><li><p>See <a href="/docs/reference/generated/kubernetes-api/v1.34/#pod-v1-core">Pod</a>.</p></li><li><p>In addition to the local disk storage provided by <code>emptyDir</code>, Kubernetes
+supports many different network-attached storage solutions, including PD on
+GCE and EBS on EC2, which are preferred for critical data and will handle
+details such as mounting and unmounting the devices on the nodes. See
+<a href="/docs/concepts/storage/volumes/">Volumes</a> for more details.</p></li></ul></div>

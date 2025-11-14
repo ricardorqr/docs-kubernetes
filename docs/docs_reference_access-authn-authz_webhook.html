@@ -1,0 +1,146 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Webhook Mode</h1><p>A WebHook is an HTTP callback: an HTTP POST that occurs when something happens; a simple event-notification via HTTP POST. A web application implementing WebHooks will POST a message to a URL when certain things happen.</p><p>When specified, mode <code>Webhook</code> causes Kubernetes to query an outside REST
+service when determining user privileges.</p><h2 id="configuration-file-format">Configuration File Format</h2><p>Mode <code>Webhook</code> requires a file for HTTP configuration, specify by the
+<code>--authorization-webhook-config-file=SOME_FILENAME</code> flag.</p><p>The configuration file uses the <a href="/docs/tasks/access-application-cluster/configure-access-multiple-clusters/">kubeconfig</a>
+file format. Within the file "users" refers to the API Server webhook and
+"clusters" refers to the remote service.</p><p>A configuration example which uses HTTPS client auth:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Kubernetes API version</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># kind of the API object</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Config<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># clusters refers to the remote service.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">clusters</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>name-of-remote-authz-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cluster</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># CA for verifying the remote service.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">certificate-authority</span>:<span style="color:#bbb"> </span>/path/to/ca.pem<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># URL of remote service to query. Must use 'https'. May not include parameters.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">server</span>:<span style="color:#bbb"> </span>https://authz.example.com/authorize<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># users refers to the API Server's webhook configuration.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">users</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>name-of-api-server<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">user</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">client-certificate</span>:<span style="color:#bbb"> </span>/path/to/cert.pem<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># cert for the webhook plugin to use</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">client-key</span>:<span style="color:#bbb"> </span>/path/to/key.pem         <span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># key matching the cert</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># kubeconfig files require a context. Provide one for the API Server.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">current-context</span>:<span style="color:#bbb"> </span>webhook<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">contexts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">context</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cluster</span>:<span style="color:#bbb"> </span>name-of-remote-authz-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">user</span>:<span style="color:#bbb"> </span>name-of-api-server<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>webhook<span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="request-payloads">Request Payloads</h2><p>When faced with an authorization decision, the API Server POSTs a JSON-
+serialized <code>authorization.k8s.io/v1beta1</code> <code>SubjectAccessReview</code> object describing the
+action. This object contains fields describing the user attempting to make the
+request, and either details about the resource being accessed or requests
+attributes.</p><p>Note that webhook API objects are subject to the same <a href="/docs/concepts/overview/kubernetes-api/">versioning compatibility rules</a>
+as other Kubernetes API objects. Implementers should be aware of looser
+compatibility promises for beta objects and check the "apiVersion" field of the
+request to ensure correct deserialization. Additionally, the API Server must
+enable the <code>authorization.k8s.io/v1beta1</code> API extensions group (<code>--runtime-config=authorization.k8s.io/v1beta1=true</code>).</p><p>An example request body:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"authorization.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"SubjectAccessReview"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"spec"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"resourceAttributes"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"namespace"</span>: <span style="color:#b44">"kittensandponies"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"verb"</span>: <span style="color:#b44">"get"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"group"</span>: <span style="color:#b44">"unicorn.example.org"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"resource"</span>: <span style="color:#b44">"pods"</span>
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"user"</span>: <span style="color:#b44">"jane"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"group"</span>: [
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"group1"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"group2"</span>
+</span></span><span style="display:flex"><span>    ]
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>The remote service is expected to fill the <code>status</code> field of
+the request and respond to either allow or disallow access. The response body's
+<code>spec</code> field is ignored and may be omitted. A permissive response would return:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"authorization.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"SubjectAccessReview"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"status"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"allowed"</span>: <span style="color:#a2f;font-weight:700">true</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>For disallowing access there are two methods.</p><p>The first method is preferred in most cases, and indicates the authorization
+webhook does not allow, or has "no opinion" about the request, but if other
+authorizers are configured, they are given a chance to allow the request.
+If there are no other authorizers, or none of them allow the request, the
+request is forbidden. The webhook would return:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"authorization.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"SubjectAccessReview"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"status"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"allowed"</span>: <span style="color:#a2f;font-weight:700">false</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"reason"</span>: <span style="color:#b44">"user does not have read access to the namespace"</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>The second method denies immediately, short-circuiting evaluation by other
+configured authorizers. This should only be used by webhooks that have
+detailed knowledge of the full authorizer configuration of the cluster.
+The webhook would return:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"authorization.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"SubjectAccessReview"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"status"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"allowed"</span>: <span style="color:#a2f;font-weight:700">false</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"denied"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"reason"</span>: <span style="color:#b44">"user does not have read access to the namespace"</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>Access to non-resource paths are sent as:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"authorization.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"SubjectAccessReview"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"spec"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"nonResourceAttributes"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"path"</span>: <span style="color:#b44">"/debug"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"verb"</span>: <span style="color:#b44">"get"</span>
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"user"</span>: <span style="color:#b44">"jane"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"group"</span>: [
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"group1"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"group2"</span>
+</span></span><span style="display:flex"><span>    ]
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><div class="feature-state-notice feature-stable" title="Feature Gate: AuthorizeWithSelectors"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [stable]</code> (enabled by default: true)</div><p>When calling out to an authorization webhook, Kubernetes passes
+label and field selectors in the request to the authorization webhook.
+The authorization webhook can make authorization decisions
+informed by the scoped field and label selectors, if it wishes.</p><p>The <a href="/docs/reference/kubernetes-api/authorization-resources/subject-access-review-v1/">SubjectAccessReview API documentation</a>
+gives guidelines for how these fields should be interpreted and handled by authorization webhooks,
+specifically using the parsed requirements rather than the raw selector strings,
+and how to handle unrecognized operators safely.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"authorization.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"SubjectAccessReview"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"spec"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"resourceAttributes"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"verb"</span>: <span style="color:#b44">"list"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"group"</span>: <span style="color:#b44">""</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"resource"</span>: <span style="color:#b44">"pods"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"fieldSelector"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"requirements"</span>: [
+</span></span><span style="display:flex"><span>          {<span style="color:green;font-weight:700">"key"</span>:<span style="color:#b44">"spec.nodeName"</span>, <span style="color:green;font-weight:700">"operator"</span>:<span style="color:#b44">"In"</span>, <span style="color:green;font-weight:700">"values"</span>:[<span style="color:#b44">"mynode"</span>]}
+</span></span><span style="display:flex"><span>        ]
+</span></span><span style="display:flex"><span>      },
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"labelSelector"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"requirements"</span>: [
+</span></span><span style="display:flex"><span>          {<span style="color:green;font-weight:700">"key"</span>:<span style="color:#b44">"example.com/mykey"</span>, <span style="color:green;font-weight:700">"operator"</span>:<span style="color:#b44">"In"</span>, <span style="color:green;font-weight:700">"values"</span>:[<span style="color:#b44">"myvalue"</span>]}
+</span></span><span style="display:flex"><span>        ]
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"user"</span>: <span style="color:#b44">"jane"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"group"</span>: [
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"group1"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"group2"</span>
+</span></span><span style="display:flex"><span>    ]
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>Non-resource paths include: <code>/api</code>, <code>/apis</code>, <code>/metrics</code>,
+<code>/logs</code>, <code>/debug</code>, <code>/healthz</code>, <code>/livez</code>, <code>/openapi/v2</code>, <code>/readyz</code>, and
+<code>/version.</code> Clients require access to <code>/api</code>, <code>/api/*</code>, <code>/apis</code>, <code>/apis/*</code>,
+and <code>/version</code> to discover what resources and versions are present on the server.
+Access to other non-resource paths can be disallowed without restricting access
+to the REST api.</p><p>For further information, refer to the
+<a href="/docs/reference/kubernetes-api/authorization-resources/subject-access-review-v1/">SubjectAccessReview API documentation</a>
+and
+<a href="https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/plugin/pkg/authorizer/webhook/webhook.go">webhook.go implementation</a>.</p></div>

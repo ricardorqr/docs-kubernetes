@@ -1,0 +1,203 @@
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Issue Wranglers</h1><p>Alongside the <a href="/docs/contribute/participate/pr-wranglers/">PR Wrangler</a>, formal approvers,
+reviewers and members of SIG Docs take week-long shifts
+<a href="/docs/contribute/review/for-approvers/#triage-and-categorize-issues">triaging and categorising issues</a>
+for the repository.</p><h2 id="duties">Duties</h2><p>Each day in a week-long shift the Issue Wrangler will be responsible for:</p><ul><li>Triaging and tagging incoming issues daily. See
+<a href="/docs/contribute/review/for-approvers/#triage-and-categorize-issues">Triage and categorize issues</a>
+for guidelines on how SIG Docs uses metadata.</li><li>Keeping an eye on stale &amp; rotten issues within the kubernetes/website repository.</li><li>Maintenance of the <a href="https://github.com/orgs/kubernetes/projects/72/views/1">Issues board</a>.</li></ul><h2 id="requirements">Requirements</h2><ul><li>Must be an active member of the Kubernetes organization.</li><li>A minimum of 15 <a href="https://www.kubernetes.dev/docs/guide/pull-requests/#trivial-edits">non-trivial</a>
+contributions to Kubernetes (of which a certain amount should be directed towards kubernetes/website).</li><li>Performing the role in an informal capacity already.</li></ul><h2 id="helpful-prow-commands-for-wranglers">Helpful Prow commands for wranglers</h2><p>Below are some commonly used commands for Issue Wranglers:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># reopen an issue</span>
+</span></span><span style="display:flex"><span>/reopen
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># transfer issues that don't fit in k/website to another repository</span>
+</span></span><span style="display:flex"><span>/transfer<span style="color:#666">[</span>-issue<span style="color:#666">]</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># change the state of rotten issues</span>
+</span></span><span style="display:flex"><span>/remove-lifecycle rotten
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># change the state of stale issues</span>
+</span></span><span style="display:flex"><span>/remove-lifecycle stale
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># assign sig to an issue</span>
+</span></span><span style="display:flex"><span>/sig &lt;sig_name&gt;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># add specific area</span>
+</span></span><span style="display:flex"><span>/area &lt;area_name&gt;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># for beginner friendly issues</span>
+</span></span><span style="display:flex"><span>/good-first-issue
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># issues that needs help</span>
+</span></span><span style="display:flex"><span>/help wanted
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># tagging issue as support specific</span>
+</span></span><span style="display:flex"><span>/kind support
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># to accept triaging for an issue</span>
+</span></span><span style="display:flex"><span>/triage accepted
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># closing an issue we won't be working on and haven't fixed yet</span>
+</span></span><span style="display:flex"><span>/close not-planned
+</span></span></code></pre></div><p>To find more Prow commands, refer to the <a href="https://prow.k8s.io/command-help">Command Help</a> documentation.</p><h2 id="when-to-close-issues">When to close Issues</h2><p>For an open source project to succeed, good issue management is crucial.
+But it is also critical to resolve issues in order to maintain the repository
+and communicate clearly with contributors and users.</p><p>Close issues when:</p><ul><li>A similar issue is reported more than once. You will first need to tag it as <code>/triage duplicate</code>;
+link it to the main issue &amp; then close it. It is also advisable to direct the users to the original issue.</li><li>It is very difficult to understand and address the issue presented by the author with the information provided.
+However, encourage the user to provide more details or reopen the issue if they can reproduce it later.</li><li>The same functionality is implemented elsewhere. One can close this issue and direct user to the appropriate place.</li><li>The reported issue is not currently planned or aligned with the project's goals.</li><li>If the issue appears to be spam and is clearly unrelated.</li><li>If the issue is related to an external limitation or dependency and is beyond the control of the project.</li></ul><p>To close an issue, leave a <code>/close</code> comment on the issue.</p></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">PR wranglers</h1><p>SIG Docs <a href="/docs/contribute/participate/roles-and-responsibilities/#approvers">approvers</a>
+take week-long shifts <a href="https://github.com/kubernetes/website/wiki/PR-Wranglers">managing pull requests</a>
+for the repository.</p><p>This section covers the duties of a PR wrangler. For more information on giving good reviews,
+see <a href="/docs/contribute/review/">Reviewing changes</a>.</p><h2 id="duties">Duties</h2><p>Each day in a week-long shift as PR Wrangler:</p><ul><li>Review <a href="https://github.com/kubernetes/website/pulls">open pull requests</a> for quality
+and adherence to the <a href="/docs/contribute/style/style-guide/">Style</a> and
+<a href="/docs/contribute/style/content-guide/">Content</a> guides.<ul><li>Start with the smallest PRs (<code>size/XS</code>) first, and end with the largest (<code>size/XXL</code>).
+Review as many PRs as you can.</li></ul></li><li>Make sure PR contributors sign the <a href="https://github.com/kubernetes/community/blob/master/CLA.md">CLA</a>.<ul><li>Use <a href="https://github.com/zparnold/k8s-docs-pr-botherer">this</a> script to remind contributors
+that haven't signed the CLA to do so.</li></ul></li><li>Provide feedback on changes and ask for technical reviews from members of other SIGs.<ul><li>Provide inline suggestions on the PR for the proposed content changes.</li><li>If you need to verify content, comment on the PR and request more details.</li><li>Assign relevant <code>sig/</code> label(s).</li><li>If needed, assign reviewers from the <code>reviewers:</code> block in the file's front matter.</li><li>You can also tag a <a href="https://github.com/kubernetes/community/blob/master/sig-list.md">SIG</a>
+for a review by commenting <code>@kubernetes/&lt;sig&gt;-pr-reviews</code> on the PR.</li></ul></li><li>Use the <code>/approve</code> comment to approve a PR for merging. Merge the PR when ready.<ul><li>PRs should have a <code>/lgtm</code> comment from another member before merging.</li><li>Consider accepting technically accurate content that doesn't meet the
+<a href="/docs/contribute/style/style-guide/">style guidelines</a>. As you approve the change,
+open a new issue to address the style concern. You can usually write these style fix
+issues as <a href="https://kubernetes.dev/docs/guide/help-wanted/#good-first-issue">good first issues</a>.</li><li>Using style fixups as good first issues is a good way to ensure a supply of easier tasks
+to help onboard new contributors.</li></ul></li><li>Also check for pull requests against the <a href="https://github.com/kubernetes-sigs/reference-docs">reference docs generator</a>
+code, and review those (or bring in help).</li><li>Support the <a href="/docs/contribute/participate/issue-wrangler/">issue wrangler</a> to
+triage and tag incoming issues daily.
+See <a href="/docs/contribute/review/for-approvers/#triage-and-categorize-issues">Triage and categorize issues</a>
+for guidelines on how SIG Docs uses metadata.</li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>PR wrangler duties do not apply to localization PRs (non-English PRs).
+Localization teams have their own processes and teams for reviewing their language PRs.
+However, it's often helpful to ensure language PRs are labeled correctly,
+review small non-language dependent PRs (like a link update),
+or tag reviewers or contributors in long-running PRs
+(ones opened more than 6 months ago and have not been updated in a month or more).</div><h3 id="helpful-github-queries-for-wranglers">Helpful GitHub queries for wranglers</h3><p>The following queries are helpful when wrangling.
+After working through these queries, the remaining list of PRs to review is usually small.
+These queries exclude localization PRs. All queries are against the main branch except the last one.</p><ul><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+label%3A%22cncf-cla%3A+no%22+-label%3A%22do-not-merge%2Fwork-in-progress%22+-label%3A%22do-not-merge%2Fhold%22+label%3Alanguage%2Fen">No CLA, not eligible to merge</a>:
+Remind the contributor to sign the CLA. If both the bot and a human have reminded them, close
+the PR and remind them that they can open it after signing the CLA.
+<strong>Do not review PRs whose authors have not signed the CLA!</strong></li><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+-label%3A%22cncf-cla%3A+no%22+-label%3Ado-not-merge%2Fwork-in-progress+-label%3Ado-not-merge%2Fhold+label%3Alanguage%2Fen+-label%3Algtm">Needs LGTM</a>:
+Lists PRs that need an LGTM from a member. If the PR needs technical review,
+loop in one of the reviewers suggested by the bot. If the content needs work,
+add suggestions and feedback in-line.</li><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+-label%3Ado-not-merge%2Fwork-in-progress+-label%3Ado-not-merge%2Fhold+label%3Alanguage%2Fen+label%3Algtm+">Has LGTM, needs docs approval</a>:
+Lists PRs that need an <code>/approve</code> comment to merge.</li><li><a href="https://github.com/kubernetes/website/pulls?utf8=%E2%9C%93&amp;q=is%3Apr+is%3Aopen+base%3Amain+-label%3A%22do-not-merge%2Fwork-in-progress%22+-label%3A%22do-not-merge%2Fhold%22+label%3A%22cncf-cla%3A+yes%22+label%3A%22size%2FXS%22+label%3A%22language%2Fen%22">Quick Wins</a>:
+Lists PRs against the main branch with no clear blockers.
+(change "XS" in the size label as you work through the PRs [XS, S, M, L, XL, XXL]).</li><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+label%3Alanguage%2Fen+-base%3Amain">Not against the primary branch</a>:
+If the PR is against a <code>dev-</code> branch, it's for an upcoming release. Assign the
+<a href="https://github.com/kubernetes/sig-release/tree/master/release-team#kubernetes-release-team-roles">docs release manager</a>
+using: <code>/assign @&lt;manager's_github-username&gt;</code>. If the PR is against an old branch,
+help the author figure out whether it's targeted against the best branch.</li></ul><h3 id="helpful-prow-commands-for-wranglers">Helpful Prow commands for wranglers</h3><pre tabindex="0"><code># add English label
+/language en
+
+# add squash label to PR if more than one commit
+/label tide/merge-method-squash
+
+# retitle a PR via Prow (such as a work-in-progress [WIP] or better detail of PR)
+/retitle [WIP] &lt;TITLE&gt;
+</code></pre><h3 id="when-to-close-pull-requests">When to close Pull Requests</h3><p>Reviews and approvals are one tool to keep our PR queue short and current. Another tool is closure.</p><p>Close PRs where:</p><ul><li><p>The author hasn't signed the CLA for two weeks.</p><p>Authors can reopen the PR after signing the CLA. This is a low-risk way to make
+sure nothing gets merged without a signed CLA.</p></li><li><p>The author has not responded to comments or feedback in 2 or more weeks.</p></li></ul><p>Don't be afraid to close pull requests. Contributors can easily reopen and resume works in progress.
+Often a closure notice is what spurs an author to resume and finish their contribution.</p><p>To close a pull request, leave a <code>/close</code> comment on the PR.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <a href="https://github.com/k8s-triage-robot"><code>k8s-triage-robot</code></a> bot marks issues
+as stale after 90 days of inactivity. After 30 more days it marks issues as rotten
+and closes them. PR wranglers should close issues after 14-30 days of inactivity.</div><h2 id="pr-wrangler-shadow-program">PR Wrangler shadow program</h2><p>In late 2021, SIG Docs introduced the PR Wrangler Shadow Program.
+The program was introduced to help new contributors understand the PR wrangling process.</p><h3 id="become-a-shadow">Become a shadow</h3><ul><li><p>If you are interested in shadowing as a PR wrangler, please visit the
+<a href="https://github.com/kubernetes/website/wiki/PR-Wranglers">PR Wranglers Wiki page</a>
+to see the PR wrangling schedule for this year and sign up.</p></li><li><p>Others can reach out on the <a href="https://kubernetes.slack.com/messages/sig-docs">#sig-docs Slack channel</a>
+for requesting to shadow an assigned PR Wrangler for a specific week. Feel free to reach out to one of
+the <a href="https://github.com/kubernetes/community/tree/master/sig-docs#leadership">SIG Docs co-chairs/leads</a>.</p></li><li><p>Once you've signed up to shadow a PR Wrangler, introduce yourself to the PR Wrangler on the
+<a href="https://slack.k8s.io">Kubernetes Slack</a>.</p></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Participating in SIG Docs</h1><p>SIG Docs is one of the
+<a href="https://github.com/kubernetes/community/blob/master/sig-list.md">special interest groups</a>
+within the Kubernetes project, focused on writing, updating, and maintaining
+the documentation for Kubernetes as a whole. See
+<a href="https://github.com/kubernetes/community/tree/master/sig-docs">SIG Docs from the community github repo</a>
+for more information about the SIG.</p><p>SIG Docs welcomes content and reviews from all contributors. Anyone can open a
+pull request (PR), and anyone is welcome to file issues about content or comment
+on pull requests in progress.</p><p>You can also become a <a href="/docs/contribute/participate/roles-and-responsibilities/#members">member</a>,
+<a href="/docs/contribute/participate/roles-and-responsibilities/#reviewers">reviewer</a>, or
+<a href="/docs/contribute/participate/roles-and-responsibilities/#approvers">approver</a>.
+These roles require greater access and entail certain responsibilities for
+approving and committing changes. See
+<a href="https://github.com/kubernetes/community/blob/master/community-membership.md">community-membership</a>
+for more information on how membership works within the Kubernetes community.</p><p>The rest of this document outlines some unique ways these roles function within
+SIG Docs, which is responsible for maintaining one of the most public-facing
+aspects of Kubernetes -- the Kubernetes website and documentation.</p><h2 id="sig-docs-chairperson">SIG Docs chairperson</h2><p>Each SIG, including SIG Docs, selects one or more SIG members to act as
+chairpersons. These are points of contact between SIG Docs and other parts of
+the Kubernetes organization. They require extensive knowledge of the structure
+of the Kubernetes project as a whole and how SIG Docs works within it. See
+<a href="https://github.com/kubernetes/community/tree/master/sig-docs#leadership">Leadership</a>
+for the current list of chairpersons.</p><h2 id="sig-docs-teams-and-automation">SIG Docs teams and automation</h2><p>Automation in SIG Docs relies on two different mechanisms:
+GitHub teams and OWNERS files.</p><h3 id="github-teams">GitHub teams</h3><p>There are two categories of SIG Docs <a href="https://github.com/orgs/kubernetes/teams?query=sig-docs">teams</a> on GitHub:</p><ul><li><code>@sig-docs-{language}-owners</code> are approvers and leads</li><li><code>@sig-docs-{language}-reviews</code> are reviewers</li></ul><p>Each can be referenced with their <code>@name</code> in GitHub comments to communicate with
+everyone in that group.</p><p>Sometimes Prow and GitHub teams overlap without matching exactly. For
+assignment of issues, pull requests, and to support PR approvals, the
+automation uses information from <code>OWNERS</code> files.</p><h3 id="owners-files-and-front-matter">OWNERS files and front-matter</h3><p>The Kubernetes project uses an automation tool called prow for automation
+related to GitHub issues and pull requests. The
+<a href="https://github.com/kubernetes/website">Kubernetes website repository</a> uses
+two <a href="https://github.com/kubernetes-sigs/prow/tree/main/pkg/plugins">prow plugins</a>:</p><ul><li>blunderbuss</li><li>approve</li></ul><p>These two plugins use the
+<a href="https://github.com/kubernetes/website/blob/main/OWNERS">OWNERS</a> and
+<a href="https://github.com/kubernetes/website/blob/main/OWNERS_ALIASES">OWNERS_ALIASES</a>
+files in the top level of the <code>kubernetes/website</code> GitHub repository to control
+how prow works within the repository.</p><p>An OWNERS file contains a list of people who are SIG Docs reviewers and
+approvers. OWNERS files can also exist in subdirectories, and can override who
+can act as a reviewer or approver of files in that subdirectory and its
+descendants. For more information about OWNERS files in general, see
+<a href="https://github.com/kubernetes/community/blob/master/contributors/guide/owners.md">OWNERS</a>.</p><p>In addition, an individual Markdown file can list reviewers and approvers in its
+front-matter, either by listing individual GitHub usernames or GitHub groups.</p><p>The combination of OWNERS files and front-matter in Markdown files determines
+the advice PR owners get from automated systems about who to ask for technical
+and editorial review of their PR.</p><h2 id="how-merging-works">How merging works</h2><p>When a pull request is merged to the branch used to publish content, that content is published to <a href="https://kubernetes.io">https://kubernetes.io</a>. To ensure that
+the quality of our published content is high, we limit merging pull requests to
+SIG Docs approvers. Here's how it works.</p><ul><li>When a pull request has both the <code>lgtm</code> and <code>approve</code> labels, has no <code>hold</code>
+labels, and all tests are passing, the pull request merges automatically.</li><li>Kubernetes organization members and SIG Docs approvers can add comments to
+prevent automatic merging of a given pull request (by adding a <code>/hold</code> comment
+or withholding a <code>/lgtm</code> comment).</li><li>Any Kubernetes member can add the <code>lgtm</code> label by adding a <code>/lgtm</code> comment.</li><li>Only SIG Docs approvers can merge a pull request
+by adding an <code>/approve</code> comment. Some approvers also perform additional
+specific roles, such as <a href="/docs/contribute/participate/pr-wranglers/">PR Wrangler</a> or
+<a href="#sig-docs-chairperson">SIG Docs chairperson</a>.</li></ul><h2 id="what-s-next">What's next</h2><p>For more information about contributing to the Kubernetes documentation, see:</p><ul><li><a href="/docs/contribute/new-content/">Contributing new content</a></li><li><a href="/docs/contribute/review/reviewing-prs/">Reviewing content</a></li><li><a href="/docs/contribute/style/">Documentation style guide</a></li></ul><div class="section-index"><hr class="panel-line"/><div class="entry"><h5><a href="/docs/contribute/participate/roles-and-responsibilities/">Roles and responsibilities</a></h5><p/></div><div class="entry"><h5><a href="/docs/contribute/participate/issue-wrangler/">Issue Wranglers</a></h5><p/></div><div class="entry"><h5><a href="/docs/contribute/participate/pr-wranglers/">PR wranglers</a></h5><p/></div></div></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Roles and responsibilities</h1><p>Anyone can contribute to Kubernetes. As your contributions to SIG Docs grow,
+you can apply for different levels of membership in the community.
+These roles allow you to take on more responsibility within the community.
+Each role requires more time and commitment. The roles are:</p><ul><li>Anyone: regular contributors to the Kubernetes documentation</li><li>Members: can assign and triage issues and provide non-binding review on pull requests</li><li>Reviewers: can lead reviews on documentation pull requests and can vouch for a change's quality</li><li>Approvers: can lead reviews on documentation and merge changes</li></ul><h2 id="anyone">Anyone</h2><p>Anyone with a GitHub account can contribute to Kubernetes. SIG Docs welcomes all new contributors!</p><p>Anyone can:</p><ul><li>Open an issue in any <a href="https://github.com/kubernetes/">Kubernetes</a>
+repository, including
+<a href="https://github.com/kubernetes/website"><code>kubernetes/website</code></a></li><li>Give non-binding feedback on a pull request</li><li>Contribute to a localization</li><li>Suggest improvements on <a href="https://slack.k8s.io/">Slack</a> or the
+<a href="https://groups.google.com/forum/#!forum/kubernetes-sig-docs">SIG docs mailing list</a>.</li></ul><p>After <a href="https://github.com/kubernetes/community/blob/master/CLA.md">signing the CLA</a>, anyone can also:</p><ul><li>Open a pull request to improve existing content, add new content, or write a blog post or case study</li><li>Create diagrams, graphics assets, and embeddable screencasts and videos</li></ul><p>For more information, see <a href="/docs/contribute/new-content/">contributing new content</a>.</p><h2 id="members">Members</h2><p>A member is someone who has submitted multiple pull requests to
+<code>kubernetes/website</code>. Members are a part of the
+<a href="https://github.com/kubernetes">Kubernetes GitHub organization</a>.</p><p>Members can:</p><ul><li><p>Do everything listed under <a href="#anyone">Anyone</a></p></li><li><p>Use the <code>/lgtm</code> comment to add the LGTM (looks good to me) label to a pull request</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Using <code>/lgtm</code> triggers automation. If you want to provide non-binding
+approval, commenting "LGTM" works too!</div></li><li><p>Use the <code>/hold</code> comment to block merging for a pull request</p></li><li><p>Use the <code>/assign</code> comment to assign a reviewer to a pull request</p></li><li><p>Provide non-binding review on pull requests</p></li><li><p>Use automation to triage and categorize issues</p></li><li><p>Document new features</p></li></ul><h3 id="becoming-a-member">Becoming a member</h3><p>After submitting at least 5 substantial pull requests and meeting the other
+<a href="https://github.com/kubernetes/community/blob/master/community-membership.md#member">requirements</a>:</p><ol><li><p>Find two <a href="#reviewers">reviewers</a> or <a href="#approvers">approvers</a> to
+<a href="/docs/contribute/advanced/#sponsor-a-new-contributor">sponsor</a> your
+membership.</p><p>Ask for sponsorship in the <a href="https://kubernetes.slack.com">#sig-docs channel on Slack</a> or on the
+<a href="https://groups.google.com/forum/#!forum/kubernetes-sig-docs">SIG Docs mailing list</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Don't send a direct email or Slack direct message to an individual
+SIG Docs member. You must request sponsorship before submitting your application.</div></li><li><p>Open a GitHub issue in the
+<a href="https://github.com/kubernetes/org/"><code>kubernetes/org</code></a> repository. Use the
+<strong>Organization Membership Request</strong> issue template.</p></li><li><p>Let your sponsors know about the GitHub issue. You can either:</p><ul><li><p>Mention their GitHub username in an issue (<code>@&lt;GitHub-username&gt;</code>)</p></li><li><p>Send them the issue link using Slack or email.</p><p>Sponsors will approve your request with a <code>+1</code> vote. Once your sponsors
+approve the request, a Kubernetes GitHub admin adds you as a member.
+Congratulations!</p><p>If your membership request is not accepted you will receive feedback.
+After addressing the feedback, apply again.</p></li></ul></li><li><p>Accept the invitation to the Kubernetes GitHub organization in your email account.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>GitHub sends the invitation to the default email address in your account.</div></li></ol><h2 id="reviewers">Reviewers</h2><p>Reviewers are responsible for reviewing open pull requests. Unlike member
+feedback, the PR author must address reviewer feedback. Reviewers are members of the
+<a href="https://github.com/orgs/kubernetes/teams?query=sig-docs">@kubernetes/sig-docs-{language}-reviews</a>
+GitHub team.</p><p>Reviewers can:</p><ul><li><p>Do everything listed under <a href="#anyone">Anyone</a> and <a href="#members">Members</a></p></li><li><p>Review pull requests and provide binding feedback</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>To provide non-binding feedback, prefix your comments with a phrase like "Optionally: ".</div></li><li><p>Edit user-facing strings in code</p></li><li><p>Improve code comments</p></li></ul><p>You can be a SIG Docs reviewer, or a reviewer for docs in a specific subject area.</p><h3 id="assigning-reviewers-to-pull-requests">Assigning reviewers to pull requests</h3><p>Automation assigns reviewers to all pull requests. You can request a
+review from a specific person by commenting: <code>/assign [@_github_handle]</code>.</p><p>If the assigned reviewer has not commented on the PR, another reviewer can
+step in. You can also assign technical reviewers as needed.</p><h3 id="using-lgtm">Using <code>/lgtm</code></h3><p>LGTM stands for "Looks good to me" and indicates that a pull request is
+technically accurate and ready to merge. All PRs need a <code>/lgtm</code> comment from a
+reviewer and a <code>/approve</code> comment from an approver to merge.</p><p>A <code>/lgtm</code> comment from reviewer is binding and triggers automation that adds the <code>lgtm</code> label.</p><h3 id="becoming-a-reviewer">Becoming a reviewer</h3><p>When you meet the
+<a href="https://github.com/kubernetes/community/blob/master/community-membership.md#reviewer">requirements</a>,
+you can become a SIG Docs reviewer. Reviewers in other SIGs must apply
+separately for reviewer status in SIG Docs.</p><p>To apply:</p><ol><li><p>Open a pull request that adds your GitHub username to a section of the
+<a href="https://github.com/kubernetes/website/blob/main/OWNERS_ALIASES">OWNERS_ALIASES</a> file
+in the <code>kubernetes/website</code> repository.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you aren't sure where to add yourself, add yourself to <code>sig-docs-en-reviews</code>.</div></li><li><p>Assign the PR to one or more SIG-Docs approvers (usernames listed under
+<code>sig-docs-{language}-owners</code>).</p></li></ol><p>If approved, a SIG Docs lead adds you to the appropriate GitHub team. Once added,
+<a href="https://github.com/kubernetes/test-infra/tree/master/prow#bots-home">K8s-ci-robot</a>
+assigns and suggests you as a reviewer on new pull requests.</p><h2 id="approvers">Approvers</h2><p>Approvers review and approve pull requests for merging. Approvers are members of the
+<a href="https://github.com/orgs/kubernetes/teams/?query=sig-docs">@kubernetes/sig-docs-{language}-owners</a>
+GitHub teams.</p><p>Approvers can do the following:</p><ul><li>Everything listed under <a href="#anyone">Anyone</a>, <a href="#members">Members</a> and <a href="#reviewers">Reviewers</a></li><li>Publish contributor content by approving and merging pull requests using the <code>/approve</code> comment</li><li>Propose improvements to the style guide</li><li>Propose improvements to docs tests</li><li>Propose improvements to the Kubernetes website or other tooling</li></ul><p>If the PR already has a <code>/lgtm</code>, or if the approver also comments with
+<code>/lgtm</code>, the PR merges automatically. A SIG Docs approver should only leave a
+<code>/lgtm</code> on a change that doesn't need additional technical review.</p><h3 id="approving-pull-requests">Approving pull requests</h3><p>Approvers and SIG Docs leads are the only ones who can merge pull requests
+into the website repository. This comes with certain responsibilities.</p><ul><li><p>Approvers can use the <code>/approve</code> command, which merges PRs into the repo.</p><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>A careless merge can break the site, so be sure that when you merge something, you mean it.</div></li><li><p>Make sure that proposed changes meet the
+<a href="/docs/contribute/style/content-guide/">documentation content guide</a>.</p><p>If you ever have a question, or you're not sure about something, feel free
+to call for additional review.</p></li><li><p>Verify that Netlify tests pass before you <code>/approve</code> a PR.</p><img src="/images/docs/contribute/netlify-pass.png" width="75%" alt="Netlify tests must pass before approving"/></li><li><p>Visit the Netlify page preview for a PR to make sure things look good before approving.</p></li><li><p>Participate in the
+<a href="https://github.com/kubernetes/website/wiki/PR-Wranglers">PR Wrangler rotation schedule</a>
+for weekly rotations. SIG Docs expects all approvers to participate in this
+rotation. See <a href="/docs/contribute/participate/pr-wranglers/">PR wranglers</a>.
+for more details.</p></li></ul><h3 id="becoming-an-approver">Becoming an approver</h3><p>When you meet the
+<a href="https://github.com/kubernetes/community/blob/master/community-membership.md#approver">requirements</a>,
+you can become a SIG Docs approver. Approvers in other SIGs must apply
+separately for approver status in SIG Docs.</p><p>To apply:</p><ol><li><p>Open a pull request adding yourself to a section of the
+<a href="https://github.com/kubernetes/website/blob/main/OWNERS_ALIASES">OWNERS_ALIASES</a>
+file in the <code>kubernetes/website</code> repository.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><pre><code>If you aren't sure where to add yourself, add yourself to `sig-docs-en-owners`.
+</code></pre></div></li><li><p>Assign the PR to one or more current SIG Docs approvers.</p></li></ol><p>If approved, a SIG Docs lead adds you to the appropriate GitHub team. Once added,
+<a href="https://github.com/kubernetes/test-infra/tree/master/prow#bots-home">@k8s-ci-robot</a>
+assigns and suggests you as a reviewer on new pull requests.</p><h2 id="what-s-next">What's next</h2><ul><li>Read about <a href="/docs/contribute/participate/pr-wranglers/">PR wrangling</a>, a role all approvers take on rotation.</li></ul></div>

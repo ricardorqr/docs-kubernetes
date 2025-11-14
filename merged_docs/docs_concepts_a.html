@@ -1,0 +1,681 @@
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Cloud Controller Manager</h1><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.11 [beta]</code></div><p>Cloud infrastructure technologies let you run Kubernetes on public, private, and hybrid clouds.
+Kubernetes believes in automated, API-driven infrastructure without tight coupling between
+components.</p><p><p>The cloud-controller-manager is a Kubernetes <a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a> component
+that embeds cloud-specific control logic. The cloud controller manager lets you link your
+cluster into your cloud provider's API, and separates out the components that interact
+with that cloud platform from components that only interact with your cluster.</p></p><p>By decoupling the interoperability logic between Kubernetes and the underlying cloud
+infrastructure, the cloud-controller-manager component enables cloud providers to release
+features at a different pace compared to the main Kubernetes project.</p><p>The cloud-controller-manager is structured using a plugin
+mechanism that allows different cloud providers to integrate their platforms with Kubernetes.</p><h2 id="design">Design</h2><p><img alt="Kubernetes components" src="/images/docs/components-of-kubernetes.svg"/></p><p>The cloud controller manager runs in the control plane as a replicated set of processes
+(usually, these are containers in Pods). Each cloud-controller-manager implements
+multiple <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controllers">controllers</a> in a single
+process.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>You can also run the cloud controller manager as a Kubernetes
+<a class="glossary-tooltip" title="Resources that extend the functionality of Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/cluster-administration/addons/" target="_blank" aria-label="addon">addon</a> rather than as part
+of the control plane.</div><h2 id="functions-of-the-ccm">Cloud controller manager functions</h2><p>The controllers inside the cloud controller manager include:</p><h3 id="node-controller">Node controller</h3><p>The node controller is responsible for updating <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="Node">Node</a> objects
+when new servers are created in your cloud infrastructure. The node controller obtains information about the
+hosts running inside your tenancy with the cloud provider. The node controller performs the following functions:</p><ol><li>Update a Node object with the corresponding server's unique identifier obtained from the cloud provider API.</li><li>Annotating and labelling the Node object with cloud-specific information, such as the region the node
+is deployed into and the resources (CPU, memory, etc) that it has available.</li><li>Obtain the node's hostname and network addresses.</li><li>Verifying the node's health. In case a node becomes unresponsive, this controller checks with
+your cloud provider's API to see if the server has been deactivated / deleted / terminated.
+If the node has been deleted from the cloud, the controller deletes the Node object from your Kubernetes
+cluster.</li></ol><p>Some cloud provider implementations split this into a node controller and a separate node
+lifecycle controller.</p><h3 id="route-controller">Route controller</h3><p>The route controller is responsible for configuring routes in the cloud
+appropriately so that containers on different nodes in your Kubernetes
+cluster can communicate with each other.</p><p>Depending on the cloud provider, the route controller might also allocate blocks
+of IP addresses for the Pod network.</p><h3 id="service-controller">Service controller</h3><p><a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Services">Services</a> integrate with cloud
+infrastructure components such as managed load balancers, IP addresses, network
+packet filtering, and target health checking. The service controller interacts with your
+cloud provider's APIs to set up load balancers and other infrastructure components
+when you declare a Service resource that requires them.</p><h2 id="authorization">Authorization</h2><p>This section breaks down the access that the cloud controller manager requires
+on various API objects, in order to perform its operations.</p><h3 id="authorization-node-controller">Node controller</h3><p>The Node controller only works with Node objects. It requires full access
+to read and modify Node objects.</p><p><code>v1/Node</code>:</p><ul><li>get</li><li>list</li><li>create</li><li>update</li><li>patch</li><li>watch</li><li>delete</li></ul><h3 id="authorization-route-controller">Route controller</h3><p>The route controller listens to Node object creation and configures
+routes appropriately. It requires Get access to Node objects.</p><p><code>v1/Node</code>:</p><ul><li>get</li></ul><h3 id="authorization-service-controller">Service controller</h3><p>The service controller watches for Service object <strong>create</strong>, <strong>update</strong> and <strong>delete</strong> events and then
+configures load balancers for those Services appropriately.</p><p>To access Services, it requires <strong>list</strong>, and <strong>watch</strong> access. To update Services, it requires
+<strong>patch</strong> and <strong>update</strong> access to the <code>status</code> subresource.</p><p><code>v1/Service</code>:</p><ul><li>list</li><li>get</li><li>watch</li><li>patch</li><li>update</li></ul><h3 id="authorization-miscellaneous">Others</h3><p>The implementation of the core of the cloud controller manager requires access to create Event
+objects, and to ensure secure operation, it requires access to create ServiceAccounts.</p><p><code>v1/Event</code>:</p><ul><li>create</li><li>patch</li><li>update</li></ul><p><code>v1/ServiceAccount</code>:</p><ul><li>create</li></ul><p>The <a class="glossary-tooltip" title="Manages authorization decisions, allowing admins to dynamically configure access policies through the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/reference/access-authn-authz/rbac/" target="_blank" aria-label="RBAC">RBAC</a> ClusterRole for the cloud
+controller manager looks like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>rbac.authorization.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterRole<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">rules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- events<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- create<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- patch<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- update<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- nodes<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">'*'</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- nodes/status<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- patch<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- services<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- list<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- watch<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- services/status<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- patch<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- update<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- serviceaccounts<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- create<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- persistentvolumes<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- get<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- list<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- update<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- watch<span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li><p><a href="/docs/tasks/administer-cluster/running-cloud-controller/#cloud-controller-manager">Cloud Controller Manager Administration</a>
+has instructions on running and managing the cloud controller manager.</p></li><li><p>To upgrade a HA control plane to use the cloud controller manager, see
+<a href="/docs/tasks/administer-cluster/controller-manager-leader-migration/">Migrate Replicated Control Plane To Use Cloud Controller Manager</a>.</p></li><li><p>Want to know how to implement your own cloud controller manager, or extend an existing project?</p><ul><li>The cloud controller manager uses Go interfaces, specifically, <code>CloudProvider</code> interface defined in
+<a href="https://github.com/kubernetes/cloud-provider/blob/release-1.21/cloud.go#L42-L69"><code>cloud.go</code></a>
+from <a href="https://github.com/kubernetes/cloud-provider">kubernetes/cloud-provider</a> to allow
+implementations from any cloud to be plugged in.</li><li>The implementation of the shared controllers highlighted in this document (Node, Route, and Service),
+and some scaffolding along with the shared cloudprovider interface, is part of the Kubernetes core.
+Implementations specific to cloud providers are outside the core of Kubernetes and implement
+the <code>CloudProvider</code> interface.</li><li>For more information about developing plugins,
+see <a href="/docs/tasks/administer-cluster/developing-cloud-controller-manager/">Developing Cloud Controller Manager</a>.</li></ul></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Mixed Version Proxy</h1><div class="feature-state-notice feature-alpha" title="Feature Gate: UnknownVersionInteroperabilityProxy"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.28 [alpha]</code> (enabled by default: false)</div><p>Kubernetes 1.34 includes an alpha feature that lets an
+<a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API Server">API Server</a>
+proxy a resource requests to other <em>peer</em> API servers. This is useful when there are multiple
+API servers running different versions of Kubernetes in one cluster
+(for example, during a long-lived rollout to a new release of Kubernetes).</p><p>This enables cluster administrators to configure highly available clusters that can be upgraded
+more safely, by directing resource requests (made during the upgrade) to the correct kube-apiserver.
+That proxying prevents users from seeing unexpected 404 Not Found errors that stem
+from the upgrade process.</p><p>This mechanism is called the <em>Mixed Version Proxy</em>.</p><h2 id="enabling-the-mixed-version-proxy">Enabling the Mixed Version Proxy</h2><p>Ensure that <code>UnknownVersionInteroperabilityProxy</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>
+is enabled when you start the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API Server">API Server</a>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kube-apiserver <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>--feature-gates<span style="color:#666">=</span><span style="color:#b8860b">UnknownVersionInteroperabilityProxy</span><span style="color:#666">=</span><span style="color:#a2f">true</span> <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/><span style="color:#080;font-style:italic"># required command line arguments for this feature</span>
+</span></span><span style="display:flex"><span>--peer-ca-file<span style="color:#666">=</span>&lt;path to kube-apiserver CA cert&gt;
+</span></span><span style="display:flex"><span>--proxy-client-cert-file<span style="color:#666">=</span>&lt;path to aggregator proxy cert&gt;,
+</span></span><span style="display:flex"><span>--proxy-client-key-file<span style="color:#666">=</span>&lt;path to aggregator proxy key&gt;,
+</span></span><span style="display:flex"><span>--requestheader-client-ca-file<span style="color:#666">=</span>&lt;path to aggregator CA cert&gt;,
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># requestheader-allowed-names can be set to blank to allow any Common Name</span>
+</span></span><span style="display:flex"><span>--requestheader-allowed-names<span style="color:#666">=</span>&lt;valid Common Names to verify proxy client cert against&gt;,
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># optional flags for this feature</span>
+</span></span><span style="display:flex"><span>--peer-advertise-ip<span style="color:#666">=</span><span style="color:#b44">`</span>IP of this kube-apiserver that should be used by peers to proxy requests<span style="color:#b44">`</span>
+</span></span><span style="display:flex"><span>--peer-advertise-port<span style="color:#666">=</span><span style="color:#b44">`</span>port of this kube-apiserver that should be used by peers to proxy requests<span style="color:#b44">`</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># …and other flags as usual</span>
+</span></span></code></pre></div><h3 id="transport-and-authn">Proxy transport and authentication between API servers</h3><ul><li><p>The source kube-apiserver reuses the
+<a href="/docs/tasks/extend-kubernetes/configure-aggregation-layer/#kubernetes-apiserver-client-authentication">existing APIserver client authentication flags</a>
+<code>--proxy-client-cert-file</code> and <code>--proxy-client-key-file</code> to present its identity that
+will be verified by its peer (the destination kube-apiserver). The destination API server
+verifies that peer connection based on the configuration you specify using the
+<code>--requestheader-client-ca-file</code> command line argument.</p></li><li><p>To authenticate the destination server's serving certs, you must configure a certificate
+authority bundle by specifying the <code>--peer-ca-file</code> command line argument to the <strong>source</strong> API server.</p></li></ul><h3 id="configuration-for-peer-api-server-connectivity">Configuration for peer API server connectivity</h3><p>To set the network location of a kube-apiserver that peers will use to proxy requests, use the
+<code>--peer-advertise-ip</code> and <code>--peer-advertise-port</code> command line arguments to kube-apiserver or specify
+these fields in the API server configuration file.
+If these flags are unspecified, peers will use the value from either <code>--advertise-address</code> or
+<code>--bind-address</code> command line argument to the kube-apiserver.
+If those too, are unset, the host's default interface is used.</p><h2 id="mixed-version-proxying">Mixed version proxying</h2><p>When you enable mixed version proxying, the <a href="/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/">aggregation layer</a>
+loads a special filter that does the following:</p><ul><li>When a resource request reaches an API server that cannot serve that API
+(either because it is at a version pre-dating the introduction of the API or the API is turned off on the API server)
+the API server attempts to send the request to a peer API server that can serve the requested API.
+It does so by identifying API groups / versions / resources that the local server doesn't recognise,
+and tries to proxy those requests to a peer API server that is capable of handling the request.</li><li>If the peer API server fails to respond, the <em>source</em> API server responds with 503 ("Service Unavailable") error.</li></ul><h3 id="how-it-works-under-the-hood">How it works under the hood</h3><p>When an API Server receives a resource request, it first checks which API servers can
+serve the requested resource. This check happens using the internal
+<a href="/docs/reference/generated/kubernetes-api/v1.34/#storageversioncondition-v1alpha1-internal-apiserver-k8s-io"><code>StorageVersion</code> API</a>.</p><ul><li><p>If the resource is known to the API server that received the request
+(for example, <code>GET /api/v1/pods/some-pod</code>), the request is handled locally.</p></li><li><p>If there is no internal <code>StorageVersion</code> object found for the requested resource
+(for example, <code>GET /my-api/v1/my-resource</code>) and the configured APIService specifies proxying
+to an extension API server, that proxying happens following the usual
+<a href="/docs/tasks/extend-kubernetes/configure-aggregation-layer/">flow</a> for extension APIs.</p></li><li><p>If a valid internal <code>StorageVersion</code> object is found for the requested resource
+(for example, <code>GET /batch/v1/jobs</code>) and the API server trying to handle the request
+(the <em>handling API server</em>) has the <code>batch</code> API disabled, then the <em>handling API server</em>
+fetches the peer API servers that do serve the relevant API group / version / resource
+(<code>api/v1/batch</code> in this case) using the information in the fetched <code>StorageVersion</code> object.
+The <em>handling API server</em> then proxies the request to one of the matching peer kube-apiservers
+that are aware of the requested resource.</p><ul><li><p>If there is no peer known for that API group / version / resource, the handling API server
+passes the request to its own handler chain which should eventually return a 404 ("Not Found") response.</p></li><li><p>If the handling API server has identified and selected a peer API server, but that peer fails
+to respond (for reasons such as network connectivity issues, or a data race between the request
+being received and a controller registering the peer's info into the control plane), then the handling
+API server responds with a 503 ("Service Unavailable") error.</p></li></ul></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Cluster Architecture</h1><div class="lead">The architectural concepts behind Kubernetes.</div><p>A Kubernetes cluster consists of a control plane plus a set of worker machines, called nodes,
+that run containerized applications. Every cluster needs at least one worker node in order to run Pods.</p><p>The worker node(s) host the Pods that are the components of the application workload.
+The control plane manages the worker nodes and the Pods in the cluster. In production
+environments, the control plane usually runs across multiple computers and a cluster
+usually runs multiple nodes, providing fault-tolerance and high availability.</p><p>This document outlines the various components you need to have for a complete and working Kubernetes cluster.</p><figure class="diagram-large"><img src="/images/docs/kubernetes-cluster-architecture.svg" alt="The control plane (kube-apiserver, etcd, kube-controller-manager, kube-scheduler) and several nodes. Each node is running a kubelet and kube-proxy."/><figcaption><p>Figure 1. Kubernetes cluster components.</p></figcaption></figure><details><summary>About this architecture</summary><div class="details-inner"><p>The diagram in Figure 1 presents an example reference architecture for a Kubernetes cluster.
+The actual distribution of components can vary based on specific cluster setups and requirements.</p><p>In the diagram, each node runs the <a href="#kube-proxy"><code>kube-proxy</code></a> component. You need a
+network proxy component on each node to ensure that the
+<a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a> API and associated behaviors
+are available on your cluster network. However, some network plugins provide their own,
+third party implementation of proxying. When you use that kind of network plugin,
+the node does not need to run <code>kube-proxy</code>.</p></div></details><h2 id="control-plane-components">Control plane components</h2><p>The control plane's components make global decisions about the cluster (for example, scheduling),
+as well as detecting and responding to cluster events (for example, starting up a new
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="pod">pod</a> when a Deployment's
+<code><a class="glossary-tooltip" title="Replicas are copies of pods, ensuring availability, scalability, and fault tolerance by maintaining identical instances." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-replica" target="_blank" aria-label="replicas">replicas</a></code> field is unsatisfied).</p><p>Control plane components can be run on any machine in the cluster. However, for simplicity, setup scripts
+typically start all control plane components on the same machine, and do not run user containers on this machine.
+See <a href="/docs/setup/production-environment/tools/kubeadm/high-availability/">Creating Highly Available clusters with kubeadm</a>
+for an example control plane setup that runs across multiple machines.</p><h3 id="kube-apiserver">kube-apiserver</h3><p>The API server is a component of the Kubernetes
+<a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a> that exposes the Kubernetes API.
+The API server is the front end for the Kubernetes control plane.</p><p>The main implementation of a Kubernetes API server is <a href="/docs/reference/generated/kube-apiserver/">kube-apiserver</a>.
+kube-apiserver is designed to scale horizontally—that is, it scales by deploying more instances.
+You can run several instances of kube-apiserver and balance traffic between those instances.</p><h3 id="etcd">etcd</h3><p>Consistent and highly-available key value store used as Kubernetes' backing store for all cluster data.</p><p>If your Kubernetes cluster uses etcd as its backing store, make sure you have a
+<a href="/docs/tasks/administer-cluster/configure-upgrade-etcd/#backing-up-an-etcd-cluster">back up</a> plan
+for the data.</p><p>You can find in-depth information about etcd in the official <a href="https://etcd.io/docs/">documentation</a>.</p><h3 id="kube-scheduler">kube-scheduler</h3><p>Control plane component that watches for newly created
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a> with no assigned
+<a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a>, and selects a node for them
+to run on.</p><p>Factors taken into account for scheduling decisions include:
+individual and collective <a class="glossary-tooltip" title="A defined amount of infrastructure available for consumption (CPU, memory, etc)." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-infrastructure-resource" target="_blank" aria-label="resource">resource</a>
+requirements, hardware/software/policy constraints, affinity and anti-affinity specifications,
+data locality, inter-workload interference, and deadlines.</p><h3 id="kube-controller-manager">kube-controller-manager</h3><p>Control plane component that runs <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a> processes.</p><p>Logically, each <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a> is a separate process, but to reduce complexity, they are all compiled into a single binary and run in a single process.</p><p>There are many different types of controllers. Some examples of them are:</p><ul><li>Node controller: Responsible for noticing and responding when nodes go down.</li><li>Job controller: Watches for Job objects that represent one-off tasks, then creates Pods to run those tasks to completion.</li><li>EndpointSlice controller: Populates EndpointSlice objects (to provide a link between Services and Pods).</li><li>ServiceAccount controller: Create default ServiceAccounts for new namespaces.</li></ul><p>The above is not an exhaustive list.</p><h3 id="cloud-controller-manager">cloud-controller-manager</h3>A Kubernetes <a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a> component
+that embeds cloud-specific control logic. The cloud controller manager lets you link your
+cluster into your cloud provider's API, and separates out the components that interact
+with that cloud platform from components that only interact with your cluster.<p>The cloud-controller-manager only runs controllers that are specific to your cloud provider.
+If you are running Kubernetes on your own premises, or in a learning environment inside your
+own PC, the cluster does not have a cloud controller manager.</p><p>As with the kube-controller-manager, the cloud-controller-manager combines several logically
+independent control loops into a single binary that you run as a single process. You can scale
+horizontally (run more than one copy) to improve performance or to help tolerate failures.</p><p>The following controllers can have cloud provider dependencies:</p><ul><li>Node controller: For checking the cloud provider to determine if a node has been
+deleted in the cloud after it stops responding</li><li>Route controller: For setting up routes in the underlying cloud infrastructure</li><li>Service controller: For creating, updating and deleting cloud provider load balancers</li></ul><hr/><h2 id="node-components">Node components</h2><p>Node components run on every node, maintaining running pods and providing the Kubernetes runtime environment.</p><h3 id="kubelet">kubelet</h3><p>An agent that runs on each <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a> in the cluster. It makes sure that <a class="glossary-tooltip" title="A lightweight and portable executable image that contains software and all of its dependencies." data-toggle="tooltip" data-placement="top" href="/docs/concepts/containers/" target="_blank" aria-label="containers">containers</a> are running in a <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a>.</p><p>The <a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> takes a set of PodSpecs that
+are provided through various mechanisms and ensures that the containers described in those
+PodSpecs are running and healthy. The kubelet doesn't manage containers which were not created by
+Kubernetes.</p><h3 id="kube-proxy">kube-proxy (optional)</h3><p><p>kube-proxy is a network proxy that runs on each
+<a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a> in your cluster,
+implementing part of the Kubernetes
+<a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a> concept.</p><p><a href="/docs/reference/command-line-tools-reference/kube-proxy/">kube-proxy</a>
+maintains network rules on nodes. These network rules allow network
+communication to your Pods from network sessions inside or outside of
+your cluster.</p><p>kube-proxy uses the operating system packet filtering layer if there is one
+and it's available. Otherwise, kube-proxy forwards the traffic itself.</p>If you use a <a href="#network-plugins">network plugin</a> that implements packet forwarding for Services
+by itself, and providing equivalent behavior to kube-proxy, then you do not need to run
+kube-proxy on the nodes in your cluster.</p><h3 id="container-runtime">Container runtime</h3><p>A fundamental component that empowers Kubernetes to run containers effectively.
+It is responsible for managing the execution and lifecycle of containers within the Kubernetes environment.</p><p>Kubernetes supports container runtimes such as
+<a class="glossary-tooltip" title="A container runtime with an emphasis on simplicity, robustness and portability" data-toggle="tooltip" data-placement="top" href="https://containerd.io/docs/" target="_blank" aria-label="containerd">containerd</a>, <a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" data-toggle="tooltip" data-placement="top" href="https://cri-o.io/#what-is-cri-o" target="_blank" aria-label="CRI-O">CRI-O</a>,
+and any other implementation of the <a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-node/container-runtime-interface.md">Kubernetes CRI (Container Runtime
+Interface)</a>.</p><h2 id="addons">Addons</h2><p>Addons use Kubernetes resources (<a class="glossary-tooltip" title="Ensures a copy of a Pod is running across a set of nodes in a cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/daemonset" target="_blank" aria-label="DaemonSet">DaemonSet</a>,
+<a class="glossary-tooltip" title="Manages a replicated application on your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/deployment/" target="_blank" aria-label="Deployment">Deployment</a>, etc) to implement cluster features.
+Because these are providing cluster-level features, namespaced resources for
+addons belong within the <code>kube-system</code> namespace.</p><p>Selected addons are described below; for an extended list of available addons,
+please see <a href="/docs/concepts/cluster-administration/addons/">Addons</a>.</p><h3 id="dns">DNS</h3><p>While the other addons are not strictly required, all Kubernetes clusters should have
+<a href="/docs/concepts/services-networking/dns-pod-service/">cluster DNS</a>, as many examples rely on it.</p><p>Cluster DNS is a DNS server, in addition to the other DNS server(s) in your environment,
+which serves DNS records for Kubernetes services.</p><p>Containers started by Kubernetes automatically include this DNS server in their DNS searches.</p><h3 id="web-ui-dashboard">Web UI (Dashboard)</h3><p><a href="/docs/tasks/access-application-cluster/web-ui-dashboard/">Dashboard</a> is a general purpose,
+web-based UI for Kubernetes clusters. It allows users to manage and troubleshoot applications
+running in the cluster, as well as the cluster itself.</p><h3 id="container-resource-monitoring">Container resource monitoring</h3><p><a href="/docs/tasks/debug/debug-cluster/resource-usage-monitoring/">Container Resource Monitoring</a>
+records generic time-series metrics about containers in a central database, and provides a UI for browsing that data.</p><h3 id="cluster-level-logging">Cluster-level Logging</h3><p>A <a href="/docs/concepts/cluster-administration/logging/">cluster-level logging</a> mechanism is responsible
+for saving container logs to a central log store with a search/browsing interface.</p><h3 id="network-plugins">Network plugins</h3><p><a href="/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/">Network plugins</a>
+are software components that implement the container network interface (CNI) specification.
+They are responsible for allocating IP addresses to pods and enabling them to communicate
+with each other within the cluster.</p><h2 id="architecture-variations">Architecture variations</h2><p>While the core components of Kubernetes remain consistent, the way they are deployed and
+managed can vary. Understanding these variations is crucial for designing and maintaining
+Kubernetes clusters that meet specific operational needs.</p><h3 id="control-plane-deployment-options">Control plane deployment options</h3><p>The control plane components can be deployed in several ways:</p><dl><dt>Traditional deployment</dt><dd>Control plane components run directly on dedicated machines or VMs, often managed as systemd services.</dd><dt>Static Pods</dt><dd>Control plane components are deployed as static Pods, managed by the kubelet on specific nodes.
+This is a common approach used by tools like kubeadm.</dd><dt>Self-hosted</dt><dd>The control plane runs as Pods within the Kubernetes cluster itself, managed by Deployments
+and StatefulSets or other Kubernetes primitives.</dd><dt>Managed Kubernetes services</dt><dd>Cloud providers often abstract away the control plane, managing its components as part of their service offering.</dd></dl><h3 id="workload-placement-considerations">Workload placement considerations</h3><p>The placement of workloads, including the control plane components, can vary based on cluster size,
+performance requirements, and operational policies:</p><ul><li>In smaller or development clusters, control plane components and user workloads might run on the same nodes.</li><li>Larger production clusters often dedicate specific nodes to control plane components,
+separating them from user workloads.</li><li>Some organizations run critical add-ons or monitoring tools on control plane nodes.</li></ul><h3 id="cluster-management-tools">Cluster management tools</h3><p>Tools like kubeadm, kops, and Kubespray offer different approaches to deploying and managing clusters,
+each with its own method of component layout and management.</p><p>The flexibility of Kubernetes architecture allows organizations to tailor their clusters to specific needs,
+balancing factors such as operational complexity, performance, and management overhead.</p><h3 id="customization-and-extensibility">Customization and extensibility</h3><p>Kubernetes architecture allows for significant customization:</p><ul><li>Custom schedulers can be deployed to work alongside the default Kubernetes scheduler or to replace it entirely.</li><li>API servers can be extended with CustomResourceDefinitions and API Aggregation.</li><li>Cloud providers can integrate deeply with Kubernetes using the cloud-controller-manager.</li></ul><p>The flexibility of Kubernetes architecture allows organizations to tailor their clusters to specific needs,
+balancing factors such as operational complexity, performance, and management overhead.</p><h2 id="what-s-next">What's next</h2><p>Learn more about the following:</p><ul><li><a href="/docs/concepts/architecture/nodes/">Nodes</a> and
+<a href="/docs/concepts/architecture/control-plane-node-communication/">their communication</a>
+with the control plane.</li><li>Kubernetes <a href="/docs/concepts/architecture/controller/">controllers</a>.</li><li><a href="/docs/concepts/scheduling-eviction/kube-scheduler/">kube-scheduler</a> which is the default scheduler for Kubernetes.</li><li>Etcd's official <a href="https://etcd.io/docs/">documentation</a>.</li><li>Several <a href="/docs/setup/production-environment/container-runtimes/">container runtimes</a> in Kubernetes.</li><li>Integrating with cloud providers using <a href="/docs/concepts/architecture/cloud-controller/">cloud-controller-manager</a>.</li><li><a href="/docs/reference/generated/kubectl/kubectl-commands">kubectl</a> commands.</li></ul><div class="section-index"><hr class="panel-line"/><div class="entry"><h5><a href="/docs/concepts/architecture/nodes/">Nodes</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/control-plane-node-communication/">Communication between Nodes and the Control Plane</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/controller/">Controllers</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/leases/">Leases</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/cloud-controller/">Cloud Controller Manager</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/cgroups/">About cgroup v2</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/self-healing/">Kubernetes Self-Healing</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/garbage-collection/">Garbage Collection</a></h5><p/></div><div class="entry"><h5><a href="/docs/concepts/architecture/mixed-version-proxy/">Mixed Version Proxy</a></h5><p/></div></div></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Kubernetes Self-Healing</h1><p>Kubernetes is designed with self-healing capabilities that help maintain the health and availability of workloads.
+It automatically replaces failed containers, reschedules workloads when nodes become unavailable, and ensures that the desired state of the system is maintained.</p><h2 id="self-healing-capabilities">Self-Healing capabilities</h2><ul><li><p><strong>Container-level restarts:</strong> If a container inside a Pod fails, Kubernetes restarts it based on the <a href="/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy"><code>restartPolicy</code></a>.</p></li><li><p><strong>Replica replacement:</strong> If a Pod in a <a href="/docs/concepts/workloads/controllers/deployment/">Deployment</a> or <a href="/docs/concepts/workloads/controllers/statefulset/">StatefulSet</a> fails, Kubernetes creates a replacement Pod to maintain the specified number of replicas.
+If a Pod fails that is part of a <a href="/docs/concepts/workloads/controllers/daemonset/">DaemonSet</a> fails, the control plane
+creates a replacement Pod to run on the same node.</p></li><li><p><strong>Persistent storage recovery:</strong> If a node is running a Pod with a PersistentVolume (PV) attached, and the node fails, Kubernetes can reattach the volume to a new Pod on a different node.</p></li><li><p><strong>Load balancing for Services:</strong> If a Pod behind a <a href="/docs/concepts/services-networking/service/">Service</a> fails, Kubernetes automatically removes it from the Service's endpoints to route traffic only to healthy Pods.</p></li></ul><p>Here are some of the key components that provide Kubernetes self-healing:</p><ul><li><p><strong><a href="/docs/concepts/architecture/#kubelet">kubelet</a>:</strong> Ensures that containers are running, and restarts those that fail.</p></li><li><p><strong>ReplicaSet, StatefulSet and DaemonSet controller:</strong> Maintains the desired number of Pod replicas.</p></li><li><p><strong>PersistentVolume controller:</strong> Manages volume attachment and detachment for stateful workloads.</p></li></ul><h2 id="considerations">Considerations</h2><ul><li><p><strong>Storage Failures:</strong> If a persistent volume becomes unavailable, recovery steps may be required.</p></li><li><p><strong>Application Errors:</strong> Kubernetes can restart containers, but underlying application issues must be addressed separately.</p></li></ul><h2 id="what-s-next">What's next</h2><ul><li>Read more about <a href="/docs/concepts/workloads/pods/">Pods</a></li><li>Learn about <a href="/docs/concepts/architecture/controller/">Kubernetes Controllers</a></li><li>Explore <a href="/docs/concepts/storage/persistent-volumes/">PersistentVolumes</a></li><li>Read about <a href="/docs/concepts/cluster-administration/node-autoscaling/">node autoscaling</a>. Node autoscaling
+also provides automatic healing if or when nodes fail in your cluster.</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Controllers</h1><p>In robotics and automation, a <em>control loop</em> is
+a non-terminating loop that regulates the state of a system.</p><p>Here is one example of a control loop: a thermostat in a room.</p><p>When you set the temperature, that's telling the thermostat
+about your <em>desired state</em>. The actual room temperature is the
+<em>current state</em>. The thermostat acts to bring the current state
+closer to the desired state, by turning equipment on or off.</p>In Kubernetes, controllers are control loops that watch the state of your
+<a class="glossary-tooltip" title="A set of worker machines, called nodes, that run containerized applications. Every cluster has at least one worker node." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-cluster" target="_blank" aria-label="cluster">cluster</a>, then make or request
+changes where needed.
+Each controller tries to move the current cluster state closer to the desired
+state.<h2 id="controller-pattern">Controller pattern</h2><p>A controller tracks at least one Kubernetes resource type.
+These <a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="objects">objects</a>
+have a spec field that represents the desired state. The
+controller(s) for that resource are responsible for making the current
+state come closer to that desired state.</p><p>The controller might carry the action out itself; more commonly, in Kubernetes,
+a controller will send messages to the
+<a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a> that have
+useful side effects. You'll see examples of this below.</p><h3 id="control-via-api-server">Control via API server</h3><p>The <a class="glossary-tooltip" title="A finite or batch task that runs to completion." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/job/" target="_blank" aria-label="Job">Job</a> controller is an example of a
+Kubernetes built-in controller. Built-in controllers manage state by
+interacting with the cluster API server.</p><p>Job is a Kubernetes resource that runs a
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a>, or perhaps several Pods, to carry out
+a task and then stop.</p><p>(Once <a href="/docs/concepts/scheduling-eviction/">scheduled</a>, Pod objects become part of the
+desired state for a kubelet).</p><p>When the Job controller sees a new task it makes sure that, somewhere
+in your cluster, the kubelets on a set of Nodes are running the right
+number of Pods to get the work done.
+The Job controller does not run any Pods or containers
+itself. Instead, the Job controller tells the API server to create or remove
+Pods.
+Other components in the
+<a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a>
+act on the new information (there are new Pods to schedule and run),
+and eventually the work is done.</p><p>After you create a new Job, the desired state is for that Job to be completed.
+The Job controller makes the current state for that Job be nearer to your
+desired state: creating Pods that do the work you wanted for that Job, so that
+the Job is closer to completion.</p><p>Controllers also update the objects that configure them.
+For example: once the work is done for a Job, the Job controller
+updates that Job object to mark it <code>Finished</code>.</p><p>(This is a bit like how some thermostats turn a light off to
+indicate that your room is now at the temperature you set).</p><h3 id="direct-control">Direct control</h3><p>In contrast with Job, some controllers need to make changes to
+things outside of your cluster.</p><p>For example, if you use a control loop to make sure there
+are enough <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="Nodes">Nodes</a>
+in your cluster, then that controller needs something outside the
+current cluster to set up new Nodes when needed.</p><p>Controllers that interact with external state find their desired state from
+the API server, then communicate directly with an external system to bring
+the current state closer in line.</p><p>(There actually is a <a href="https://github.com/kubernetes/autoscaler/">controller</a>
+that horizontally scales the nodes in your cluster.)</p><p>The important point here is that the controller makes some changes to bring about
+your desired state, and then reports the current state back to your cluster's API server.
+Other control loops can observe that reported data and take their own actions.</p><p>In the thermostat example, if the room is very cold then a different controller
+might also turn on a frost protection heater. With Kubernetes clusters, the control
+plane indirectly works with IP address management tools, storage services,
+cloud provider APIs, and other services by
+<a href="/docs/concepts/extend-kubernetes/">extending Kubernetes</a> to implement that.</p><h2 id="desired-vs-current">Desired versus current state</h2><p>Kubernetes takes a cloud-native view of systems, and is able to handle
+constant change.</p><p>Your cluster could be changing at any point as work happens and
+control loops automatically fix failures. This means that,
+potentially, your cluster never reaches a stable state.</p><p>As long as the controllers for your cluster are running and able to make
+useful changes, it doesn't matter if the overall state is stable or not.</p><h2 id="design">Design</h2><p>As a tenet of its design, Kubernetes uses lots of controllers that each manage
+a particular aspect of cluster state. Most commonly, a particular control loop
+(controller) uses one kind of resource as its desired state, and has a different
+kind of resource that it manages to make that desired state happen. For example,
+a controller for Jobs tracks Job objects (to discover new work) and Pod objects
+(to run the Jobs, and then to see when the work is finished). In this case
+something else creates the Jobs, whereas the Job controller creates Pods.</p><p>It's useful to have simple controllers rather than one, monolithic set of control
+loops that are interlinked. Controllers can fail, so Kubernetes is designed to
+allow for that.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>There can be several controllers that create or update the same kind of object.
+Behind the scenes, Kubernetes controllers make sure that they only pay attention
+to the resources linked to their controlling resource.</p><p>For example, you can have Deployments and Jobs; these both create Pods.
+The Job controller does not delete the Pods that your Deployment created,
+because there is information (<a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="labels">labels</a>)
+the controllers can use to tell those Pods apart.</p></div><h2 id="running-controllers">Ways of running controllers</h2><p>Kubernetes comes with a set of built-in controllers that run inside
+the <a class="glossary-tooltip" title="Control Plane component that runs controller processes." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-controller-manager/" target="_blank" aria-label="kube-controller-manager">kube-controller-manager</a>. These
+built-in controllers provide important core behaviors.</p><p>The Deployment controller and Job controller are examples of controllers that
+come as part of Kubernetes itself ("built-in" controllers).
+Kubernetes lets you run a resilient control plane, so that if any of the built-in
+controllers were to fail, another part of the control plane will take over the work.</p><p>You can find controllers that run outside the control plane, to extend Kubernetes.
+Or, if you want, you can write a new controller yourself.
+You can run your own controller as a set of Pods,
+or externally to Kubernetes. What fits best will depend on what that particular
+controller does.</p><h2 id="what-s-next">What's next</h2><ul><li>Read about the <a href="/docs/concepts/architecture/#control-plane-components">Kubernetes control plane</a></li><li>Discover some of the basic <a href="/docs/concepts/overview/working-with-objects/">Kubernetes objects</a></li><li>Learn more about the <a href="/docs/concepts/overview/kubernetes-api/">Kubernetes API</a></li><li>If you want to write your own controller, see
+<a href="/docs/concepts/extend-kubernetes/#extension-patterns">Kubernetes extension patterns</a>
+and the <a href="https://github.com/kubernetes/sample-controller">sample-controller</a> repository.</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Communication between Nodes and the Control Plane</h1><p>This document catalogs the communication paths between the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a>
+and the Kubernetes <a class="glossary-tooltip" title="A set of worker machines, called nodes, that run containerized applications. Every cluster has at least one worker node." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-cluster" target="_blank" aria-label="cluster">cluster</a>.
+The intent is to allow users to customize their installation to harden the network configuration
+such that the cluster can be run on an untrusted network (or on fully public IPs on a cloud
+provider).</p><h2 id="node-to-control-plane">Node to Control Plane</h2><p>Kubernetes has a "hub-and-spoke" API pattern. All API usage from nodes (or the pods they run)
+terminates at the API server. None of the other control plane components are designed to expose
+remote services. The API server is configured to listen for remote connections on a secure HTTPS
+port (typically 443) with one or more forms of client
+<a href="/docs/reference/access-authn-authz/authentication/">authentication</a> enabled.
+One or more forms of <a href="/docs/reference/access-authn-authz/authorization/">authorization</a> should be
+enabled, especially if <a href="/docs/reference/access-authn-authz/authentication/#anonymous-requests">anonymous requests</a>
+or <a href="/docs/reference/access-authn-authz/authentication/#service-account-tokens">service account tokens</a>
+are allowed.</p><p>Nodes should be provisioned with the public root <a class="glossary-tooltip" title="A cryptographically secure file used to validate access to the Kubernetes cluster." data-toggle="tooltip" data-placement="top" href="/docs/tasks/tls/managing-tls-in-a-cluster/" target="_blank" aria-label="certificate">certificate</a> for the cluster such that they can
+connect securely to the API server along with valid client credentials. A good approach is that the
+client credentials provided to the kubelet are in the form of a client certificate. See
+<a href="/docs/reference/access-authn-authz/kubelet-tls-bootstrapping/">kubelet TLS bootstrapping</a>
+for automated provisioning of kubelet client certificates.</p><p><a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a> that wish to connect to the API server can do so securely by leveraging a service account so
+that Kubernetes will automatically inject the public root certificate and a valid bearer token
+into the pod when it is instantiated.
+The <code>kubernetes</code> service (in <code>default</code> namespace) is configured with a virtual IP address that is
+redirected (via <code><a class="glossary-tooltip" title="kube-proxy is a network proxy that runs on each node in the cluster." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-proxy/" target="_blank" aria-label="kube-proxy">kube-proxy</a></code>) to the HTTPS endpoint on the API server.</p><p>The control plane components also communicate with the API server over the secure port.</p><p>As a result, the default operating mode for connections from the nodes and pod running on the
+nodes to the control plane is secured by default and can run over untrusted and/or public
+networks.</p><h2 id="control-plane-to-node">Control plane to node</h2><p>There are two primary communication paths from the control plane (the API server) to the nodes.
+The first is from the API server to the <a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="kubelet">kubelet</a> process which runs on each node in the cluster.
+The second is from the API server to any node, pod, or service through the API server's <em>proxy</em>
+functionality.</p><h3 id="api-server-to-kubelet">API server to kubelet</h3><p>The connections from the API server to the kubelet are used for:</p><ul><li>Fetching logs for pods.</li><li>Attaching (usually through <code>kubectl</code>) to running pods.</li><li>Providing the kubelet's port-forwarding functionality.</li></ul><p>These connections terminate at the kubelet's HTTPS endpoint. By default, the API server does not
+verify the kubelet's serving certificate, which makes the connection subject to man-in-the-middle
+attacks and <strong>unsafe</strong> to run over untrusted and/or public networks.</p><p>To verify this connection, use the <code>--kubelet-certificate-authority</code> flag to provide the API
+server with a root certificate bundle to use to verify the kubelet's serving certificate.</p><p>If that is not possible, use <a href="#ssh-tunnels">SSH tunneling</a> between the API server and kubelet if
+required to avoid connecting over an
+untrusted or public network.</p><p>Finally, <a href="/docs/reference/access-authn-authz/kubelet-authn-authz/">Kubelet authentication and/or authorization</a>
+should be enabled to secure the kubelet API.</p><h3 id="api-server-to-nodes-pods-and-services">API server to nodes, pods, and services</h3><p>The connections from the API server to a node, pod, or service default to plain HTTP connections
+and are therefore neither authenticated nor encrypted. They can be run over a secure HTTPS
+connection by prefixing <code>https:</code> to the node, pod, or service name in the API URL, but they will
+not validate the certificate provided by the HTTPS endpoint nor provide client credentials. So
+while the connection will be encrypted, it will not provide any guarantees of integrity. These
+connections <strong>are not currently safe</strong> to run over untrusted or public networks.</p><h3 id="ssh-tunnels">SSH tunnels</h3><p>Kubernetes supports <a href="https://www.ssh.com/academy/ssh/tunneling">SSH tunnels</a> to protect the control plane to nodes communication paths. In this
+configuration, the API server initiates an SSH tunnel to each node in the cluster (connecting to
+the SSH server listening on port 22) and passes all traffic destined for a kubelet, node, pod, or
+service through the tunnel.
+This tunnel ensures that the traffic is not exposed outside of the network in which the nodes are
+running.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>SSH tunnels are currently deprecated, so you shouldn't opt to use them unless you know what you
+are doing. The <a href="#konnectivity-service">Konnectivity service</a> is a replacement for this
+communication channel.</div><h3 id="konnectivity-service">Konnectivity service</h3><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.18 [beta]</code></div><p>As a replacement to the SSH tunnels, the Konnectivity service provides TCP level proxy for the
+control plane to cluster communication. The Konnectivity service consists of two parts: the
+Konnectivity server in the control plane network and the Konnectivity agents in the nodes network.
+The Konnectivity agents initiate connections to the Konnectivity server and maintain the network
+connections.
+After enabling the Konnectivity service, all control plane to nodes traffic goes through these
+connections.</p><p>Follow the <a href="/docs/tasks/extend-kubernetes/setup-konnectivity/">Konnectivity service task</a> to set
+up the Konnectivity service in your cluster.</p><h2 id="what-s-next">What's next</h2><ul><li>Read about the <a href="/docs/concepts/architecture/#control-plane-components">Kubernetes control plane components</a></li><li>Learn more about <a href="https://book.kubebuilder.io/multiversion-tutorial/conversion-concepts.html#hubs-spokes-and-other-wheel-metaphors">Hubs and Spoke model</a></li><li>Learn how to <a href="/docs/tasks/administer-cluster/securing-a-cluster/">Secure a Cluster</a></li><li>Learn more about the <a href="/docs/concepts/overview/kubernetes-api/">Kubernetes API</a></li><li><a href="/docs/tasks/extend-kubernetes/setup-konnectivity/">Set up Konnectivity service</a></li><li><a href="/docs/tasks/access-application-cluster/port-forward-access-application-cluster/">Use Port Forwarding to Access Applications in a Cluster</a></li><li>Learn how to <a href="/docs/tasks/debug/debug-application/debug-running-pod/#examine-pod-logs">Fetch logs for Pods</a>, <a href="/docs/tasks/access-application-cluster/port-forward-access-application-cluster/#forward-a-local-port-to-a-port-on-the-pod">use kubectl port-forward</a></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Garbage Collection</h1><p>Garbage collection is a collective term for the various mechanisms Kubernetes uses to clean up
+cluster resources. This
+allows the clean up of resources like the following:</p><ul><li><a href="/docs/concepts/workloads/pods/pod-lifecycle/#pod-garbage-collection">Terminated pods</a></li><li><a href="/docs/concepts/workloads/controllers/ttlafterfinished/">Completed Jobs</a></li><li><a href="#owners-dependents">Objects without owner references</a></li><li><a href="#containers-images">Unused containers and container images</a></li><li><a href="/docs/concepts/storage/persistent-volumes/#delete">Dynamically provisioned PersistentVolumes with a StorageClass reclaim policy of Delete</a></li><li><a href="/docs/reference/access-authn-authz/certificate-signing-requests/#request-signing-process">Stale or expired CertificateSigningRequests (CSRs)</a></li><li><a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="Nodes">Nodes</a> deleted in the following scenarios:<ul><li>On a cloud when the cluster uses a <a href="/docs/concepts/architecture/cloud-controller/">cloud controller manager</a></li><li>On-premises when the cluster uses an addon similar to a cloud controller
+manager</li></ul></li><li><a href="/docs/concepts/architecture/nodes/#heartbeats">Node Lease objects</a></li></ul><h2 id="owners-dependents">Owners and dependents</h2><p>Many objects in Kubernetes link to each other through <a href="/docs/concepts/overview/working-with-objects/owners-dependents/"><em>owner references</em></a>.
+Owner references tell the control plane which objects are dependent on others.
+Kubernetes uses owner references to give the control plane, and other API
+clients, the opportunity to clean up related resources before deleting an
+object. In most cases, Kubernetes manages owner references automatically.</p><p>Ownership is different from the <a href="/docs/concepts/overview/working-with-objects/labels/">labels and selectors</a>
+mechanism that some resources also use. For example, consider a
+<a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a> that creates
+<code>EndpointSlice</code> objects. The Service uses <em>labels</em> to allow the control plane to
+determine which <code>EndpointSlice</code> objects are used for that Service. In addition
+to the labels, each <code>EndpointSlice</code> that is managed on behalf of a Service has
+an owner reference. Owner references help different parts of Kubernetes avoid
+interfering with objects they don’t control.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>Cross-namespace owner references are disallowed by design.
+Namespaced dependents can specify cluster-scoped or namespaced owners.
+A namespaced owner <strong>must</strong> exist in the same namespace as the dependent.
+If it does not, the owner reference is treated as absent, and the dependent
+is subject to deletion once all owners are verified absent.</p><p>Cluster-scoped dependents can only specify cluster-scoped owners.
+In v1.20+, if a cluster-scoped dependent specifies a namespaced kind as an owner,
+it is treated as having an unresolvable owner reference, and is not able to be garbage collected.</p><p>In v1.20+, if the garbage collector detects an invalid cross-namespace <code>ownerReference</code>,
+or a cluster-scoped dependent with an <code>ownerReference</code> referencing a namespaced kind, a warning Event
+with a reason of <code>OwnerRefInvalidNamespace</code> and an <code>involvedObject</code> of the invalid dependent is reported.
+You can check for that kind of Event by running
+<code>kubectl get events -A --field-selector=reason=OwnerRefInvalidNamespace</code>.</p></div><h2 id="cascading-deletion">Cascading deletion</h2><p>Kubernetes checks for and deletes objects that no longer have owner
+references, like the pods left behind when you delete a ReplicaSet. When you
+delete an object, you can control whether Kubernetes deletes the object's
+dependents automatically, in a process called <em>cascading deletion</em>. There are
+two types of cascading deletion, as follows:</p><ul><li>Foreground cascading deletion</li><li>Background cascading deletion</li></ul><p>You can also control how and when garbage collection deletes resources that have
+owner references using Kubernetes <a class="glossary-tooltip" title="A namespaced key that tells Kubernetes to wait until specific conditions are met before it fully deletes an object marked for deletion." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/finalizers/" target="_blank" aria-label="finalizers">finalizers</a>.</p><h3 id="foreground-deletion">Foreground cascading deletion</h3><p>In foreground cascading deletion, the owner object you're deleting first enters
+a <em>deletion in progress</em> state. In this state, the following happens to the
+owner object:</p><ul><li>The Kubernetes API server sets the object's <code>metadata.deletionTimestamp</code>
+field to the time the object was marked for deletion.</li><li>The Kubernetes API server also sets the <code>metadata.finalizers</code> field to
+<code>foregroundDeletion</code>.</li><li>The object remains visible through the Kubernetes API until the deletion
+process is complete.</li></ul><p>After the owner object enters the <em>deletion in progress</em> state, the controller
+deletes dependents it knows about. After deleting all the dependent objects it knows about,
+the controller deletes the owner object. At this point, the object is no longer visible in the
+Kubernetes API.</p><p>During foreground cascading deletion, the only dependents that block owner
+deletion are those that have the <code>ownerReference.blockOwnerDeletion=true</code> field
+and are in the garbage collection controller cache. The garbage collection controller
+cache may not contain objects whose resource type cannot be listed / watched successfully,
+or objects that are created concurrent with deletion of an owner object.
+See <a href="/docs/tasks/administer-cluster/use-cascading-deletion/#use-foreground-cascading-deletion">Use foreground cascading deletion</a>
+to learn more.</p><h3 id="background-deletion">Background cascading deletion</h3><p>In background cascading deletion, the Kubernetes API server deletes the owner
+object immediately and the garbage collector controller (custom or default)
+cleans up the dependent objects in the background.
+If a finalizer exists, it ensures that objects are not deleted until all necessary clean-up tasks are completed.
+By default, Kubernetes uses background cascading deletion unless
+you manually use foreground deletion or choose to orphan the dependent objects.</p><p>See <a href="/docs/tasks/administer-cluster/use-cascading-deletion/#use-background-cascading-deletion">Use background cascading deletion</a>
+to learn more.</p><h3 id="orphaned-dependents">Orphaned dependents</h3><p>When Kubernetes deletes an owner object, the dependents left behind are called
+<em>orphan</em> objects. By default, Kubernetes deletes dependent objects. To learn how
+to override this behaviour, see <a href="/docs/tasks/administer-cluster/use-cascading-deletion/#set-orphan-deletion-policy">Delete owner objects and orphan dependents</a>.</p><h2 id="containers-images">Garbage collection of unused containers and images</h2><p>The <a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="kubelet">kubelet</a> performs garbage
+collection on unused images every five minutes and on unused containers every
+minute. You should avoid using external garbage collection tools, as these can
+break the kubelet behavior and remove containers that should exist.</p><p>To configure options for unused container and image garbage collection, tune the
+kubelet using a <a href="/docs/tasks/administer-cluster/kubelet-config-file/">configuration file</a>
+and change the parameters related to garbage collection using the
+<a href="/docs/reference/config-api/kubelet-config.v1beta1/"><code>KubeletConfiguration</code></a>
+resource type.</p><h3 id="container-image-lifecycle">Container image lifecycle</h3><p>Kubernetes manages the lifecycle of all images through its <em>image manager</em>,
+which is part of the kubelet, with the cooperation of
+<a class="glossary-tooltip" title="Tool that provides understanding of the resource usage and performance characteristics for containers" data-toggle="tooltip" data-placement="top" href="https://github.com/google/cadvisor/" target="_blank" aria-label="cadvisor">cadvisor</a>. The kubelet
+considers the following disk usage limits when making garbage collection
+decisions:</p><ul><li><code>HighThresholdPercent</code></li><li><code>LowThresholdPercent</code></li></ul><p>Disk usage above the configured <code>HighThresholdPercent</code> value triggers garbage
+collection, which deletes images in order based on the last time they were used,
+starting with the oldest first. The kubelet deletes images
+until disk usage reaches the <code>LowThresholdPercent</code> value.</p><h4 id="image-maximum-age-gc">Garbage collection for unused container images</h4><div class="feature-state-notice feature-beta" title="Feature Gate: ImageMaximumGCAge"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.30 [beta]</code> (enabled by default: true)</div><p>As a beta feature, you can specify the maximum time a local image can be unused for,
+regardless of disk usage. This is a kubelet setting that you configure for each node.</p><p>To configure the setting, you need to set a value for the <code>imageMaximumGCAge</code>
+field in the kubelet configuration file.</p><p>The value is specified as a Kubernetes <a class="glossary-tooltip" title="A string value representing an amount of time." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-duration" target="_blank" aria-label="duration">duration</a>.
+See <a href="/docs/reference/glossary/?all=true#term-duration">duration</a> in the glossary
+for more details.</p><p>For example, you can set the configuration field to <code>12h45m</code>,
+which means 12 hours and 45 minutes.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This feature does not track image usage across kubelet restarts. If the kubelet
+is restarted, the tracked image age is reset, causing the kubelet to wait the full
+<code>imageMaximumGCAge</code> duration before qualifying images for garbage collection
+based on image age.</div><h3 id="container-image-garbage-collection">Container garbage collection</h3><p>The kubelet garbage collects unused containers based on the following variables,
+which you can define:</p><ul><li><code>MinAge</code>: the minimum age at which the kubelet can garbage collect a
+container. Disable by setting to <code>0</code>.</li><li><code>MaxPerPodContainer</code>: the maximum number of dead containers each Pod
+can have. Disable by setting to less than <code>0</code>.</li><li><code>MaxContainers</code>: the maximum number of dead containers the cluster can have.
+Disable by setting to less than <code>0</code>.</li></ul><p>In addition to these variables, the kubelet garbage collects unidentified and
+deleted containers, typically starting with the oldest first.</p><p><code>MaxPerPodContainer</code> and <code>MaxContainers</code> may potentially conflict with each other
+in situations where retaining the maximum number of containers per Pod
+(<code>MaxPerPodContainer</code>) would go outside the allowable total of global dead
+containers (<code>MaxContainers</code>). In this situation, the kubelet adjusts
+<code>MaxPerPodContainer</code> to address the conflict. A worst-case scenario would be to
+downgrade <code>MaxPerPodContainer</code> to <code>1</code> and evict the oldest containers.
+Additionally, containers owned by pods that have been deleted are removed once
+they are older than <code>MinAge</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The kubelet only garbage collects the containers it manages.</div><h2 id="configuring-gc">Configuring garbage collection</h2><p>You can tune garbage collection of resources by configuring options specific to
+the controllers managing those resources. The following pages show you how to
+configure garbage collection:</p><ul><li><a href="/docs/tasks/administer-cluster/use-cascading-deletion/">Configuring cascading deletion of Kubernetes objects</a></li><li><a href="/docs/concepts/workloads/controllers/ttlafterfinished/">Configuring cleanup of finished Jobs</a></li></ul><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/concepts/overview/working-with-objects/owners-dependents/">ownership of Kubernetes objects</a>.</li><li>Learn more about Kubernetes <a href="/docs/concepts/overview/working-with-objects/finalizers/">finalizers</a>.</li><li>Learn about the <a href="/docs/concepts/workloads/controllers/ttlafterfinished/">TTL controller</a> that cleans up finished Jobs.</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">About cgroup v2</h1><p>On Linux, <a class="glossary-tooltip" title="A group of Linux processes with optional resource isolation, accounting and limits." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-cgroup" target="_blank" aria-label="control groups">control groups</a>
+constrain resources that are allocated to processes.</p><p>The <a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="kubelet">kubelet</a> and the
+underlying container runtime need to interface with cgroups to enforce
+<a href="/docs/concepts/configuration/manage-resources-containers/">resource management for pods and containers</a> which
+includes cpu/memory requests and limits for containerized workloads.</p><p>There are two versions of cgroups in Linux: cgroup v1 and cgroup v2. cgroup v2 is
+the new generation of the <code>cgroup</code> API.</p><h2 id="cgroup-v2">What is cgroup v2?</h2><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.25 [stable]</code></div><p>cgroup v2 is the next version of the Linux <code>cgroup</code> API. cgroup v2 provides a
+unified control system with enhanced resource management
+capabilities.</p><p>cgroup v2 offers several improvements over cgroup v1, such as the following:</p><ul><li>Single unified hierarchy design in API</li><li>Safer sub-tree delegation to containers</li><li>Newer features like <a href="https://www.kernel.org/doc/html/latest/accounting/psi.html">Pressure Stall Information</a></li><li>Enhanced resource allocation management and isolation across multiple resources<ul><li>Unified accounting for different types of memory allocations (network memory, kernel memory, etc)</li><li>Accounting for non-immediate resource changes such as page cache write backs</li></ul></li></ul><p>Some Kubernetes features exclusively use cgroup v2 for enhanced resource
+management and isolation. For example, the
+<a href="/docs/concepts/workloads/pods/pod-qos/#memory-qos-with-cgroup-v2">MemoryQoS</a> feature improves memory QoS
+and relies on cgroup v2 primitives.</p><h2 id="using-cgroupv2">Using cgroup v2</h2><p>The recommended way to use cgroup v2 is to use a Linux distribution that
+enables and uses cgroup v2 by default.</p><p>To check if your distribution uses cgroup v2, refer to <a href="#check-cgroup-version">Identify cgroup version on Linux nodes</a>.</p><h3 id="requirements">Requirements</h3><p>cgroup v2 has the following requirements:</p><ul><li>OS distribution enables cgroup v2</li><li>Linux Kernel version is 5.8 or later</li><li>Container runtime supports cgroup v2. For example:<ul><li><a href="https://containerd.io/">containerd</a> v1.4 and later</li><li><a href="https://cri-o.io/">cri-o</a> v1.20 and later</li></ul></li><li>The kubelet and the container runtime are configured to use the <a href="/docs/setup/production-environment/container-runtimes/#systemd-cgroup-driver">systemd cgroup driver</a></li></ul><h3 id="linux-distribution-cgroup-v2-support">Linux Distribution cgroup v2 support</h3><p>For a list of Linux distributions that use cgroup v2, refer to the <a href="https://github.com/opencontainers/runc/blob/main/docs/cgroup-v2.md">cgroup v2 documentation</a></p><ul><li>Container Optimized OS (since M97)</li><li>Ubuntu (since 21.10, 22.04+ recommended)</li><li>Debian GNU/Linux (since Debian 11 bullseye)</li><li>Fedora (since 31)</li><li>Arch Linux (since April 2021)</li><li>RHEL and RHEL-like distributions (since 9)</li></ul><p>To check if your distribution is using cgroup v2, refer to your distribution's
+documentation or follow the instructions in <a href="#check-cgroup-version">Identify the cgroup version on Linux nodes</a>.</p><p>You can also enable cgroup v2 manually on your Linux distribution by modifying
+the kernel cmdline boot arguments. If your distribution uses GRUB,
+<code>systemd.unified_cgroup_hierarchy=1</code> should be added in <code>GRUB_CMDLINE_LINUX</code>
+under <code>/etc/default/grub</code>, followed by <code>sudo update-grub</code>. However, the
+recommended approach is to use a distribution that already enables cgroup v2 by
+default.</p><h3 id="migrating-cgroupv2">Migrating to cgroup v2</h3><p>To migrate to cgroup v2, ensure that you meet the <a href="#requirements">requirements</a>, then upgrade
+to a kernel version that enables cgroup v2 by default.</p><p>The kubelet automatically detects that the OS is running on cgroup v2 and
+performs accordingly with no additional configuration required.</p><p>There should not be any noticeable difference in the user experience when
+switching to cgroup v2, unless users are accessing the cgroup file system
+directly, either on the node or from within the containers.</p><p>cgroup v2 uses a different API than cgroup v1, so if there are any
+applications that directly access the cgroup file system, they need to be
+updated to newer versions that support cgroup v2. For example:</p><ul><li>Some third-party monitoring and security agents may depend on the cgroup filesystem.
+Update these agents to versions that support cgroup v2.</li><li>If you run <a href="https://github.com/google/cadvisor">cAdvisor</a> as a stand-alone
+DaemonSet for monitoring pods and containers, update it to v0.43.0 or later.</li><li>If you deploy Java applications, prefer to use versions which fully support cgroup v2:<ul><li><a href="https://bugs.openjdk.org/browse/JDK-8230305">OpenJDK / HotSpot</a>: jdk8u372, 11.0.16, 15 and later</li><li><a href="https://www.ibm.com/support/pages/apar/IJ46681">IBM Semeru Runtimes</a>: 8.0.382.0, 11.0.20.0, 17.0.8.0, and later</li><li><a href="https://www.ibm.com/support/pages/apar/IJ46681">IBM Java</a>: 8.0.8.6 and later</li></ul></li><li>If you are using the <a href="https://github.com/uber-go/automaxprocs">uber-go/automaxprocs</a> package, make sure
+the version you use is v1.5.1 or higher.</li></ul><h2 id="check-cgroup-version">Identify the cgroup version on Linux Nodes</h2><p>The cgroup version depends on the Linux distribution being used and the
+default cgroup version configured on the OS. To check which cgroup version your
+distribution uses, run the <code>stat -fc %T /sys/fs/cgroup/</code> command on
+the node:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>stat -fc %T /sys/fs/cgroup/
+</span></span></code></pre></div><p>For cgroup v2, the output is <code>cgroup2fs</code>.</p><p>For cgroup v1, the output is <code>tmpfs.</code></p><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="https://man7.org/linux/man-pages/man7/cgroups.7.html">cgroups</a></li><li>Learn more about <a href="/docs/concepts/architecture/cri">container runtime</a></li><li>Learn more about <a href="/docs/setup/production-environment/container-runtimes/#cgroup-drivers">cgroup drivers</a></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Leases</h1><p>Distributed systems often have a need for <em>leases</em>, which provide a mechanism to lock shared resources
+and coordinate activity between members of a set.
+In Kubernetes, the lease concept is represented by <a href="/docs/reference/kubernetes-api/cluster-resources/lease-v1/">Lease</a>
+objects in the <code>coordination.k8s.io</code> <a class="glossary-tooltip" title="A set of related paths in the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/kubernetes-api/#api-groups-and-versioning" target="_blank" aria-label="API Group">API Group</a>,
+which are used for system-critical capabilities such as node heartbeats and component-level leader election.</p><h2 id="node-heart-beats">Node heartbeats</h2><p>Kubernetes uses the Lease API to communicate kubelet node heartbeats to the Kubernetes API server.
+For every <code>Node</code> , there is a <code>Lease</code> object with a matching name in the <code>kube-node-lease</code>
+namespace. Under the hood, every kubelet heartbeat is an <strong>update</strong> request to this <code>Lease</code> object, updating
+the <code>spec.renewTime</code> field for the Lease. The Kubernetes control plane uses the time stamp of this field
+to determine the availability of this <code>Node</code>.</p><p>See <a href="/docs/concepts/architecture/nodes/#node-heartbeats">Node Lease objects</a> for more details.</p><h2 id="leader-election">Leader election</h2><p>Kubernetes also uses Leases to ensure only one instance of a component is running at any given time.
+This is used by control plane components like <code>kube-controller-manager</code> and <code>kube-scheduler</code> in
+HA configurations, where only one instance of the component should be actively running while the other
+instances are on stand-by.</p><p>Read <a href="/docs/concepts/cluster-administration/coordinated-leader-election/">coordinated leader election</a>
+to learn about how Kubernetes builds on the Lease API to select which component instance
+acts as leader.</p><h2 id="api-server-identity">API server identity</h2><div class="feature-state-notice feature-beta" title="Feature Gate: APIServerIdentity"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [beta]</code> (enabled by default: true)</div><p>Starting in Kubernetes v1.26, each <code>kube-apiserver</code> uses the Lease API to publish its identity to the
+rest of the system. While not particularly useful on its own, this provides a mechanism for clients to
+discover how many instances of <code>kube-apiserver</code> are operating the Kubernetes control plane.
+Existence of kube-apiserver leases enables future capabilities that may require coordination between
+each kube-apiserver.</p><p>You can inspect Leases owned by each kube-apiserver by checking for lease objects in the <code>kube-system</code> namespace
+with the name <code>apiserver-&lt;sha256-hash&gt;</code>. Alternatively you can use the label selector <code>apiserver.kubernetes.io/identity=kube-apiserver</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl -n kube-system get lease -l apiserver.kubernetes.io/identity<span style="color:#666">=</span>kube-apiserver
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                                        HOLDER                                                                           AGE
+apiserver-07a5ea9b9b072c4a5f3d1c3702        apiserver-07a5ea9b9b072c4a5f3d1c3702_0c8914f7-0f35-440e-8676-7844977d3a05        5m33s
+apiserver-7be9e061c59d368b3ddaf1376e        apiserver-7be9e061c59d368b3ddaf1376e_84f2a85d-37c1-4b14-b6b9-603e62e4896f        4m23s
+apiserver-1dfef752bcb36637d2763d1868        apiserver-1dfef752bcb36637d2763d1868_c5ffa286-8a9a-45d4-91e7-61118ed58d2e        4m43s
+</code></pre><p>The SHA256 hash used in the lease name is based on the OS hostname as seen by that API server. Each kube-apiserver should be
+configured to use a hostname that is unique within the cluster. New instances of kube-apiserver that use the same hostname
+will take over existing Leases using a new holder identity, as opposed to instantiating new Lease objects. You can check the
+hostname used by kube-apiserver by checking the value of the <code>kubernetes.io/hostname</code> label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl -n kube-system get lease apiserver-07a5ea9b9b072c4a5f3d1c3702 -o yaml
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>coordination.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Lease<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">creationTimestamp</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-07-02T13:16:48Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">apiserver.kubernetes.io/identity</span>:<span style="color:#bbb"> </span>kube-apiserver<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">kubernetes.io/hostname</span>:<span style="color:#bbb"> </span>master-1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>apiserver-07a5ea9b9b072c4a5f3d1c3702<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resourceVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"334899"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">uid</span>:<span style="color:#bbb"> </span>90870ab5-1ba9-4523-b215-e4d4e662acb1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">holderIdentity</span>:<span style="color:#bbb"> </span>apiserver-07a5ea9b9b072c4a5f3d1c3702_0c8914f7-0f35-440e-8676-7844977d3a05<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">leaseDurationSeconds</span>:<span style="color:#bbb"> </span><span style="color:#666">3600</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">renewTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-07-04T21:58:48.065888Z"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Expired leases from kube-apiservers that no longer exist are garbage collected by new kube-apiservers after 1 hour.</p><p>You can disable API server identity leases by disabling the <code>APIServerIdentity</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>.</p><h2 id="custom-workload">Workloads</h2><p>Your own workload can define its own use of Leases. For example, you might run a custom
+<a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a> where a primary or leader member
+performs operations that its peers do not. You define a Lease so that the controller replicas can select
+or elect a leader, using the Kubernetes API for coordination.
+If you do use a Lease, it's a good practice to define a name for the Lease that is obviously linked to
+the product or component. For example, if you have a component named Example Foo, use a Lease named
+<code>example-foo</code>.</p><p>If a cluster operator or another end user could deploy multiple instances of a component, select a name
+prefix and pick a mechanism (such as hash of the name of the Deployment) to avoid name collisions
+for the Leases.</p><p>You can use another approach so long as it achieves the same outcome: different software products do
+not conflict with one another.</p></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Nodes</h1><p>Kubernetes runs your <a class="glossary-tooltip" title="A workload is an application running on Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/" target="_blank" aria-label="workload">workload</a>
+by placing containers into Pods to run on <em>Nodes</em>.
+A node may be a virtual or physical machine, depending on the cluster. Each node
+is managed by the
+<a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a>
+and contains the services necessary to run
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a>.</p><p>Typically you have several nodes in a cluster; in a learning or resource-limited
+environment, you might have only one node.</p><p>The <a href="/docs/concepts/architecture/#node-components">components</a> on a node include the
+<a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="kubelet">kubelet</a>, a
+<a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>, and the
+<a class="glossary-tooltip" title="kube-proxy is a network proxy that runs on each node in the cluster." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-proxy/" target="_blank" aria-label="kube-proxy">kube-proxy</a>.</p><h2 id="management">Management</h2><p>There are two main ways to have Nodes added to the
+<a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a>:</p><ol><li>The kubelet on a node self-registers to the control plane</li><li>You (or another human user) manually add a Node object</li></ol><p>After you create a Node <a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="object">object</a>,
+or the kubelet on a node self-registers, the control plane checks whether the new Node object
+is valid. For example, if you try to create a Node from the following JSON manifest:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"Node"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"v1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"metadata"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"name"</span>: <span style="color:#b44">"10.240.79.157"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"labels"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"name"</span>: <span style="color:#b44">"my-first-k8s-node"</span>
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>Kubernetes creates a Node object internally (the representation). Kubernetes checks
+that a kubelet has registered to the API server that matches the <code>metadata.name</code>
+field of the Node. If the node is healthy (i.e. all necessary services are running),
+then it is eligible to run a Pod. Otherwise, that node is ignored for any cluster activity
+until it becomes healthy.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>Kubernetes keeps the object for the invalid Node and continues checking to see whether
+it becomes healthy.</p><p>You, or a <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a>, must explicitly
+delete the Node object to stop that health checking.</p></div><p>The name of a Node object must be a valid
+<a href="/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names">DNS subdomain name</a>.</p><h3 id="node-name-uniqueness">Node name uniqueness</h3><p>The <a href="/docs/concepts/overview/working-with-objects/names/#names">name</a> identifies a Node. Two Nodes
+cannot have the same name at the same time. Kubernetes also assumes that a resource with the same
+name is the same object. In case of a Node, it is implicitly assumed that an instance using the
+same name will have the same state (e.g. network settings, root disk contents) and attributes like
+node labels. This may lead to inconsistencies if an instance was modified without changing its name.
+If the Node needs to be replaced or updated significantly, the existing Node object needs to be
+removed from API server first and re-added after the update.</p><h3 id="self-registration-of-nodes">Self-registration of Nodes</h3><p>When the kubelet flag <code>--register-node</code> is true (the default), the kubelet will attempt to
+register itself with the API server. This is the preferred pattern, used by most distros.</p><p>For self-registration, the kubelet is started with the following options:</p><ul><li><p><code>--kubeconfig</code> - Path to credentials to authenticate itself to the API server.</p></li><li><p><code>--cloud-provider</code> - How to talk to a <a class="glossary-tooltip" title="An organization that offers a cloud computing platform." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-cloud-provider" target="_blank" aria-label="cloud provider">cloud provider</a>
+to read metadata about itself.</p></li><li><p><code>--register-node</code> - Automatically register with the API server.</p></li><li><p><code>--register-with-taints</code> - Register the node with the given list of
+<a class="glossary-tooltip" title="A core object consisting of three required properties: key, value, and effect. Taints prevent the scheduling of pods on nodes or node groups." data-toggle="tooltip" data-placement="top" href="/docs/concepts/scheduling-eviction/taint-and-toleration/" target="_blank" aria-label="taints">taints</a> (comma separated <code>&lt;key&gt;=&lt;value&gt;:&lt;effect&gt;</code>).</p><p>No-op if <code>register-node</code> is false.</p></li><li><p><code>--node-ip</code> - Optional comma-separated list of the IP addresses for the node.
+You can only specify a single address for each address family.
+For example, in a single-stack IPv4 cluster, you set this value to be the IPv4 address that the
+kubelet should use for the node.
+See <a href="/docs/concepts/services-networking/dual-stack/#configure-ipv4-ipv6-dual-stack">configure IPv4/IPv6 dual stack</a>
+for details of running a dual-stack cluster.</p><p>If you don't provide this argument, the kubelet uses the node's default IPv4 address, if any;
+if the node has no IPv4 addresses then the kubelet uses the node's default IPv6 address.</p></li><li><p><code>--node-labels</code> - <a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="Labels">Labels</a> to add when registering the node
+in the cluster (see label restrictions enforced by the
+<a href="/docs/reference/access-authn-authz/admission-controllers/#noderestriction">NodeRestriction admission plugin</a>).</p></li><li><p><code>--node-status-update-frequency</code> - Specifies how often kubelet posts its node status to the API server.</p></li></ul><p>When the <a href="/docs/reference/access-authn-authz/node/">Node authorization mode</a> and
+<a href="/docs/reference/access-authn-authz/admission-controllers/#noderestriction">NodeRestriction admission plugin</a>
+are enabled, kubelets are only authorized to create/modify their own Node resource.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>As mentioned in the <a href="#node-name-uniqueness">Node name uniqueness</a> section,
+when Node configuration needs to be updated, it is a good practice to re-register
+the node with the API server. For example, if the kubelet is being restarted with
+a new set of <code>--node-labels</code>, but the same Node name is used, the change will
+not take effect, as labels are only set (or modified) upon Node registration with the API server.</p><p>Pods already scheduled on the Node may misbehave or cause issues if the Node
+configuration will be changed on kubelet restart. For example, already running
+Pod may be tainted against the new labels assigned to the Node, while other
+Pods, that are incompatible with that Pod will be scheduled based on this new
+label. Node re-registration ensures all Pods will be drained and properly
+re-scheduled.</p></div><h3 id="manual-node-administration">Manual Node administration</h3><p>You can create and modify Node objects using
+<a class="glossary-tooltip" title="A command line tool for communicating with a Kubernetes cluster." data-toggle="tooltip" data-placement="top" href="/docs/reference/kubectl/" target="_blank" aria-label="kubectl">kubectl</a>.</p><p>When you want to create Node objects manually, set the kubelet flag <code>--register-node=false</code>.</p><p>You can modify Node objects regardless of the setting of <code>--register-node</code>.
+For example, you can set labels on an existing Node or mark it unschedulable.</p><p>You can set optional node role(s) for nodes by adding one or more <code>node-role.kubernetes.io/&lt;role&gt;: &lt;role&gt;</code> labels to the node where characters of <code>&lt;role&gt;</code>
+are limited by the <a href="/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set">syntax</a> rules for labels.</p><p>Kubernetes ignores the label value for node roles; by convention, you can set it to the same string you used for the node role in the label key.</p><p>You can use labels on Nodes in conjunction with node selectors on Pods to control
+scheduling. For example, you can constrain a Pod to only be eligible to run on
+a subset of the available nodes.</p><p>Marking a node as unschedulable prevents the scheduler from placing new pods onto
+that Node but does not affect existing Pods on the Node. This is useful as a
+preparatory step before a node reboot or other maintenance.</p><p>To mark a Node unschedulable, run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl cordon <span style="color:#b8860b">$NODENAME</span>
+</span></span></code></pre></div><p>See <a href="/docs/tasks/administer-cluster/safely-drain-node/">Safely Drain a Node</a>
+for more details.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Pods that are part of a <a class="glossary-tooltip" title="Ensures a copy of a Pod is running across a set of nodes in a cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/daemonset" target="_blank" aria-label="DaemonSet">DaemonSet</a> tolerate
+being run on an unschedulable Node. DaemonSets typically provide node-local services
+that should run on the Node even if it is being drained of workload applications.</div><h2 id="node-status">Node status</h2><p>A Node's status contains the following information:</p><ul><li><a href="/docs/reference/node/node-status/#addresses">Addresses</a></li><li><a href="/docs/reference/node/node-status/#condition">Conditions</a></li><li><a href="/docs/reference/node/node-status/#capacity">Capacity and Allocatable</a></li><li><a href="/docs/reference/node/node-status/#info">Info</a></li></ul><p>You can use <code>kubectl</code> to view a Node's status and other details:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe node &lt;insert-node-name-here&gt;
+</span></span></code></pre></div><p>See <a href="/docs/reference/node/node-status/">Node Status</a> for more details.</p><h2 id="node-heartbeats">Node heartbeats</h2><p>Heartbeats, sent by Kubernetes nodes, help your cluster determine the
+availability of each node, and to take action when failures are detected.</p><p>For nodes there are two forms of heartbeats:</p><ul><li>Updates to the <a href="/docs/reference/node/node-status/"><code>.status</code></a> of a Node.</li><li><a href="/docs/concepts/architecture/leases/">Lease</a> objects
+within the <code>kube-node-lease</code>
+<a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="namespace">namespace</a>.
+Each Node has an associated Lease object.</li></ul><h2 id="node-controller">Node controller</h2><p>The node <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a> is a
+Kubernetes control plane component that manages various aspects of nodes.</p><p>The node controller has multiple roles in a node's life. The first is assigning a
+CIDR block to the node when it is registered (if CIDR assignment is turned on).</p><p>The second is keeping the node controller's internal list of nodes up to date with
+the cloud provider's list of available machines. When running in a cloud
+environment and whenever a node is unhealthy, the node controller asks the cloud
+provider if the VM for that node is still available. If not, the node
+controller deletes the node from its list of nodes.</p><p>The third is monitoring the nodes' health. The node controller is
+responsible for:</p><ul><li>In the case that a node becomes unreachable, updating the <code>Ready</code> condition
+in the Node's <code>.status</code> field. In this case the node controller sets the
+<code>Ready</code> condition to <code>Unknown</code>.</li><li>If a node remains unreachable: triggering
+<a href="/docs/concepts/scheduling-eviction/api-eviction/">API-initiated eviction</a>
+for all of the Pods on the unreachable node. By default, the node controller
+waits 5 minutes between marking the node as <code>Unknown</code> and submitting
+the first eviction request.</li></ul><p>By default, the node controller checks the state of each node every 5 seconds.
+This period can be configured using the <code>--node-monitor-period</code> flag on the
+<code>kube-controller-manager</code> component.</p><h3 id="rate-limits-on-eviction">Rate limits on eviction</h3><p>In most cases, the node controller limits the eviction rate to
+<code>--node-eviction-rate</code> (default 0.1) per second, meaning it won't evict pods
+from more than 1 node per 10 seconds.</p><p>The node eviction behavior changes when a node in a given availability zone
+becomes unhealthy. The node controller checks what percentage of nodes in the zone
+are unhealthy (the <code>Ready</code> condition is <code>Unknown</code> or <code>False</code>) at the same time:</p><ul><li>If the fraction of unhealthy nodes is at least <code>--unhealthy-zone-threshold</code>
+(default 0.55), then the eviction rate is reduced.</li><li>If the cluster is small (i.e. has less than or equal to
+<code>--large-cluster-size-threshold</code> nodes - default 50), then evictions are stopped.</li><li>Otherwise, the eviction rate is reduced to <code>--secondary-node-eviction-rate</code>
+(default 0.01) per second.</li></ul><p>The reason these policies are implemented per availability zone is because one
+availability zone might become partitioned from the control plane while the others remain
+connected. If your cluster does not span multiple cloud provider availability zones,
+then the eviction mechanism does not take per-zone unavailability into account.</p><p>A key reason for spreading your nodes across availability zones is so that the
+workload can be shifted to healthy zones when one entire zone goes down.
+Therefore, if all nodes in a zone are unhealthy, then the node controller evicts at
+the normal rate of <code>--node-eviction-rate</code>. The corner case is when all zones are
+completely unhealthy (none of the nodes in the cluster are healthy). In such a
+case, the node controller assumes that there is some problem with connectivity
+between the control plane and the nodes, and doesn't perform any evictions.
+(If there has been an outage and some nodes reappear, the node controller does
+evict pods from the remaining nodes that are unhealthy or unreachable).</p><p>The node controller is also responsible for evicting pods running on nodes with
+<code>NoExecute</code> taints, unless those pods tolerate that taint.
+The node controller also adds <a class="glossary-tooltip" title="A core object consisting of three required properties: key, value, and effect. Taints prevent the scheduling of pods on nodes or node groups." data-toggle="tooltip" data-placement="top" href="/docs/concepts/scheduling-eviction/taint-and-toleration/" target="_blank" aria-label="taints">taints</a>
+corresponding to node problems like node unreachable or not ready. This means
+that the scheduler won't place Pods onto unhealthy nodes.</p><h2 id="node-capacity">Resource capacity tracking</h2><p>Node objects track information about the Node's resource capacity: for example, the amount
+of memory available and the number of CPUs.
+Nodes that <a href="#self-registration-of-nodes">self register</a> report their capacity during
+registration. If you <a href="#manual-node-administration">manually</a> add a Node, then
+you need to set the node's capacity information when you add it.</p><p>The Kubernetes <a class="glossary-tooltip" title="Control plane component that watches for newly created pods with no assigned node, and selects a node for them to run on." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-scheduler/" target="_blank" aria-label="scheduler">scheduler</a> ensures that
+there are enough resources for all the Pods on a Node. The scheduler checks that the sum
+of the requests of containers on the node is no greater than the node's capacity.
+That sum of requests includes all containers managed by the kubelet, but excludes any
+containers started directly by the container runtime, and also excludes any
+processes running outside of the kubelet's control.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you want to explicitly reserve resources for non-Pod processes, see
+<a href="/docs/tasks/administer-cluster/reserve-compute-resources/#system-reserved">reserve resources for system daemons</a>.</div><h2 id="node-topology">Node topology</h2><div class="feature-state-notice feature-stable" title="Feature Gate: TopologyManager"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.27 [stable]</code> (enabled by default: true)</div><p>If you have enabled the <code>TopologyManager</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>, then
+the kubelet can use topology hints when making resource assignment decisions.
+See <a href="/docs/tasks/administer-cluster/topology-manager/">Control Topology Management Policies on a Node</a>
+for more information.</p><h2 id="what-s-next">What's next</h2><p>Learn more about the following:</p><ul><li><a href="/docs/concepts/architecture/#node-components">Components</a> that make up a node.</li><li><a href="/docs/reference/generated/kubernetes-api/v1.34/#node-v1-core">API definition for Node</a>.</li><li><a href="https://git.k8s.io/design-proposals-archive/architecture/architecture.md#the-kubernetes-node">Node</a>
+section of the architecture design document.</li><li><a href="/docs/concepts/cluster-administration/node-shutdown/">Graceful/non-graceful node shutdown</a>.</li><li><a href="/docs/concepts/cluster-administration/node-autoscaling/">Node autoscaling</a> to
+manage the number and size of nodes in your cluster.</li><li><a href="/docs/concepts/scheduling-eviction/taint-and-toleration/">Taints and Tolerations</a>.</li><li><a href="/docs/concepts/policy/node-resource-managers/">Node Resource Managers</a>.</li><li><a href="/docs/concepts/configuration/windows-resource-management/">Resource Management for Windows nodes</a>.</li></ul></div>

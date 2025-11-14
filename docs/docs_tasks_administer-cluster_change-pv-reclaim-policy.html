@@ -1,0 +1,33 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Change the Reclaim Policy of a PersistentVolume</h1><p>This page shows how to change the reclaim policy of a Kubernetes
+PersistentVolume.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="why-change-reclaim-policy-of-a-persistentvolume">Why change reclaim policy of a PersistentVolume</h2><p>PersistentVolumes can have various reclaim policies, including "Retain",
+"Recycle", and "Delete". For dynamically provisioned PersistentVolumes,
+the default reclaim policy is "Delete". This means that a dynamically provisioned
+volume is automatically deleted when a user deletes the corresponding
+PersistentVolumeClaim. This automatic behavior might be inappropriate if the volume
+contains precious data. In that case, it is more appropriate to use the "Retain"
+policy. With the "Retain" policy, if a user deletes a PersistentVolumeClaim,
+the corresponding PersistentVolume will not be deleted. Instead, it is moved to the
+Released phase, where all of its data can be manually recovered.</p><h2 id="changing-the-reclaim-policy-of-a-persistentvolume">Changing the reclaim policy of a PersistentVolume</h2><ol><li><p>List the PersistentVolumes in your cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pv
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">NAME                                       CAPACITY   ACCESSMODES   RECLAIMPOLICY   STATUS    CLAIM             STORAGECLASS     REASON    AGE
+pvc-b6efd8da-b7b5-11e6-9d58-0ed433a7dd94   4Gi        RWO           Delete          Bound     default/claim1    manual                     10s
+pvc-b95650f8-b7b5-11e6-9d58-0ed433a7dd94   4Gi        RWO           Delete          Bound     default/claim2    manual                     6s
+pvc-bb3ca71d-b7b5-11e6-9d58-0ed433a7dd94   4Gi        RWO           Delete          Bound     default/claim3    manual                     3s
+</code></pre><p>This list also includes the name of the claims that are bound to each volume
+for easier identification of dynamically provisioned volumes.</p></li><li><p>Choose one of your PersistentVolumes and change its reclaim policy:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl patch pv &lt;your-pv-name&gt; -p <span style="color:#b44">'{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'</span>
+</span></span></code></pre></div><p>where <code>&lt;your-pv-name&gt;</code> is the name of your chosen PersistentVolume.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>On Windows, you must <em>double</em> quote any JSONPath template that contains spaces (not single
+quote as shown above for bash). This in turn means that you must use a single quote or escaped
+double quote around any literals in the template. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-cmd" data-lang="cmd"><span style="display:flex"><span>kubectl patch pv &lt;your-pv-name&gt; -p <span style="color:#b44">"{\"</span>spec\<span style="color:#b44">":{\"</span>persistentVolumeReclaimPolicy\<span style="color:#b44">":\"</span>Retain\<span style="color:#b44">"}}"</span>
+</span></span></code></pre></div></div></li><li><p>Verify that your chosen PersistentVolume has the right policy:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pv
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">NAME                                       CAPACITY   ACCESSMODES   RECLAIMPOLICY   STATUS    CLAIM             STORAGECLASS     REASON    AGE
+pvc-b6efd8da-b7b5-11e6-9d58-0ed433a7dd94   4Gi        RWO           Delete          Bound     default/claim1    manual                     40s
+pvc-b95650f8-b7b5-11e6-9d58-0ed433a7dd94   4Gi        RWO           Delete          Bound     default/claim2    manual                     36s
+pvc-bb3ca71d-b7b5-11e6-9d58-0ed433a7dd94   4Gi        RWO           Retain          Bound     default/claim3    manual                     33s
+</code></pre><p>In the preceding output, you can see that the volume bound to claim
+<code>default/claim3</code> has reclaim policy <code>Retain</code>. It will not be automatically
+deleted when a user deletes claim <code>default/claim3</code>.</p></li></ol><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/concepts/storage/persistent-volumes/">PersistentVolumes</a>.</li><li>Learn more about <a href="/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims">PersistentVolumeClaims</a>.</li></ul><h3 id="reference">References</h3><ul><li><a href="/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-v1/">PersistentVolume</a><ul><li>Pay attention to the <code>.spec.persistentVolumeReclaimPolicy</code>
+<a href="/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-v1/#PersistentVolumeSpec">field</a>
+of PersistentVolume.</li></ul></li><li><a href="/docs/reference/kubernetes-api/config-and-storage-resources/persistent-volume-claim-v1/">PersistentVolumeClaim</a></li></ul></div>

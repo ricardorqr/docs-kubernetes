@@ -1,0 +1,18 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Kubernetes API Aggregation Layer</h1><p>The aggregation layer allows Kubernetes to be extended with additional APIs, beyond what is
+offered by the core Kubernetes APIs.
+The additional APIs can either be ready-made solutions such as a
+<a href="https://github.com/kubernetes-sigs/metrics-server">metrics server</a>, or APIs that you develop yourself.</p><p>The aggregation layer is different from
+<a href="/docs/concepts/extend-kubernetes/api-extension/custom-resources/">Custom Resource Definitions</a>,
+which are a way to make the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="kube-apiserver">kube-apiserver</a>
+recognise new kinds of object.</p><h2 id="aggregation-layer">Aggregation layer</h2><p>The aggregation layer runs in-process with the kube-apiserver. Until an extension resource is
+registered, the aggregation layer will do nothing. To register an API, you add an <em>APIService</em>
+object, which "claims" the URL path in the Kubernetes API. At that point, the aggregation layer
+will proxy anything sent to that API path (e.g. <code>/apis/myextension.mycompany.io/v1/…</code>) to the
+registered APIService.</p><p>The most common way to implement the APIService is to run an <em>extension API server</em> in Pod(s) that
+run in your cluster. If you're using the extension API server to manage resources in your cluster,
+the extension API server (also written as "extension-apiserver") is typically paired with one or
+more <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controllers">controllers</a>. The apiserver-builder
+library provides a skeleton for both extension API servers and the associated controller(s).</p><h3 id="response-latency">Response latency</h3><p>Extension API servers should have low latency networking to and from the kube-apiserver.
+Discovery requests are required to round-trip from the kube-apiserver in five seconds or less.</p><p>If your extension API server cannot achieve that latency requirement, consider making changes that
+let you meet it.</p><h2 id="what-s-next">What's next</h2><ul><li>To get the aggregator working in your environment, <a href="/docs/tasks/extend-kubernetes/configure-aggregation-layer/">configure the aggregation layer</a>.</li><li>Then, <a href="/docs/tasks/extend-kubernetes/setup-extension-api-server/">setup an extension api-server</a> to work with the aggregation layer.</li><li>Read about <a href="/docs/reference/kubernetes-api/cluster-resources/api-service-v1/">APIService</a> in the API reference</li><li>Learn about <a href="/docs/reference/using-api/declarative-validation/">Declarative Validation Concepts</a>, an internal mechanism for defining validation rules that in the future will help support validation for extension API server development.</li></ul><p>Alternatively: learn how to
+<a href="/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/">extend the Kubernetes API using Custom Resource Definitions</a>.</p></div>

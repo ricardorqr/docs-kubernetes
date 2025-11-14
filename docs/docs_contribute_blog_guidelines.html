@@ -1,0 +1,48 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Blog guidelines</h1><p>These guidelines cover the main Kubernetes blog and the Kubernetes
+contributor blog.</p><p>All blog content must also adhere to the overall policy in the
+<a href="/docs/contribute/style/content-guide/">content guide</a>.</p><h1 id="before-you-begin">Before you begin</h1><p>Make sure you are familiar with the introduction sections of
+<a href="/docs/contribute/blog/">contributing to Kubernetes blogs</a>, not just to learn about
+the two official blogs and the differences between them, but also to get an overview
+of the process.</p><h2 id="original-content">Original content</h2><p>The Kubernetes project accepts <strong>original content only</strong>, in English.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The Kubernetes project cannot accept content for the blog if it has already been submitted
+or published outside of the Kubernetes project.</p><p>The official blogs are not available as a medium to repurpose existing content from any third
+party as new content.</p></div><p>This restriction even carries across to promoting other Linux Foundation and CNCF projects.
+Many CNCF projects have their own blog. These are often a better choice for posts about a specific
+project, even if that other project is designed specifically to work with Kubernetes (or with Linux,
+etc).</p><h2 id="relevant-content">Relevant content</h2><p>Articles must contain content that applies broadly to the Kubernetes community. For example, a
+submission should focus on upstream Kubernetes as opposed to vendor-specific configurations.
+For articles submitted to the main blog that are not
+<a href="/docs/contribute/blog/article-mirroring/">mirror articles</a>, hyperlinks in the article should commonly
+be to the official Kubernetes documentation. When making external references, links should be
+diverse - for example, a submission shouldn't contain only links back to a single company's blog.</p><p>The official Kubernetes blogs are <strong>not</strong> the place for vendor pitches or for articles that promote
+a specific solution from outside Kubernetes.</p><p>Sometimes this is a delicate balance. You can ask in Slack (<a href="https://kubernetes.slack.com/archives/CJDHVD54J">#sig-docs-blog</a>)
+for guidance on whether a post is appropriate for the Kubernetes blog and / or contributor blog -
+don't hesitate to reach out.</p><p>The <a href="/docs/contribute/style/content-guide/">content guide</a> applies unconditionally to blog articles
+and the PRs that add them. Bear in mind that some restrictions in the guide state that they are only relevant to documentation; those marked restrictions don't apply to blog articles.</p><h2 id="localization">Localization</h2><p>The website is localized into many languages; English is the “upstream” for all the other
+localizations. Even if you speak another language and would be happy to provide a localization,
+that should be in a separate pull request (see <a href="/docs/contribute/new-content/#languages-per-pr">languages per PR</a>).</p><h2 id="copyright-and-reuse">Copyright and reuse</h2><p>You must write <a href="#original-content">original content</a> and you must have permission to license
+that content to the Cloud Native Computing Foundation (so that the Kubernetes project can
+legally publish it).
+This means that not only is direct plagiarism forbidden, you cannot write a blog article if
+you don't have permission to meet the CNCF copyright license conditions (for example, if your
+employer has a policy about intellectual property that restricts what you are allowed to do).</p><p>The <a href="https://github.com/kubernetes/website/blob/main/LICENSE">license</a> for the blog allows
+commercial use of the content for commercial purposes, but not the other way around.</p><h2 id="special-interest-groups-and-working-groups">Special interest groups and working groups</h2><p>Topics related to participation in or results of Kubernetes SIG activities are always on
+topic (see the work in the <a href="https://github.com/kubernetes/community/blob/master/communication/contributor-comms/blogging-resources/blog-guidelines.md#contributor-comms-blog-guidelines">Contributor Comms Team</a>
+for support on these posts).</p><p>The project typically <a href="/docs/contribute/blog/article-mirroring/">mirrors</a> these articles to both blogs.</p><h2 id="national-restrictions-on-content">National restrictions on content</h2><p>The Kubernetes website has an Internet Content Provider (ICP) licence from the government of China. Although it's unlikely to be a problem, Kubernetes cannot publish articles that would be blocked by the Chinese government's official filtering of internet content.</p><h2 id="what-we-publish">Blog-specific content guidance</h2><p>As well as the general <a href="/docs/contribute/style/style-guide/">style guide</a>, blog articles should (not must) align to
+the <a href="/docs/contribute/blog/article-submission/#article-content">blog-specific style recommendations</a>.</p><p>The remainder of this page is additional guidance; these are not strict rules that articles
+must follow, but reviewers are likely to (and should) ask for edits to articles that are
+obviously not aligned with the recommendations here.</p><h3 id="illustrations">Diagrams and illustrations</h3><p>For <a href="/docs/contribute/blog/article-submission/#illustrations">illustrations</a> - including diagrams or charts - use the <a href="https://gohugo.io/content-management/shortcodes/#figure">figure shortcode</a>
+where feasible. You should set an <code>alt</code> attribute for accessibility.</p><p>Use vector images for illustrations, technical diagrams and similar graphics; SVG format is recommended as a strong preference.</p><p>Articles that use raster images for illustrations are more difficult to maintain and in some
+cases the blog team may ask authors to revise the article before it could be published.</p><h3 id="timelessness">Timelessness</h3><p>Blog posts should aim to be future proof</p><ul><li>Given the development velocity of the project, SIG Docs prefers <em>timeless</em> writing: content that
+won't require updates to stay accurate for the reader.</li><li>It can be a better choice to add a tutorial or update official documentation than to write a
+high level overview as a blog post.</li><li>Consider concentrating the long technical content as a call to action of the blog post, and
+focus on the problem space or why readers should care.</li></ul><h3 id="content-examples">Content examples</h3><p>Here are some examples of content that is appropriate for the
+<a href="/docs/contribute/blog/#main-blog">main Kubernetes blog</a>:</p><ul><li>Announcements about new Kubernetes capabilities</li><li>Explanations of how to achieve an outcome using Kubernetes; for example, tell us about your
+low-toil improvement on the basic idea of a rolling deploy</li><li>Comparisons of several different software options that have a link to Kubernetes and cloud native. It's
+OK to have a link to one of these options so long as you fully disclose your conflict of
+interest / relationship.</li><li>Stories about problems or incidents, and how you resolved them</li><li>Articles discussing building a cloud native platform for specific use cases</li><li>Your opinion about the good or bad points about Kubernetes</li><li>Announcements and stories about non-core Kubernetes, such as the Gateway API</li><li><a href="#post-release-comms">Post-release announcements and updates</a></li><li>Messages about important Kubernetes security vulnerabilities</li><li>Kubernetes projects updates</li><li>Tutorials and walkthroughs</li><li>Thought leadership around Kubernetes and cloud native</li><li>The components of Kubernetes are purposely modular, so writing about existing integration
+points like CNI and CSI are on topic. Provided you don't write a vendor pitch, you can also write
+about what is on the other end of these integrations.</li></ul><p>Here are some examples of content that is appropriate for the Kubernetes
+<a href="/docs/contribute/blog/#contributor-blog">contributor blog</a>:</p><ul><li>articles about how to test your change to Kubernetes code</li><li>content around non-code contribution</li><li>discussions about alpha features where the design is still under discussion</li><li>"Meet the team" articles about working groups, special interest groups, etc.</li><li>a guide about how to write secure code that will become part of Kubernetes itself</li><li>articles about maintainer summits and the outcome of those summits</li></ul><h3 id="what-we-do-not-publish">Examples of content that wouldn't be accepted</h3><p>However, the project will not publish:</p><ul><li>vendor pitches</li><li>an article you've published elsewhere, even if only to your own low-traffic blog</li><li>large chunks of example source code with only a minimal explanation</li><li>updates about an external project that works with our relies on Kubernetes (put those on
+the external project's own blog)</li><li>articles about using Kubernetes with a specific cloud provider</li><li>articles that criticise specific people, groups of people, or businesses</li><li>articles that have important technical mistakes or misleading details (for example: if you
+recommend turning off an important security control in production clusters, because it can
+be inconvenient, the Kubernetes project is likely to reject the article).</li></ul></div>

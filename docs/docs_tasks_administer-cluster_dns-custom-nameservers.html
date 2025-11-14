@@ -1,0 +1,104 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Customizing DNS Service</h1><p>This page explains how to configure your DNS
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod(s)">Pod(s)</a> and customize the
+DNS resolution process in your cluster.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>Your cluster must be running the CoreDNS add-on.</p><p>Your Kubernetes server must be at or later than version v1.12.</p><p>To check the version, enter <code>kubectl version</code>.</p><h2 id="introduction">Introduction</h2><p>DNS is a built-in Kubernetes service launched automatically
+using the <em>addon manager</em> <a href="https://github.com/kubernetes/kubernetes/blob/master/cluster/addons/addon-manager/README.md">cluster add-on</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The CoreDNS Service is named <code>kube-dns</code> in the <code>metadata.name</code> field.<br/>The intent is to ensure greater interoperability with workloads that relied on
+the legacy <code>kube-dns</code> Service name to resolve addresses internal to the cluster.
+Using a Service named <code>kube-dns</code> abstracts away the implementation detail of
+which DNS provider is running behind that common name.</div><p>If you are running CoreDNS as a Deployment, it will typically be exposed as
+a Kubernetes Service with a static IP address.
+The kubelet passes DNS resolver information to each container with the
+<code>--cluster-dns=&lt;dns-service-ip&gt;</code> flag.</p><p>DNS names also need domains. You configure the local domain in the kubelet
+with the flag <code>--cluster-domain=&lt;default-local-domain&gt;</code>.</p><p>The DNS server supports forward lookups (A and AAAA records), port lookups (SRV records),
+reverse IP address lookups (PTR records), and more. For more information, see
+<a href="/docs/concepts/services-networking/dns-pod-service/">DNS for Services and Pods</a>.</p><p>If a Pod's <code>dnsPolicy</code> is set to <code>default</code>, it inherits the name resolution
+configuration from the node that the Pod runs on. The Pod's DNS resolution
+should behave the same as the node.
+But see <a href="/docs/tasks/administer-cluster/dns-debugging-resolution/#known-issues">Known issues</a>.</p><p>If you don't want this, or if you want a different DNS config for pods, you can
+use the kubelet's <code>--resolv-conf</code> flag. Set this flag to "" to prevent Pods from
+inheriting DNS. Set it to a valid file path to specify a file other than
+<code>/etc/resolv.conf</code> for DNS inheritance.</p><h2 id="coredns">CoreDNS</h2><p>CoreDNS is a general-purpose authoritative DNS server that can serve as cluster DNS,
+complying with the <a href="https://github.com/kubernetes/dns/blob/master/docs/specification.md">DNS specifications</a>.</p><h3 id="coredns-configmap-options">CoreDNS ConfigMap options</h3><p>CoreDNS is a DNS server that is modular and pluggable, with plugins adding new functionalities.
+The CoreDNS server can be configured by maintaining a <a href="https://coredns.io/2017/07/23/corefile-explained/">Corefile</a>,
+which is the CoreDNS configuration file. As a cluster administrator, you can modify the
+<a class="glossary-tooltip" title="An API object used to store non-confidential data in key-value pairs. Can be consumed as environment variables, command-line arguments, or configuration files in a volume." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/configmap/" target="_blank" aria-label="ConfigMap">ConfigMap</a> for the CoreDNS Corefile to
+change how DNS service discovery behaves for that cluster.</p><p>In Kubernetes, CoreDNS is installed with the following default Corefile configuration:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ConfigMap<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>coredns<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">data</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">Corefile</span>:<span style="color:#bbb"> </span>|<span style="color:#b44;font-style:italic">
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    .:53 {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        errors
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        health {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            lameduck 5s
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        }
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        ready
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        kubernetes cluster.local in-addr.arpa ip6.arpa {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            pods insecure
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            fallthrough in-addr.arpa ip6.arpa
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            ttl 30
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        }
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        prometheus :9153
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        forward . /etc/resolv.conf
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        cache 30
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        loop
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        reload
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        loadbalance
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    }</span><span style="color:#bbb">    
+</span></span></span></code></pre></div><p>The Corefile configuration includes the following <a href="https://coredns.io/plugins/">plugins</a> of CoreDNS:</p><ul><li><a href="https://coredns.io/plugins/errors/">errors</a>: Errors are logged to stdout.</li><li><a href="https://coredns.io/plugins/health/">health</a>: Health of CoreDNS is reported to
+<code>http://localhost:8080/health</code>. In this extended syntax <code>lameduck</code> will make the process
+unhealthy then wait for 5 seconds before the process is shut down.</li><li><a href="https://coredns.io/plugins/ready/">ready</a>: An HTTP endpoint on port 8181 will return 200 OK,
+when all plugins that are able to signal readiness have done so.</li><li><a href="https://coredns.io/plugins/kubernetes/">kubernetes</a>: CoreDNS will reply to DNS queries
+based on IP of the Services and Pods. You can find <a href="https://coredns.io/plugins/kubernetes/">more details</a>
+about this plugin on the CoreDNS website.<ul><li><code>ttl</code> allows you to set a custom TTL for responses. The default is 5 seconds.
+The minimum TTL allowed is 0 seconds, and the maximum is capped at 3600 seconds.
+Setting TTL to 0 will prevent records from being cached.</li><li>The <code>pods insecure</code> option is provided for backward compatibility with <code>kube-dns</code>.</li><li>You can use the <code>pods verified</code> option, which returns an A record only if there exists a pod
+in the same namespace with a matching IP.</li><li>The <code>pods disabled</code> option can be used if you don't use pod records.</li></ul></li><li><a href="https://coredns.io/plugins/metrics/">prometheus</a>: Metrics of CoreDNS are available at
+<code>http://localhost:9153/metrics</code> in the <a href="https://prometheus.io/">Prometheus</a> format
+(also known as OpenMetrics).</li><li><a href="https://coredns.io/plugins/forward/">forward</a>: Any queries that are not within the Kubernetes
+cluster domain are forwarded to predefined resolvers (/etc/resolv.conf).</li><li><a href="https://coredns.io/plugins/cache/">cache</a>: This enables a frontend cache.</li><li><a href="https://coredns.io/plugins/loop/">loop</a>: Detects simple forwarding loops and
+halts the CoreDNS process if a loop is found.</li><li><a href="https://coredns.io/plugins/reload">reload</a>: Allows automatic reload of a changed Corefile.
+After you edit the ConfigMap configuration, allow two minutes for your changes to take effect.</li><li><a href="https://coredns.io/plugins/loadbalance">loadbalance</a>: This is a round-robin DNS loadbalancer
+that randomizes the order of A, AAAA, and MX records in the answer.</li></ul><p>You can modify the default CoreDNS behavior by modifying the ConfigMap.</p><h3 id="configuration-of-stub-domain-and-upstream-nameserver-using-coredns">Configuration of Stub-domain and upstream nameserver using CoreDNS</h3><p>CoreDNS has the ability to configure stub-domains and upstream nameservers
+using the <a href="https://coredns.io/plugins/forward/">forward plugin</a>.</p><h4 id="example">Example</h4><p>If a cluster operator has a <a href="https://www.consul.io/">Consul</a> domain server located at "10.150.0.1",
+and all Consul names have the suffix ".consul.local". To configure it in CoreDNS,
+the cluster administrator creates the following stanza in the CoreDNS ConfigMap.</p><pre tabindex="0"><code>consul.local:53 {
+    errors
+    cache 30
+    forward . 10.150.0.1
+}
+</code></pre><p>To explicitly force all non-cluster DNS lookups to go through a specific nameserver at 172.16.0.1,
+point the <code>forward</code> to the nameserver instead of <code>/etc/resolv.conf</code></p><pre tabindex="0"><code>forward .  172.16.0.1
+</code></pre><p>The final ConfigMap along with the default <code>Corefile</code> configuration looks like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ConfigMap<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>coredns<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">data</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">Corefile</span>:<span style="color:#bbb"> </span>|<span style="color:#b44;font-style:italic">
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    .:53 {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        errors
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        health
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        kubernetes cluster.local in-addr.arpa ip6.arpa {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">           pods insecure
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">           fallthrough in-addr.arpa ip6.arpa
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        }
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        prometheus :9153
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        forward . 172.16.0.1
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        cache 30
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        loop
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        reload
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        loadbalance
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    }
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    consul.local:53 {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        errors
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        cache 30
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        forward . 10.150.0.1
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    }</span><span style="color:#bbb">    
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>CoreDNS does not support FQDNs for stub-domains and nameservers (eg: "ns.foo.com").
+During translation, all FQDN nameservers will be omitted from the CoreDNS config.</div><h2 id="what-s-next">What's next</h2><ul><li>Read <a href="/docs/tasks/administer-cluster/dns-debugging-resolution/">Debugging DNS Resolution</a></li></ul></div>

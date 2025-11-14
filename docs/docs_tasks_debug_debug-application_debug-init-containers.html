@@ -1,0 +1,48 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Debug Init Containers</h1><p>This page shows how to investigate problems related to the execution of
+Init Containers. The example command lines below refer to the Pod as
+<code>&lt;pod-name&gt;</code> and the Init Containers as <code>&lt;init-container-1&gt;</code> and
+<code>&lt;init-container-2&gt;</code>.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><ul><li>You should be familiar with the basics of
+<a href="/docs/concepts/workloads/pods/init-containers/">Init Containers</a>.</li><li>You should have <a href="/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container">Configured an Init Container</a>.</li></ul><h2 id="checking-the-status-of-init-containers">Checking the status of Init Containers</h2><p>Display the status of your pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pod &lt;pod-name&gt;
+</span></span></code></pre></div><p>For example, a status of <code>Init:1/2</code> indicates that one of two Init Containers
+has completed successfully:</p><pre tabindex="0"><code>NAME         READY     STATUS     RESTARTS   AGE
+&lt;pod-name&gt;   0/1       Init:1/2   0          7s
+</code></pre><p>See <a href="#understanding-pod-status">Understanding Pod status</a> for more examples of
+status values and their meanings.</p><h2 id="getting-details-about-init-containers">Getting details about Init Containers</h2><p>View more detailed information about Init Container execution:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe pod &lt;pod-name&gt;
+</span></span></code></pre></div><p>For example, a Pod with two Init Containers might show the following:</p><pre tabindex="0"><code>Init Containers:
+  &lt;init-container-1&gt;:
+    Container ID:    ...
+    ...
+    State:           Terminated
+      Reason:        Completed
+      Exit Code:     0
+      Started:       ...
+      Finished:      ...
+    Ready:           True
+    Restart Count:   0
+    ...
+  &lt;init-container-2&gt;:
+    Container ID:    ...
+    ...
+    State:           Waiting
+      Reason:        CrashLoopBackOff
+    Last State:      Terminated
+      Reason:        Error
+      Exit Code:     1
+      Started:       ...
+      Finished:      ...
+    Ready:           False
+    Restart Count:   3
+    ...
+</code></pre><p>You can also access the Init Container statuses programmatically by reading the
+<code>status.initContainerStatuses</code> field on the Pod Spec:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pod &lt;pod-name&gt; --template <span style="color:#b44">'{{.status.initContainerStatuses}}'</span>
+</span></span></code></pre></div><p>This command will return the same information as above, formatted using a <a href="https://pkg.go.dev/text/template">Go template</a>.</p><h2 id="accessing-logs-from-init-containers">Accessing logs from Init Containers</h2><p>Pass the Init Container name along with the Pod name
+to access its logs.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs &lt;pod-name&gt; -c &lt;init-container-2&gt;
+</span></span></code></pre></div><p>Init Containers that run a shell script print
+commands as they're executed. For example, you can do this in Bash by running
+<code>set -x</code> at the beginning of the script.</p><h2 id="understanding-pod-status">Understanding Pod status</h2><p>A Pod status beginning with <code>Init:</code> summarizes the status of Init Container
+execution. The table below describes some example status values that you might
+see while debugging Init Containers.</p><table><thead><tr><th>Status</th><th>Meaning</th></tr></thead><tbody><tr><td><code>Init:N/M</code></td><td>The Pod has <code>M</code> Init Containers, and <code>N</code> have completed so far.</td></tr><tr><td><code>Init:Error</code></td><td>An Init Container has failed to execute.</td></tr><tr><td><code>Init:CrashLoopBackOff</code></td><td>An Init Container has failed repeatedly.</td></tr><tr><td><code>Pending</code></td><td>The Pod has not yet begun executing Init Containers.</td></tr><tr><td><code>PodInitializing</code> or <code>Running</code></td><td>The Pod has already finished executing Init Containers.</td></tr></tbody></table></div>

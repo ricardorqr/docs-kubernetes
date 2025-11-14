@@ -1,0 +1,41 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Protocols for Services</h1><p>If you configure a <a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a>,
+you can select from any network protocol that Kubernetes supports.</p><p>Kubernetes supports the following protocols with Services:</p><ul><li><a href="#protocol-sctp"><code>SCTP</code></a></li><li><a href="#protocol-tcp"><code>TCP</code></a> <em>(the default)</em></li><li><a href="#protocol-udp"><code>UDP</code></a></li></ul><p>When you define a Service, you can also specify the
+<a href="/docs/concepts/services-networking/service/#application-protocol">application protocol</a>
+that it uses.</p><p>This document details some special cases, all of them typically using TCP
+as a transport protocol:</p><ul><li><a href="#protocol-http-special">HTTP</a> and <a href="#protocol-http-special">HTTPS</a></li><li><a href="#protocol-proxy-special">PROXY protocol</a></li><li><a href="#protocol-tls-special">TLS</a> termination at the load balancer</li></ul><h2 id="protocol-support">Supported protocols</h2><p>There are 3 valid values for the <code>protocol</code> of a port for a Service:</p><h3 id="protocol-sctp"><code>SCTP</code></h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.20 [stable]</code></div><p>When using a network plugin that supports SCTP traffic, you can use SCTP for
+most Services. For <code>type: LoadBalancer</code> Services, SCTP support depends on the cloud
+provider offering this facility. (Most do not).</p><p>SCTP is not supported on nodes that run Windows.</p><h4 id="caveat-sctp-multihomed">Support for multihomed SCTP associations</h4><p>The support of multihomed SCTP associations requires that the CNI plugin can support the assignment of multiple interfaces and IP addresses to a Pod.</p><p>NAT for multihomed SCTP associations requires special logic in the corresponding kernel modules.</p><h3 id="protocol-tcp"><code>TCP</code></h3><p>You can use TCP for any kind of Service, and it's the default network protocol.</p><h3 id="protocol-udp"><code>UDP</code></h3><p>You can use UDP for most Services. For <code>type: LoadBalancer</code> Services,
+UDP support depends on the cloud provider offering this facility.</p><h2 id="special-cases">Special cases</h2><h3 id="protocol-http-special">HTTP</h3><p>If your cloud provider supports it, you can use a Service in LoadBalancer mode to
+configure a load balancer outside of your Kubernetes cluster, in a special mode
+where your cloud provider's load balancer implements HTTP / HTTPS reverse proxying,
+with traffic forwarded to the backend endpoints for that Service.</p><p>Typically, you set the protocol for the Service to <code>TCP</code> and add an
+<a class="glossary-tooltip" title="A key-value pair that is used to attach arbitrary non-identifying metadata to objects." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/annotations" target="_blank" aria-label="annotation">annotation</a>
+(usually specific to your cloud provider) that configures the load balancer
+to handle traffic at the HTTP level.
+This configuration might also include serving HTTPS (HTTP over TLS) and
+reverse-proxying plain HTTP to your workload.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>You can also use an <a class="glossary-tooltip" title="An API object that manages external access to the services in a cluster, typically HTTP." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/ingress/" target="_blank" aria-label="Ingress">Ingress</a> to expose
+HTTP/HTTPS Services.</div><p>You might additionally want to specify that the
+<a href="/docs/concepts/services-networking/service/#application-protocol">application protocol</a>
+of the connection is <code>http</code> or <code>https</code>. Use <code>http</code> if the session from the
+load balancer to your workload is HTTP without TLS, and use <code>https</code> if the
+session from the load balancer to your workload uses TLS encryption.</p><h3 id="protocol-proxy-special">PROXY protocol</h3><p>If your cloud provider supports it, you can use a Service set to <code>type: LoadBalancer</code>
+to configure a load balancer outside of Kubernetes itself, that will forward connections
+wrapped with the
+<a href="https://www.haproxy.org/download/2.5/doc/proxy-protocol.txt">PROXY protocol</a>.</p><p>The load balancer then sends an initial series of octets describing the
+incoming connection, similar to this example (PROXY protocol v1):</p><pre tabindex="0"><code>PROXY TCP4 192.0.2.202 10.0.42.7 12345 7\r\n
+</code></pre><p>The data after the proxy protocol preamble are the original
+data from the client. When either side closes the connection,
+the load balancer also triggers a connection close and sends
+any remaining data where feasible.</p><p>Typically, you define a Service with the protocol to <code>TCP</code>.
+You also set an annotation, specific to your
+cloud provider, that configures the load balancer to wrap each incoming connection in the PROXY protocol.</p><h3 id="protocol-tls-special">TLS</h3><p>If your cloud provider supports it, you can use a Service set to <code>type: LoadBalancer</code> as
+a way to set up external reverse proxying, where the connection from client to load
+balancer is TLS encrypted and the load balancer is the TLS server peer.
+The connection from the load balancer to your workload can also be TLS,
+or might be plain text. The exact options available to you depend on your
+cloud provider or custom Service implementation.</p><p>Typically, you set the protocol to <code>TCP</code> and set an annotation
+(usually specific to your cloud provider) that configures the load balancer
+to act as a TLS server. You would configure the TLS identity (as server,
+and possibly also as a client that connects to your workload) using
+mechanisms that are specific to your cloud provider.</p></div>

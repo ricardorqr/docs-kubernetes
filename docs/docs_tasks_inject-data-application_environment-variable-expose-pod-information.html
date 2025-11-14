@@ -1,0 +1,145 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Expose Pod Information to Containers Through Environment Variables</h1><p>This page shows how a Pod can use environment variables to expose information
+about itself to containers running in the Pod, using the <em>downward API</em>.
+You can use environment variables to expose Pod fields, container fields, or both.</p><p>In Kubernetes, there are two ways to expose Pod and container fields to a running container:</p><ul><li><em>Environment variables</em>, as explained in this task</li><li><a href="/docs/tasks/inject-data-application/downward-api-volume-expose-pod-information/">Volume files</a></li></ul><p>Together, these two ways of exposing Pod and container fields are called the
+downward API.</p><p>As Services are the primary mode of communication between containerized applications managed by Kubernetes,
+it is helpful to be able to discover them at runtime.</p><p>Read more about accessing Services <a href="/docs/tutorials/services/connect-applications-service/#accessing-the-service">here</a>.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><h2 id="use-pod-fields-as-values-for-environment-variables">Use Pod fields as values for environment variables</h2><p>In this part of exercise, you create a Pod that has one container, and you
+project Pod-level fields into the running container as environment variables.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/inject/dapi-envars-pod.yaml" download="pods/inject/dapi-envars-pod.yaml"><code>pods/inject/dapi-envars-pod.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-inject-dapi-envars-pod-yaml&quot;)" title="Copy pods/inject/dapi-envars-pod.yaml to clipboard"/></div><div class="includecode" id="pods-inject-dapi-envars-pod-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>dapi-envars-fieldref<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>test-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>registry.k8s.io/busybox:1.27.2<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#bbb"> </span><span style="color:#b44">"sh"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"-c"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- while true; do<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>echo -en '\n';<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>printenv MY_NODE_NAME MY_POD_NAME MY_POD_NAMESPACE;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>printenv MY_POD_IP MY_POD_SERVICE_ACCOUNT;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>sleep 10;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>done;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">env</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_NODE_NAME<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>spec.nodeName<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_POD_NAME<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>metadata.name<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_POD_NAMESPACE<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>metadata.namespace<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_POD_IP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>status.podIP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_POD_SERVICE_ACCOUNT<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>spec.serviceAccountName<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>In that manifest, you can see five environment variables. The <code>env</code>
+field is an array of
+environment variable definitions.
+The first element in the array specifies that the <code>MY_NODE_NAME</code> environment
+variable gets its value from the Pod's <code>spec.nodeName</code> field. Similarly, the
+other environment variables get their names from Pod fields.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The fields in this example are Pod fields. They are not fields of the
+container in the Pod.</div><p>Create the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/inject/dapi-envars-pod.yaml
+</span></span></code></pre></div><p>Verify that the container in the Pod is running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># If the new Pod isn't yet healthy, rerun this command a few times.</span>
+</span></span><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><p>View the container's logs:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs dapi-envars-fieldref
+</span></span></code></pre></div><p>The output shows the values of selected environment variables:</p><pre tabindex="0"><code>minikube
+dapi-envars-fieldref
+default
+172.17.0.4
+default
+</code></pre><p>To see why these values are in the log, look at the <code>command</code> and <code>args</code> fields
+in the configuration file. When the container starts, it writes the values of
+five environment variables to stdout. It repeats this every ten seconds.</p><p>Next, get a shell into the container that is running in your Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it dapi-envars-fieldref -- sh
+</span></span></code></pre></div><p>In your shell, view the environment variables:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this in a shell inside the container</span>
+</span></span><span style="display:flex"><span>printenv
+</span></span></code></pre></div><p>The output shows that certain environment variables have been assigned the
+values of Pod fields:</p><pre tabindex="0"><code>MY_POD_SERVICE_ACCOUNT=default
+...
+MY_POD_NAMESPACE=default
+MY_POD_IP=172.17.0.4
+...
+MY_NODE_NAME=minikube
+...
+MY_POD_NAME=dapi-envars-fieldref
+</code></pre><h2 id="use-container-fields-as-values-for-environment-variables">Use container fields as values for environment variables</h2><p>In the preceding exercise, you used information from Pod-level fields as the values
+for environment variables.
+In this next exercise, you are going to pass fields that are part of the Pod
+definition, but taken from the specific
+<a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container">container</a>
+rather than from the Pod overall.</p><p>Here is a manifest for another Pod that again has just one container:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/inject/dapi-envars-container.yaml" download="pods/inject/dapi-envars-container.yaml"><code>pods/inject/dapi-envars-container.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-inject-dapi-envars-container-yaml&quot;)" title="Copy pods/inject/dapi-envars-container.yaml to clipboard"/></div><div class="includecode" id="pods-inject-dapi-envars-container-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>dapi-envars-resourcefieldref<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>test-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>registry.k8s.io/busybox:1.27.2<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#bbb"> </span><span style="color:#b44">"sh"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"-c"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- while true; do<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>echo -en '\n';<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>printenv MY_CPU_REQUEST MY_CPU_LIMIT;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>printenv MY_MEM_REQUEST MY_MEM_LIMIT;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>sleep 10;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>done;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"32Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"125m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"64Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"250m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">env</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_CPU_REQUEST<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>test-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>requests.cpu<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_CPU_LIMIT<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>test-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>limits.cpu<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_MEM_REQUEST<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>test-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>requests.memory<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MY_MEM_LIMIT<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">valueFrom</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>test-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>limits.memory<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>In this manifest, you can see four environment variables. The <code>env</code>
+field is an array of
+environment variable definitions.
+The first element in the array specifies that the <code>MY_CPU_REQUEST</code> environment
+variable gets its value from the <code>requests.cpu</code> field of a container named
+<code>test-container</code>. Similarly, the other environment variables get their values
+from fields that are specific to this container.</p><p>Create the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/inject/dapi-envars-container.yaml
+</span></span></code></pre></div><p>Verify that the container in the Pod is running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># If the new Pod isn't yet healthy, rerun this command a few times.</span>
+</span></span><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><p>View the container's logs:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs dapi-envars-resourcefieldref
+</span></span></code></pre></div><p>The output shows the values of selected environment variables:</p><pre tabindex="0"><code>1
+1
+33554432
+67108864
+</code></pre><h2 id="what-s-next">What's next</h2><ul><li>Read <a href="/docs/tasks/inject-data-application/define-environment-variable-container/">Defining Environment Variables for a Container</a></li><li>Read the <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec"><code>spec</code></a>
+API definition for Pod. This includes the definition of Container (part of Pod).</li><li>Read the list of <a href="/docs/concepts/workloads/pods/downward-api/#available-fields">available fields</a> that you
+can expose using the downward API.</li></ul><p>Read about Pods, containers and environment variables in the legacy API reference:</p><ul><li><a href="/docs/reference/generated/kubernetes-api/v1.34/#podspec-v1-core">PodSpec</a></li><li><a href="/docs/reference/generated/kubernetes-api/v1.34/#container-v1-core">Container</a></li><li><a href="/docs/reference/generated/kubernetes-api/v1.34/#envvar-v1-core">EnvVar</a></li><li><a href="/docs/reference/generated/kubernetes-api/v1.34/#envvarsource-v1-core">EnvVarSource</a></li><li><a href="/docs/reference/generated/kubernetes-api/v1.34/#objectfieldselector-v1-core">ObjectFieldSelector</a></li><li><a href="/docs/reference/generated/kubernetes-api/v1.34/#resourcefieldselector-v1-core">ResourceFieldSelector</a></li></ul></div>

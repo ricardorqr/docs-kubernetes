@@ -1,0 +1,180 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Set Kubelet Parameters Via A Configuration File</h1><h2 id="before-you-begin">Before you begin</h2><p>Some steps in this page use the <code>jq</code> tool. If you don't have <code>jq</code>, you can
+install it via your operating system's software sources, or fetch it from
+<a href="https://jqlang.github.io/jq/">https://jqlang.github.io/jq/</a>.</p><p>Some steps also involve installing <code>curl</code>, which can be installed via your
+operating system's software sources.</p><p>A subset of the kubelet's configuration parameters may be
+set via an on-disk config file, as a substitute for command-line flags.</p><p>Providing parameters via a config file is the recommended approach because
+it simplifies node deployment and configuration management.</p><h2 id="create-the-config-file">Create the config file</h2><p>The subset of the kubelet's configuration that can be configured via a file
+is defined by the
+<a href="/docs/reference/config-api/kubelet-config.v1beta1/"><code>KubeletConfiguration</code></a>
+struct.</p><p>The configuration file must be a JSON or YAML representation of the parameters
+in this struct. Make sure the kubelet has read permissions on the file.</p><p>Here is an example of what this file might look like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">address</span>:<span style="color:#bbb"> </span><span style="color:#b44">"192.168.0.8"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">20250</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">serializeImagePulls</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">evictionHard</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">memory.available</span>:<span style="color:#bbb">  </span><span style="color:#b44">"100Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">nodefs.available</span>:<span style="color:#bbb">  </span><span style="color:#b44">"10%"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">nodefs.inodesFree</span>:<span style="color:#bbb"> </span><span style="color:#b44">"5%"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">imagefs.available</span>:<span style="color:#bbb"> </span><span style="color:#b44">"15%"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">imagefs.inodesFree</span>:<span style="color:#bbb"> </span><span style="color:#b44">"5%"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>In this example, the kubelet is configured with the following settings:</p><ol><li><p><code>address</code>: The kubelet will serve on IP address <code>192.168.0.8</code>.</p></li><li><p><code>port</code>: The kubelet will serve on port <code>20250</code>.</p></li><li><p><code>serializeImagePulls</code>: Image pulls will be done in parallel.</p></li><li><p><code>evictionHard</code>: The kubelet will evict Pods under one of the following conditions:</p><ul><li>When the node's available memory drops below 100MiB.</li><li>When the node's main filesystem's available space is less than 10%.</li><li>When the image filesystem's available space is less than 15%.</li><li>When more than 95% of the node's main filesystem's inodes are in use.</li></ul></li></ol><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>In the example, by changing the default value of only one parameter for
+evictionHard, the default values of other parameters will not be inherited and
+will be set to zero. In order to provide custom values, you should provide all
+the threshold values respectively.
+Alternatively, you can set the MergeDefaultEvictionSettings to true in the kubelet
+configuration file, if any parameter is changed then the other parameters will inherit
+their default values instead of 0.</div><p>The <code>imagefs</code> is an optional filesystem that container runtimes use to store container
+images and container writable layers.</p><h2 id="start-a-kubelet-process-configured-via-the-config-file">Start a kubelet process configured via the config file</h2><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you use kubeadm to initialize your cluster, use the kubelet-config while creating your cluster with <code>kubeadm init</code>.
+See <a href="/docs/setup/production-environment/tools/kubeadm/kubelet-integration/">configuring kubelet using kubeadm</a> for details.</div><p>Start the kubelet with the <code>--config</code> flag set to the path of the kubelet's config file.
+The kubelet will then load its config from this file.</p><p>Note that command line flags which target the same value as a config file will override that value.
+This helps ensure backwards compatibility with the command-line API.</p><p>Note that relative file paths in the kubelet config file are resolved relative to the
+location of the kubelet config file, whereas relative paths in command line flags are resolved
+relative to the kubelet's current working directory.</p><p>Note that some default values differ between command-line flags and the kubelet config file.
+If <code>--config</code> is provided and the values are not specified via the command line, the
+defaults for the <code>KubeletConfiguration</code> version apply.
+In the above example, this version is <code>kubelet.config.k8s.io/v1beta1</code>.</p><h2 id="kubelet-conf-d">Drop-in directory for kubelet configuration files</h2><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.30 [beta]</code></div><p>You can specify a drop-in configuration directory for the kubelet. By default, the kubelet does not look
+for drop-in configuration files anywhere - you must specify a path.
+For example: <code>--config-dir=/etc/kubernetes/kubelet.conf.d</code></p><p>For Kubernetes v1.28 to v1.29, you can only specify <code>--config-dir</code> if you also set
+the environment variable <code>KUBELET_CONFIG_DROPIN_DIR_ALPHA</code> for the kubelet process (the value
+of that variable does not matter).</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The suffix of a valid kubelet drop-in configuration file <strong>must</strong> be <code>.conf</code>. For instance: <code>99-kubelet-address.conf</code></div><p>The kubelet processes files in its config drop-in directory by sorting the <strong>entire file name</strong> alphanumerically.
+For instance, <code>00-kubelet.conf</code> is processed first, and then overridden with a file named <code>01-kubelet.conf</code>.</p><p>These files may contain partial configurations but should not be invalid and must include type metadata, specifically <code>apiVersion</code> and <code>kind</code>.
+Validation is only performed on the final resulting configuration structure stored internally in the kubelet.
+This offers flexibility in managing and merging kubelet configurations from different sources while preventing undesirable configurations.
+However, it is important to note that behavior varies based on the data type of the configuration fields.</p><p>Different data types in the kubelet configuration structure merge differently. See the
+<a href="/docs/reference/node/kubelet-config-directory-merging/">reference document</a>
+for more information.</p><h3 id="kubelet-configuration-merging-order">Kubelet configuration merging order</h3><p>On startup, the kubelet merges configuration from:</p><ul><li>Feature gates specified over the command line (lowest precedence).</li><li>The kubelet configuration.</li><li>Drop-in configuration files, according to sort order.</li><li>Command line arguments excluding feature gates (highest precedence).</li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The config drop-in dir mechanism for the kubelet is similar but different from how the <code>kubeadm</code> tool allows you to patch configuration.
+The <code>kubeadm</code> tool uses a specific <a href="/docs/setup/production-environment/tools/kubeadm/control-plane-flags/#patches">patching strategy</a>
+for its configuration, whereas the only patch strategy for kubelet configuration drop-in files is <code>replace</code>.
+The kubelet determines the order of merges based on sorting the <strong>suffixes</strong> alphanumerically,
+and replaces every field present in a higher priority file.</div><h2 id="viewing-the-kubelet-configuration">Viewing the kubelet configuration</h2><p>Since the configuration could now be spread over multiple files with this feature, if someone wants to inspect the final actuated configuration,
+they can follow these steps to inspect the kubelet configuration:</p><ol><li><p>Start a proxy server using <a href="/docs/reference/kubectl/generated/kubectl_proxy/"><code>kubectl proxy</code></a> in your terminal.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl proxy
+</span></span></code></pre></div><p>Which gives output like:</p><pre tabindex="0"><code class="language-none" data-lang="none">Starting to serve on 127.0.0.1:8001
+</code></pre></li><li><p>Open another terminal window and use <code>curl</code> to fetch the kubelet configuration.
+Replace <code>&lt;node-name&gt;</code> with the actual name of your node:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>curl -X GET http://127.0.0.1:8001/api/v1/nodes/&lt;node-name&gt;/proxy/configz | jq .
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kubeletconfig"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enableServer"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"staticPodPath"</span>: <span style="color:#b44">"/var/run/kubernetes/static-pods"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"syncFrequency"</span>: <span style="color:#b44">"1m0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"fileCheckFrequency"</span>: <span style="color:#b44">"20s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"httpCheckFrequency"</span>: <span style="color:#b44">"20s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"address"</span>: <span style="color:#b44">"192.168.1.16"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"port"</span>: <span style="color:#666">10250</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"readOnlyPort"</span>: <span style="color:#666">10255</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"tlsCertFile"</span>: <span style="color:#b44">"/var/lib/kubelet/pki/kubelet.crt"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"tlsPrivateKeyFile"</span>: <span style="color:#b44">"/var/lib/kubelet/pki/kubelet.key"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"rotateCertificates"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"authentication"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"x509"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"clientCAFile"</span>: <span style="color:#b44">"/var/run/kubernetes/client-ca.crt"</span>
+</span></span><span style="display:flex"><span>      },
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"webhook"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"enabled"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"cacheTTL"</span>: <span style="color:#b44">"2m0s"</span>
+</span></span><span style="display:flex"><span>      },
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"anonymous"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"enabled"</span>: <span style="color:#a2f;font-weight:700">true</span>
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"authorization"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"mode"</span>: <span style="color:#b44">"AlwaysAllow"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"webhook"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"cacheAuthorizedTTL"</span>: <span style="color:#b44">"5m0s"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"cacheUnauthorizedTTL"</span>: <span style="color:#b44">"30s"</span>
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"registryPullQPS"</span>: <span style="color:#666">5</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"registryBurst"</span>: <span style="color:#666">10</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"eventRecordQPS"</span>: <span style="color:#666">50</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"eventBurst"</span>: <span style="color:#666">100</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enableDebuggingHandlers"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"healthzPort"</span>: <span style="color:#666">10248</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"healthzBindAddress"</span>: <span style="color:#b44">"127.0.0.1"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"oomScoreAdj"</span>: <span style="color:#666">-999</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"clusterDomain"</span>: <span style="color:#b44">"cluster.local"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"clusterDNS"</span>: [
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"10.0.0.10"</span>
+</span></span><span style="display:flex"><span>    ],
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"streamingConnectionIdleTimeout"</span>: <span style="color:#b44">"4h0m0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"nodeStatusUpdateFrequency"</span>: <span style="color:#b44">"10s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"nodeStatusReportFrequency"</span>: <span style="color:#b44">"5m0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"nodeLeaseDurationSeconds"</span>: <span style="color:#666">40</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"imageMinimumGCAge"</span>: <span style="color:#b44">"2m0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"imageMaximumGCAge"</span>: <span style="color:#b44">"0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"imageGCHighThresholdPercent"</span>: <span style="color:#666">85</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"imageGCLowThresholdPercent"</span>: <span style="color:#666">80</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"volumeStatsAggPeriod"</span>: <span style="color:#b44">"1m0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"cgroupsPerQOS"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"cgroupDriver"</span>: <span style="color:#b44">"systemd"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"cpuManagerPolicy"</span>: <span style="color:#b44">"none"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"cpuManagerReconcilePeriod"</span>: <span style="color:#b44">"10s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"memoryManagerPolicy"</span>: <span style="color:#b44">"None"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"topologyManagerPolicy"</span>: <span style="color:#b44">"none"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"topologyManagerScope"</span>: <span style="color:#b44">"container"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"runtimeRequestTimeout"</span>: <span style="color:#b44">"2m0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"hairpinMode"</span>: <span style="color:#b44">"promiscuous-bridge"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"maxPods"</span>: <span style="color:#666">110</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"podPidsLimit"</span>: <span style="color:#666">-1</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"resolvConf"</span>: <span style="color:#b44">"/run/systemd/resolve/resolv.conf"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"cpuCFSQuota"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"cpuCFSQuotaPeriod"</span>: <span style="color:#b44">"100ms"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"nodeStatusMaxImages"</span>: <span style="color:#666">50</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"maxOpenFiles"</span>: <span style="color:#666">1000000</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"contentType"</span>: <span style="color:#b44">"application/vnd.kubernetes.protobuf"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"kubeAPIQPS"</span>: <span style="color:#666">50</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"kubeAPIBurst"</span>: <span style="color:#666">100</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"serializeImagePulls"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"evictionHard"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"imagefs.available"</span>: <span style="color:#b44">"15%"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"memory.available"</span>: <span style="color:#b44">"100Mi"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"nodefs.available"</span>: <span style="color:#b44">"10%"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"nodefs.inodesFree"</span>: <span style="color:#b44">"5%"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"imagefs.inodesFree"</span>: <span style="color:#b44">"5%"</span>
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"evictionPressureTransitionPeriod"</span>: <span style="color:#b44">"1m0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"mergeDefaultEvictionSettings"</span>: <span style="color:#a2f;font-weight:700">false</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enableControllerAttachDetach"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"makeIPTablesUtilChains"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"iptablesMasqueradeBit"</span>: <span style="color:#666">14</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"iptablesDropBit"</span>: <span style="color:#666">15</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"featureGates"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"AllAlpha"</span>: <span style="color:#a2f;font-weight:700">false</span>
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"failSwapOn"</span>: <span style="color:#a2f;font-weight:700">false</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"memorySwap"</span>: {},
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"containerLogMaxSize"</span>: <span style="color:#b44">"10Mi"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"containerLogMaxFiles"</span>: <span style="color:#666">5</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"configMapAndSecretChangeDetectionStrategy"</span>: <span style="color:#b44">"Watch"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enforceNodeAllocatable"</span>: [
+</span></span><span style="display:flex"><span>      <span style="color:#b44">"pods"</span>
+</span></span><span style="display:flex"><span>    ],
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"volumePluginDir"</span>: <span style="color:#b44">"/usr/libexec/kubernetes/kubelet-plugins/volume/exec/"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"logging"</span>: {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"format"</span>: <span style="color:#b44">"text"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"flushFrequency"</span>: <span style="color:#b44">"5s"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"verbosity"</span>: <span style="color:#666">3</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"options"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"json"</span>: {
+</span></span><span style="display:flex"><span>          <span style="color:green;font-weight:700">"infoBufferSize"</span>: <span style="color:#b44">"0"</span>
+</span></span><span style="display:flex"><span>        }
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>    },
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enableSystemLogHandler"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enableSystemLogQuery"</span>: <span style="color:#a2f;font-weight:700">false</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"shutdownGracePeriod"</span>: <span style="color:#b44">"0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"shutdownGracePeriodCriticalPods"</span>: <span style="color:#b44">"0s"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enableProfilingHandler"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"enableDebugFlagsHandler"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"seccompDefault"</span>: <span style="color:#a2f;font-weight:700">false</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"memoryThrottlingFactor"</span>: <span style="color:#666">0.9</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"registerNode"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"localStorageCapacityIsolation"</span>: <span style="color:#a2f;font-weight:700">true</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"containerRuntimeEndpoint"</span>: <span style="color:#b44">"unix:///var/run/crio/crio.sock"</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div></li></ol><h2 id="what-s-next">What's next</h2><ul><li>Learn more about kubelet configuration by checking the
+<a href="/docs/reference/config-api/kubelet-config.v1beta1/"><code>KubeletConfiguration</code></a>
+reference.</li><li>Learn more about kubelet configuration merging in the
+<a href="/docs/reference/node/kubelet-config-directory-merging/">reference document</a>.</li></ul></div>

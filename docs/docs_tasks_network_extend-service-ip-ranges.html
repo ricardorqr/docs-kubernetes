@@ -1,0 +1,162 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Extend Service IP Ranges</h1><div class="feature-state-notice feature-stable" title="Feature Gate: MultiCIDRServiceAllocator"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p>This document shares how to extend the existing Service IP range assigned to a cluster.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.29.<p>To check the version, enter <code>kubectl version</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>While you can use this feature with an earlier version, the feature is only GA and officially supported since v1.33.</div><h2 id="extend-service-ip-ranges">Extend Service IP Ranges</h2><p>Kubernetes clusters with kube-apiservers that have enabled the <code>MultiCIDRServiceAllocator</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a> and have the
+<code>networking.k8s.io/v1</code> API group active, will create a ServiceCIDR object that takes
+the well-known name <code>kubernetes</code>, and that specifies an IP address range
+based on the value of the <code>--service-cluster-ip-range</code> command line argument to kube-apiserver.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get servicecidr
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         CIDRS          AGE
+kubernetes   10.96.0.0/28   17d
+</code></pre><p>The well-known <code>kubernetes</code> Service, that exposes the kube-apiserver endpoint to the Pods, calculates
+the first IP address from the default ServiceCIDR range and uses that IP address as its
+cluster IP address.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get service kubernetes
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    &lt;none&gt;        443/TCP   17d
+</code></pre><p>The default Service, in this case, uses the ClusterIP 10.96.0.1, that has the corresponding IPAddress object.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get ipaddress 10.96.0.1
+</span></span></code></pre></div><pre tabindex="0"><code>NAME        PARENTREF
+10.96.0.1   services/default/kubernetes
+</code></pre><p>The ServiceCIDRs are protected with <a class="glossary-tooltip" title="A namespaced key that tells Kubernetes to wait until specific conditions are met before it fully deletes an object marked for deletion." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/finalizers/" target="_blank" aria-label="finalizers">finalizers</a>,
+to avoid leaving Service ClusterIPs orphans; the finalizer is only removed if there is another subnet
+that contains the existing IPAddresses or there are no IPAddresses belonging to the subnet.</p><h2 id="extend-the-number-of-available-ips-for-services">Extend the number of available IPs for Services</h2><p>There are cases that users will need to increase the number addresses available to Services,
+previously, increasing the Service range was a disruptive operation that could also cause data loss.
+With this new feature users only need to add a new ServiceCIDR to increase the number of available addresses.</p><h3 id="adding-a-new-servicecidr">Adding a new ServiceCIDR</h3><p>On a cluster with a 10.96.0.0/28 range for Services, there is only 2^(32-28) - 2 = 14
+IP addresses available. The <code>kubernetes.default</code> Service is always created; for this example,
+that leaves you with only 13 possible Services.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> i in <span style="color:#a2f;font-weight:700">$(</span>seq <span style="color:#666">1</span> 13<span style="color:#a2f;font-weight:700">)</span>; <span style="color:#a2f;font-weight:700">do</span> kubectl create service clusterip <span style="color:#b44">"test-</span><span style="color:#b8860b">$i</span><span style="color:#b44">"</span> --tcp <span style="color:#666">80</span> -o json | jq -r .spec.clusterIP; <span style="color:#a2f;font-weight:700">done</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.96.0.11
+10.96.0.5
+10.96.0.12
+10.96.0.13
+10.96.0.14
+10.96.0.2
+10.96.0.3
+10.96.0.4
+10.96.0.6
+10.96.0.7
+10.96.0.8
+10.96.0.9
+error: failed to create ClusterIP service: Internal error occurred: failed to allocate a serviceIP: range is full
+</code></pre><p>You can increase the number of IP addresses available for Services, by creating a new ServiceCIDR
+that extends or adds new IP address ranges.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>cat &lt;EOF | kubectl apply -f -
+</span></span><span style="display:flex"><span>apiVersion: networking.k8s.io/v1
+</span></span><span style="display:flex"><span>kind: ServiceCIDR
+</span></span><span style="display:flex"><span>metadata:
+</span></span><span style="display:flex"><span>  name: newcidr1
+</span></span><span style="display:flex"><span>spec:
+</span></span><span style="display:flex"><span>  cidrs:
+</span></span><span style="display:flex"><span>  - 10.96.0.0/24
+</span></span><span style="display:flex"><span>EOF
+</span></span></code></pre></div><pre tabindex="0"><code>servicecidr.networking.k8s.io/newcidr1 created
+</code></pre><p>and this will allow you to create new Services with ClusterIPs that will be picked from this new range.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> i in <span style="color:#a2f;font-weight:700">$(</span>seq <span style="color:#666">13</span> 16<span style="color:#a2f;font-weight:700">)</span>; <span style="color:#a2f;font-weight:700">do</span> kubectl create service clusterip <span style="color:#b44">"test-</span><span style="color:#b8860b">$i</span><span style="color:#b44">"</span> --tcp <span style="color:#666">80</span> -o json | jq -r .spec.clusterIP; <span style="color:#a2f;font-weight:700">done</span>
+</span></span></code></pre></div><pre tabindex="0"><code>10.96.0.48
+10.96.0.200
+10.96.0.121
+10.96.0.144
+</code></pre><h3 id="deleting-a-servicecidr">Deleting a ServiceCIDR</h3><p>You cannot delete a ServiceCIDR if there are IPAddresses that depend on the ServiceCIDR.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl delete servicecidr newcidr1
+</span></span></code></pre></div><pre tabindex="0"><code>servicecidr.networking.k8s.io "newcidr1" deleted
+</code></pre><p>Kubernetes uses a finalizer on the ServiceCIDR to track this dependent relationship.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get servicecidr newcidr1 -o yaml
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>networking.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ServiceCIDR<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">creationTimestamp</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-10-12T15:11:07Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">deletionGracePeriodSeconds</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">deletionTimestamp</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-10-12T15:12:45Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">finalizers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- networking.k8s.io/service-cidr-finalizer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>newcidr1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resourceVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1133"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">uid</span>:<span style="color:#bbb"> </span>5ffd8afe-c78f-4e60-ae76-cec448a8af40<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">cidrs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#666">10.96.0.0</span>/24<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">conditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">lastTransitionTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-10-12T15:12:45Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">message</span>:<span style="color:#bbb"> </span>There are still IPAddresses referencing the ServiceCIDR, please remove<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>them or create a new ServiceCIDR<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">reason</span>:<span style="color:#bbb"> </span>OrphanIPAddress<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb"> </span><span style="color:#b44">"False"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Ready<span style="color:#bbb">
+</span></span></span></code></pre></div><p>By removing the Services containing the IP addresses that are blocking the deletion of the ServiceCIDR</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> i in <span style="color:#a2f;font-weight:700">$(</span>seq <span style="color:#666">13</span> 16<span style="color:#a2f;font-weight:700">)</span>; <span style="color:#a2f;font-weight:700">do</span> kubectl delete service <span style="color:#b44">"test-</span><span style="color:#b8860b">$i</span><span style="color:#b44">"</span> ; <span style="color:#a2f;font-weight:700">done</span>
+</span></span></code></pre></div><pre tabindex="0"><code>service "test-13" deleted
+service "test-14" deleted
+service "test-15" deleted
+service "test-16" deleted
+</code></pre><p>the control plane notices the removal. The control plane then removes its finalizer,
+so that the ServiceCIDR that was pending deletion will actually be removed.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-sh" data-lang="sh"><span style="display:flex"><span>kubectl get servicecidr newcidr1
+</span></span></code></pre></div><pre tabindex="0"><code>Error from server (NotFound): servicecidrs.networking.k8s.io "newcidr1" not found
+</code></pre><h2 id="kubernetes-service-cidr-policies">Kubernetes Service CIDR Policies</h2><p>Cluster administrators can implement policies to control the creation and
+modification of ServiceCIDR resources within the cluster. This allows for
+centralized management of the IP address ranges used for Services and helps
+prevent unintended or conflicting configurations. Kubernetes provides mechanisms
+like Validating Admission Policies to enforce these rules.</p><h3 id="preventing-unauthorized-servicecidr-creation-update-using-validating-admission-policy">Preventing Unauthorized ServiceCIDR Creation/Update using Validating Admission Policy</h3><p>There can be situations that the cluster administrators want to restrict the
+ranges that can be allowed or to completely deny any changes to the cluster
+Service IP ranges.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The default "kubernetes" ServiceCIDR is created by the kube-apiserver
+to provide consistency in the cluster and is required for the cluster to work,
+so it always must be allowed. You can ensure your <code>ValidatingAdmissionPolicy</code>
+doesn't restrict the default ServiceCIDR by adding the clause:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">'exclude-default-servicecidr'</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.metadata.name != 'kubernetes'"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>as in the examples below.</p></div><h4 id="restrict-service-cidr-ranges-to-some-specific-ranges">Restrict Service CIDR ranges to some specific ranges</h4><p>The following is an example of a <code>ValidatingAdmissionPolicy</code> that only allows
+ServiceCIDRs to be created if they are subranges of the given <code>allowed</code> ranges.
+(So the example policy would allow a ServiceCIDR with <code>cidrs: ['10.96.1.0/24']</code>
+or <code>cidrs: ['2001:db8:0:0:ffff::/80', '10.96.0.0/20']</code> but would not allow a
+ServiceCIDR with <code>cidrs: ['172.20.0.0/16']</code>.) You can copy this policy and change
+the value of <code>allowed</code> to something appropriate for you cluster.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicy<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.default"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">failurePolicy</span>:<span style="color:#bbb"> </span>Fail<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConstraints</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resourceRules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"networking.k8s.io"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">apiVersions</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"v1"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">operations</span>:<span style="color:#bbb">  </span>[<span style="color:#b44">"CREATE"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"UPDATE"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"servicecidrs"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">'exclude-default-servicecidr'</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.metadata.name != 'kubernetes'"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">variables</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>allowed<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"['10.96.0.0/16','2001:db8::/64']"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.spec.cidrs.all(newCIDR, variables.allowed.exists(allowedCIDR, cidr(allowedCIDR).containsCIDR(newCIDR)))"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># For all CIDRs (newCIDR) listed in the spec.cidrs of the submitted ServiceCIDR</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># object, check if there exists at least one CIDR (allowedCIDR) in the `allowed`</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># list of the VAP such that the allowedCIDR fully contains the newCIDR.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicyBinding<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs-binding"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">policyName</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.default"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validationActions</span>:<span style="color:#bbb"> </span>[Deny,Audit]<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Consult the <a href="https://kubernetes.io/docs/reference/using-api/cel/">CEL documentation</a>
+to learn more about CEL if you want to write your own validation <code>expression</code>.</p><h4 id="restrict-any-usage-of-the-servicecidr-api">Restrict any usage of the ServiceCIDR API</h4><p>The following example demonstrates how to use a <code>ValidatingAdmissionPolicy</code> and
+its binding to restrict the creation of any new Service CIDR ranges, excluding the default "kubernetes" ServiceCIDR:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicy<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.deny"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">failurePolicy</span>:<span style="color:#bbb"> </span>Fail<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConstraints</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resourceRules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"networking.k8s.io"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">apiVersions</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"v1"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">operations</span>:<span style="color:#bbb">  </span>[<span style="color:#b44">"CREATE"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"UPDATE"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"servicecidrs"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.metadata.name == 'kubernetes'"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicyBinding<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs-deny-binding"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">policyName</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs.deny"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validationActions</span>:<span style="color:#bbb"> </span>[Deny,Audit]<span style="color:#bbb">
+</span></span></span></code></pre></div></div>

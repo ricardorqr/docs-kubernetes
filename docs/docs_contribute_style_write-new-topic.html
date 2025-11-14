@@ -1,0 +1,59 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Writing a new topic</h1><p>This page shows how to create a new topic for the Kubernetes docs.</p><h2 id="before-you-begin">Before you begin</h2><p>Create a fork of the Kubernetes documentation repository as described in
+<a href="/docs/contribute/new-content/open-a-pr/">Open a PR</a>.</p><h2 id="choosing-a-page-type">Choosing a page type</h2><p>As you prepare to write a new topic, think about the page type that would fit your content the best:</p><table><caption style="display:none">Guidelines for choosing a page type</caption><thead><tr><th style="text-align:left">Type</th><th style="text-align:left">Description</th></tr></thead><tbody><tr><td style="text-align:left">Concept</td><td style="text-align:left">A concept page explains some aspect of Kubernetes. For example, a concept page might describe the Kubernetes Deployment object and explain the role it plays as an application while it is deployed, scaled, and updated. Typically, concept pages don't include sequences of steps, but instead provide links to tasks or tutorials. For an example of a concept topic, see <a href="/docs/concepts/architecture/nodes/">Nodes</a>.</td></tr><tr><td style="text-align:left">Task</td><td style="text-align:left">A task page shows how to do a single thing. The idea is to give readers a sequence of steps that they can actually do as they read the page. A task page can be short or long, provided it stays focused on one area. In a task page, it is OK to blend brief explanations with the steps to be performed, but if you need to provide a lengthy explanation, you should do that in a concept topic. Related task and concept topics should link to each other. For an example of a short task page, see <a href="/docs/tasks/configure-pod-container/configure-volume-storage/">Configure a Pod to Use a Volume for Storage</a>. For an example of a longer task page, see <a href="/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/">Configure Liveness and Readiness Probes</a></td></tr><tr><td style="text-align:left">Tutorial</td><td style="text-align:left">A tutorial page shows how to accomplish a goal that ties together several Kubernetes features. A tutorial might provide several sequences of steps that readers can actually do as they read the page. Or it might provide explanations of related pieces of code. For example, a tutorial could provide a walkthrough of a code sample. A tutorial can include brief explanations of the Kubernetes features that are being tied together, but should link to related concept topics for deep explanations of individual features.</td></tr></tbody></table><h3 id="creating-a-new-page">Creating a new page</h3><p>Use a <a href="/docs/contribute/style/page-content-types/">content type</a> for each new page
+that you write. The docs site provides templates or
+<a href="https://gohugo.io/content-management/archetypes/">Hugo archetypes</a> to create
+new content pages. To create a new type of page, run <code>hugo new</code> with the path to the file
+you want to create. For example:</p><pre tabindex="0"><code>hugo new docs/concepts/my-first-concept.md
+</code></pre><h2 id="choosing-a-title-and-filename">Choosing a title and filename</h2><p>Choose a title that has the keywords you want search engines to find.
+Create a filename that uses the words in your title separated by hyphens.
+For example, the topic with title
+<a href="/docs/tasks/extend-kubernetes/http-proxy-access-api/">Using an HTTP Proxy to Access the Kubernetes API</a>
+has filename <code>http-proxy-access-api.md</code>. You don't need to put
+"kubernetes" in the filename, because "kubernetes" is already in the
+URL for the topic, for example:</p><pre><code>   /docs/tasks/extend-kubernetes/http-proxy-access-api/
+</code></pre><h2 id="adding-the-topic-title-to-the-front-matter">Adding the topic title to the front matter</h2><p>In your topic, put a <code>title</code> field in the
+<a href="https://gohugo.io/content-management/front-matter/">front matter</a>.
+The front matter is the YAML block that is between the
+triple-dashed lines at the top of the page. Here's an example:</p><pre><code>---
+title: Using an HTTP Proxy to Access the Kubernetes API
+---
+</code></pre><h2 id="choosing-a-directory">Choosing a directory</h2><p>Depending on your page type, put your new file in a subdirectory of one of these:</p><ul><li>/content/en/docs/tasks/</li><li>/content/en/docs/tutorials/</li><li>/content/en/docs/concepts/</li></ul><p>You can put your file in an existing subdirectory, or you can create a new
+subdirectory.</p><h2 id="placing-your-topic-in-the-table-of-contents">Placing your topic in the table of contents</h2><p>The table of contents is built dynamically using the directory structure of the
+documentation source. The top-level directories under <code>/content/en/docs/</code> create
+top-level navigation, and subdirectories each have entries in the table of
+contents.</p><p>Each subdirectory has a file <code>_index.md</code>, which represents the "home" page for
+a given subdirectory's content. The <code>_index.md</code> does not need a template. It
+can contain overview content about the topics in the subdirectory.</p><p>Other files in a directory are sorted alphabetically by default. This is almost
+never the best order. To control the relative sorting of topics in a
+subdirectory, set the <code>weight:</code> front-matter key to an integer. Typically, we
+use multiples of 10, to account for adding topics later. For instance, a topic
+with weight <code>10</code> will come before one with weight <code>20</code>.</p><h2 id="embedding-code-in-your-topic">Embedding code in your topic</h2><p>If you want to include some code in your topic, you can embed the code in your
+file directly using the markdown code block syntax. This is recommended for the
+following cases (not an exhaustive list):</p><ul><li>The code shows the output from a command such as
+<code>kubectl get deploy mydeployment -o json | jq '.status'</code>.</li><li>The code is not generic enough for users to try out. As an example, you can
+embed the YAML
+file for creating a Pod which depends on a specific
+<a href="/docs/concepts/storage/volumes/#flexvolume">FlexVolume</a> implementation.</li><li>The code is an incomplete example because its purpose is to highlight a
+portion of a larger file. For example, when describing ways to
+customize a <a href="/docs/reference/access-authn-authz/rbac/#role-binding-examples">RoleBinding</a>,
+you can provide a short snippet directly in your topic file.</li><li>The code is not meant for users to try out due to other reasons. For example,
+when describing how a new attribute should be added to a resource using the
+<code>kubectl edit</code> command, you can provide a short example that includes only
+the attribute to add.</li></ul><h2 id="including-code-from-another-file">Including code from another file</h2><p>Another way to include code in your topic is to create a new, complete sample
+file (or group of sample files) and then reference the sample from your topic.
+Use this method to include sample YAML files when the sample is generic and
+reusable, and you want the reader to try it out themselves.</p><p>When adding a new standalone sample file, such as a YAML file, place the code in
+one of the <code>&lt;LANG&gt;/examples/</code> subdirectories where <code>&lt;LANG&gt;</code> is the language for
+the topic. In your topic file, use the <code>code_sample</code> shortcode:</p><pre tabindex="0"><code class="language-none" data-lang="none">{{% code_sample file="&lt;RELPATH&gt;/my-example-yaml&gt;" %}}
+</code></pre><p>where <code>&lt;RELPATH&gt;</code> is the path to the file to include, relative to the
+<code>examples</code> directory. The following Hugo shortcode references a YAML
+file located at <code>/content/en/examples/pods/storage/gce-volume.yaml</code>.</p><pre tabindex="0"><code class="language-none" data-lang="none">{{% code_sample file="pods/storage/gce-volume.yaml" %}}
+</code></pre><h2 id="showing-how-to-create-an-api-object-from-a-configuration-file">Showing how to create an API object from a configuration file</h2><p>If you need to demonstrate how to create an API object based on a
+configuration file, place the configuration file in one of the subdirectories
+under <code>&lt;LANG&gt;/examples</code>.</p><p>In your topic, show this command:</p><pre tabindex="0"><code>kubectl create -f https://k8s.io/examples/pods/storage/gce-volume.yaml
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>When adding new YAML files to the <code>&lt;LANG&gt;/examples</code> directory, make
+sure the file is also included into the <code>&lt;LANG&gt;/examples_test.go</code> file. The
+Travis CI for the Website automatically runs this test case when PRs are
+submitted to ensure all examples pass the tests.</div><p>For an example of a topic that uses this technique, see
+<a href="/docs/tasks/run-application/run-single-instance-stateful-application/">Running a Single-Instance Stateful Application</a>.</p><h2 id="adding-images-to-a-topic">Adding images to a topic</h2><p>Put image files in the <code>/images</code> directory. The preferred
+image format is SVG.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn about <a href="/docs/contribute/style/page-content-types/">using page content types</a>.</li><li>Learn about <a href="/docs/contribute/new-content/open-a-pr/">creating a pull request</a>.</li></ul></div>

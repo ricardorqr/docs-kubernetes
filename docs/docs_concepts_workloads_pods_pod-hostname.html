@@ -1,0 +1,59 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Pod Hostname</h1><p>This page explains how to set a Pod's hostname,
+potential side effects after configuration, and the underlying mechanics.</p><h2 id="default-pod-hostname">Default Pod hostname</h2><p>When a Pod is created, its hostname (as observed from within the Pod)
+is derived from the Pod's metadata.name value.
+Both the hostname and its corresponding fully qualified domain name (FQDN)
+are set to the metadata.name value (from the Pod's perspective)</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>busybox-1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- sleep<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:#b44">"3600"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>busybox<span style="color:#bbb">
+</span></span></span></code></pre></div><p>The Pod created by this manifest will have its hostname and fully qualified domain name (FQDN) set to <code>busybox-1</code>.</p><h2 id="hostname-with-pod-s-hostname-and-subdomain-fields">Hostname with pod's hostname and subdomain fields</h2><p>The Pod spec includes an optional <code>hostname</code> field.
+When set, this value takes precedence over the Pod's <code>metadata.name</code> as the
+hostname (observed from within the Pod).
+For example, a Pod with spec.hostname set to <code>my-host</code> will have its hostname set to <code>my-host</code>.</p><p>The Pod spec also includes an optional <code>subdomain</code> field,
+indicating the Pod belongs to a subdomain within its namespace.
+If a Pod has <code>spec.hostname</code> set to "foo" and spec.subdomain set
+to "bar" in the namespace <code>my-namespace</code>, its hostname becomes <code>foo</code> and its
+fully qualified domain name (FQDN) becomes
+<code>foo.bar.my-namespace.svc.cluster-domain.example</code> (observed from within the Pod).</p><p>When both hostname and subdomain are set, the cluster's DNS server will
+create A and/or AAAA records based on these fields.
+Refer to: <a href="/docs/concepts/services-networking/dns-pod-service/#pod-hostname-and-subdomain-field">Pod's hostname and subdomain fields</a>.</p><h2 id="hostname-with-pod-s-sethostnameasfqdn-fields">Hostname with pod's setHostnameAsFQDN fields</h2><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.22 [stable]</code></div><p>When a Pod is configured to have fully qualified domain name (FQDN), its
+hostname is the short hostname. For example, if you have a Pod with the fully
+qualified domain name <code>busybox-1.busybox-subdomain.my-namespace.svc.cluster-domain.example</code>,
+then by default the <code>hostname</code> command inside that Pod returns <code>busybox-1</code> and the
+<code>hostname --fqdn</code> command returns the FQDN.</p><p>When both <code>setHostnameAsFQDN: true</code> and the subdomain field is set in the Pod spec,
+the kubelet writes the Pod's FQDN
+into the hostname for that Pod's namespace. In this case, both <code>hostname</code> and <code>hostname --fqdn</code>
+return the Pod's FQDN.</p><p>The Pod's FQDN is constructed in the same manner as previously defined.
+It is composed of the Pod's <code>spec.hostname</code> (if specified) or <code>metadata.name</code> field,
+the <code>spec.subdomain</code>, the <code>namespace</code> name, and the cluster domain suffix.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>In Linux, the hostname field of the kernel (the <code>nodename</code> field of <code>struct utsname</code>) is limited to 64 characters.</p><p>If a Pod enables this feature and its FQDN is longer than 64 character, it will fail to start.
+The Pod will remain in <code>Pending</code> status (<code>ContainerCreating</code> as seen by <code>kubectl</code>) generating
+error events, such as "Failed to construct FQDN from Pod hostname and cluster domain".</p><p>This means that when using this field,
+you must ensure the combined length of the Pod's <code>metadata.name</code> (or <code>spec.hostname</code>)
+and <code>spec.subdomain</code> fields results in an FQDN that does not exceed 64 characters.</p></div><h2 id="hostname-with-pod-s-hostnameoverride">Hostname with pod's hostnameOverride</h2><div class="feature-state-notice feature-alpha" title="Feature Gate: HostnameOverride"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [alpha]</code> (enabled by default: false)</div><p>Setting a value for <code>hostnameOverride</code> in the Pod spec causes the kubelet
+to unconditionally set both the Pod's hostname and fully qualified domain name (FQDN)
+to the <code>hostnameOverride</code> value.</p><p>The <code>hostnameOverride</code> field has a length limitation of 64 characters
+and must adhere to the DNS subdomain names standard defined in <a href="https://datatracker.ietf.org/doc/html/rfc1123">RFC 1123</a>.</p><p>Example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>busybox-2-busybox-example-domain<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostnameOverride</span>:<span style="color:#bbb"> </span>busybox-2.busybox.example.domain<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- sleep<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:#b44">"3600"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>busybox<span style="color:#bbb">
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This only affects the hostname within the Pod; it does not affect the Pod's A or AAAA records in the cluster DNS server.</div><p>If <code>hostnameOverride</code> is set alongside <code>hostname</code> and <code>subdomain</code> fields:</p><ul><li><p>The hostname inside the Pod is overridden to the <code>hostnameOverride</code> value.</p></li><li><p>The Pod's A and/or AAAA records in the cluster DNS server are still generated based on the <code>hostname</code> and <code>subdomain</code> fields.</p></li></ul><p>Note: If <code>hostnameOverride</code> is set, you cannot simultaneously set the <code>hostNetwork</code> and <code>setHostnameAsFQDN</code> fields.
+The API server will explicitly reject any create request attempting this combination.</p><p>For details on behavior when <code>hostnameOverride</code> is set in combination with
+other fields (hostname, subdomain, setHostnameAsFQDN, hostNetwork),
+see the table in the <a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/4762-allow-arbitrary-fqdn-as-pod-hostname/README.md#design-details">KEP-4762 design details</a>.</p></div>

@@ -1,0 +1,91 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Generating Reference Documentation for kubectl Commands</h1><p>This page shows how to generate the <code>kubectl</code> command reference.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This topic shows how to generate reference documentation for
+<a href="/docs/reference/generated/kubectl/kubectl-commands">kubectl commands</a> like
+<a href="/docs/reference/generated/kubectl/kubectl-commands#apply">kubectl apply</a> and
+<a href="/docs/reference/generated/kubectl/kubectl-commands#taint">kubectl taint</a>.
+This topic does not show how to generate the
+<a href="/docs/reference/generated/kubectl/kubectl-commands/">kubectl</a>
+options reference page. For instructions on how to generate the kubectl options
+reference page, see
+<a href="/docs/contribute/generate-ref-docs/kubernetes-components/">Generating Reference Pages for Kubernetes Components and Tools</a>.</div><h2 id="before-you-begin">Before you begin</h2><h3 id="requirements">Requirements:</h3><ul><li><p>You need a machine that is running Linux or macOS.</p></li><li><p>You need to have these tools installed:</p><ul><li><a href="https://www.python.org/downloads/">Python</a> v3.7.x+</li><li><a href="https://git-scm.com/book/en/v2/Getting-Started-Installing-Git">Git</a></li><li><a href="https://go.dev/dl/">Golang</a> version 1.13+</li><li><a href="https://pypi.org/project/pip/">Pip</a> used to install PyYAML</li><li><a href="https://pyyaml.org/">PyYAML</a> v5.1.2</li><li><a href="https://www.gnu.org/software/make/">make</a></li><li><a href="https://gcc.gnu.org/">gcc compiler/linker</a></li><li><a href="https://docs.docker.com/engine/installation/">Docker</a> (Required only for <code>kubectl</code> command reference)</li></ul></li><li><p>Your <code>PATH</code> environment variable must include the required build tools, such as the <code>Go</code> binary and <code>python</code>.</p></li><li><p>You need to know how to create a pull request to a GitHub repository.
+This involves creating your own fork of the repository. For more
+information, see <a href="/docs/contribute/new-content/open-a-pr/#fork-the-repo">Work from a local clone</a>.</p></li></ul><h2 id="set-up-the-local-repositories">Set up the local repositories</h2><p>Create a local workspace and set your <code>GOPATH</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>mkdir -p <span style="color:#b8860b">$HOME</span>/&lt;workspace&gt;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">GOPATH</span><span style="color:#666">=</span><span style="color:#b8860b">$HOME</span>/&lt;workspace&gt;
+</span></span></code></pre></div><p>Get a local clone of the following repositories:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>go get -u github.com/spf13/pflag
+</span></span><span style="display:flex"><span>go get -u github.com/spf13/cobra
+</span></span><span style="display:flex"><span>go get -u gopkg.in/yaml.v2
+</span></span><span style="display:flex"><span>go get -u github.com/kubernetes-sigs/reference-docs
+</span></span></code></pre></div><p>If you don't already have the kubernetes/website repository, get it now:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>git clone https://github.com/&lt;your-username&gt;/website <span style="color:#b8860b">$GOPATH</span>/src/github.com/&lt;your-username&gt;/website
+</span></span></code></pre></div><p>Get a clone of the kubernetes/kubernetes repository as k8s.io/kubernetes:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>git clone https://github.com/kubernetes/kubernetes <span style="color:#b8860b">$GOPATH</span>/src/k8s.io/kubernetes
+</span></span></code></pre></div><p>Remove the spf13 package from <code>$GOPATH/src/k8s.io/kubernetes/vendor/github.com</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>rm -rf <span style="color:#b8860b">$GOPATH</span>/src/k8s.io/kubernetes/vendor/github.com/spf13
+</span></span></code></pre></div><p>The kubernetes/kubernetes repository provides the <code>kubectl</code> and <code>kustomize</code> source code.</p><ul><li><p>Determine the base directory of your clone of the
+<a href="https://github.com/kubernetes/kubernetes">kubernetes/kubernetes</a> repository.
+For example, if you followed the preceding step to get the repository, your
+base directory is <code>$GOPATH/src/k8s.io/kubernetes</code>.
+The remaining steps refer to your base directory as <code>&lt;k8s-base&gt;</code>.</p></li><li><p>Determine the base directory of your clone of the
+<a href="https://github.com/kubernetes/website">kubernetes/website</a> repository.
+For example, if you followed the preceding step to get the repository, your
+base directory is <code>$GOPATH/src/github.com/&lt;your-username&gt;/website</code>.
+The remaining steps refer to your base directory as <code>&lt;web-base&gt;</code>.</p></li><li><p>Determine the base directory of your clone of the
+<a href="https://github.com/kubernetes-sigs/reference-docs">kubernetes-sigs/reference-docs</a> repository.
+For example, if you followed the preceding step to get the repository, your
+base directory is <code>$GOPATH/src/github.com/kubernetes-sigs/reference-docs</code>.
+The remaining steps refer to your base directory as <code>&lt;rdocs-base&gt;</code>.</p></li></ul><p>In your local k8s.io/kubernetes repository, check out the branch of interest,
+and make sure it is up to date. For example, if you want to generate docs for
+Kubernetes 1.33.0, you could use these commands:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;k8s-base&gt;
+</span></span><span style="display:flex"><span>git checkout v1.33.0
+</span></span><span style="display:flex"><span>git pull https://github.com/kubernetes/kubernetes 1.33.0
+</span></span></code></pre></div><p>If you do not need to edit the <code>kubectl</code> source code, follow the instructions for
+<a href="#set-build-variables">Setting build variables</a>.</p><h2 id="edit-the-kubectl-source-code">Edit the kubectl source code</h2><p>The kubectl command reference documentation is automatically generated from
+the kubectl source code. If you want to change the reference documentation, the first step
+is to change one or more comments in the kubectl source code. Make the change in your
+local kubernetes/kubernetes repository, and then submit a pull request to the master branch of
+<a href="https://github.com/kubernetes/kubernetes">github.com/kubernetes/kubernetes</a>.</p><p><a href="https://github.com/kubernetes/kubernetes/pull/56673/files">PR 56673</a>
+is an example of a pull request that fixes a typo in the kubectl source code.</p><p>Monitor your pull request, and respond to reviewer comments. Continue to monitor your
+pull request until it is merged into the target branch of the kubernetes/kubernetes repository.</p><h2 id="cherry-pick-your-change-into-a-release-branch">Cherry pick your change into a release branch</h2><p>Your change is now in the master branch, which is used for development of the next
+Kubernetes release. If you want your change to appear in the docs for a Kubernetes
+version that has already been released, you need to propose that your change be
+cherry picked into the release branch.</p><p>For example, suppose the master branch is being used to develop Kubernetes 1.34
+and you want to backport your change to the release-1.33 branch. For
+instructions on how to do this, see
+<a href="https://git.k8s.io/community/contributors/devel/sig-release/cherry-picks.md">Propose a Cherry Pick</a>.</p><p>Monitor your cherry-pick pull request until it is merged into the release branch.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Proposing a cherry pick requires that you have permission to set a label and a
+milestone in your pull request. If you don't have those permissions, you will
+need to work with someone who can set the label and milestone for you.</div><h2 id="set-build-variables">Set build variables</h2><p>Go to <code>&lt;rdocs-base&gt;</code>. On you command line, set the following environment variables.</p><ul><li>Set <code>K8S_ROOT</code> to <code>&lt;k8s-base&gt;</code>.</li><li>Set <code>K8S_WEBROOT</code> to <code>&lt;web-base&gt;</code>.</li><li>Set <code>K8S_RELEASE</code> to the version of the docs you want to build.
+For example, if you want to build docs for Kubernetes 1.33,
+set <code>K8S_RELEASE</code> to 1.33.</li></ul><p>For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">K8S_WEBROOT</span><span style="color:#666">=</span><span style="color:#b8860b">$GOPATH</span>/src/github.com/&lt;your-username&gt;/website
+</span></span><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">K8S_ROOT</span><span style="color:#666">=</span><span style="color:#b8860b">$GOPATH</span>/src/k8s.io/kubernetes
+</span></span><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">K8S_RELEASE</span><span style="color:#666">=</span>1.33
+</span></span></code></pre></div><h2 id="creating-a-versioned-directory">Creating a versioned directory</h2><p>The <code>createversiondirs</code> build target creates a versioned directory
+and copies the kubectl reference configuration files to the versioned directory.
+The versioned directory name follows the pattern of <code>v&lt;major&gt;_&lt;minor&gt;</code>.</p><p>In the <code>&lt;rdocs-base&gt;</code> directory, run the following build target:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;rdocs-base&gt;
+</span></span><span style="display:flex"><span>make createversiondirs
+</span></span></code></pre></div><h2 id="check-out-a-release-tag-in-k8s-io-kubernetes">Check out a release tag in k8s.io/kubernetes</h2><p>In your local <code>&lt;k8s-base&gt;</code> repository, check out the branch that has
+the version of Kubernetes that you want to document. For example, if you want
+to generate docs for Kubernetes 1.33.0, check out the
+<code>v1.33</code> tag. Make sure your local branch is up to date.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;k8s-base&gt;
+</span></span><span style="display:flex"><span>git checkout v1.33.0
+</span></span><span style="display:flex"><span>git pull https://github.com/kubernetes/kubernetes v1.33.0
+</span></span></code></pre></div><h2 id="run-the-doc-generation-code">Run the doc generation code</h2><p>In your local <code>&lt;rdocs-base&gt;</code>, run the <code>copycli</code> build target. The command runs as <code>root</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;rdocs-base&gt;
+</span></span><span style="display:flex"><span>make copycli
+</span></span></code></pre></div><p>The <code>copycli</code> command cleans the temporary build directory, generates the kubectl command files,
+and copies the collated kubectl command reference HTML page and assets to <code>&lt;web-base&gt;</code>.</p><h2 id="locate-the-generated-files">Locate the generated files</h2><p>Verify that these two files have been generated:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#666">[</span> -e <span style="color:#b44">"&lt;rdocs-base&gt;/gen-kubectldocs/generators/build/index.html"</span> <span style="color:#666">]</span> <span style="color:#666">&amp;&amp;</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"index.html built"</span> <span style="color:#666">||</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"no index.html"</span>
+</span></span><span style="display:flex"><span><span style="color:#666">[</span> -e <span style="color:#b44">"&lt;rdocs-base&gt;/gen-kubectldocs/generators/build/navData.js"</span> <span style="color:#666">]</span> <span style="color:#666">&amp;&amp;</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"navData.js built"</span> <span style="color:#666">||</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"no navData.js"</span>
+</span></span></code></pre></div><h2 id="locate-the-copied-files">Locate the copied files</h2><p>Verify that all generated files have been copied to your <code>&lt;web-base&gt;</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;web-base&gt;
+</span></span><span style="display:flex"><span>git status
+</span></span></code></pre></div><p>The output should include the modified files:</p><pre tabindex="0"><code>static/docs/reference/generated/kubectl/kubectl-commands.html
+static/docs/reference/generated/kubectl/navData.js
+</code></pre><p>The output may also include:</p><pre tabindex="0"><code>static/docs/reference/generated/kubectl/scroll.js
+static/docs/reference/generated/kubectl/stylesheet.css
+static/docs/reference/generated/kubectl/tabvisibility.js
+static/docs/reference/generated/kubectl/node_modules/bootstrap/dist/css/bootstrap.min.css
+static/docs/reference/generated/kubectl/node_modules/highlight.js/styles/default.css
+static/docs/reference/generated/kubectl/node_modules/jquery.scrollto/jquery.scrollTo.min.js
+static/docs/reference/generated/kubectl/node_modules/jquery/dist/jquery.min.js
+static/docs/reference/generated/kubectl/node_modules/font-awesome/css/font-awesome.min.css
+</code></pre><h2 id="locally-test-the-documentation">Locally test the documentation</h2><p>Build the Kubernetes documentation in your local <code>&lt;web-base&gt;</code>.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;web-base&gt;
+</span></span><span style="display:flex"><span>git submodule update --init --recursive --depth <span style="color:#666">1</span> <span style="color:#080;font-style:italic"># if not already done</span>
+</span></span><span style="display:flex"><span>make container-serve
+</span></span></code></pre></div><p>View the <a href="https://localhost:1313/docs/reference/generated/kubectl/kubectl-commands/">local preview</a>.</p><h2 id="add-and-commit-changes-in-kubernetes-website">Add and commit changes in kubernetes/website</h2><p>Run <code>git add</code> and <code>git commit</code> to commit the files.</p><h2 id="create-a-pull-request">Create a pull request</h2><p>Create a pull request to the <code>kubernetes/website</code> repository. Monitor your
+pull request, and respond to review comments as needed. Continue to monitor
+your pull request until it is merged.</p><p>A few minutes after your pull request is merged, your updated reference
+topics will be visible in the <a href="/docs/home/">published documentation</a>.</p><h2 id="what-s-next">What's next</h2><ul><li><a href="/docs/contribute/generate-ref-docs/quickstart/">Generating Reference Documentation Quickstart</a></li><li><a href="/docs/contribute/generate-ref-docs/kubernetes-components/">Generating Reference Documentation for Kubernetes Components and Tools</a></li><li><a href="/docs/contribute/generate-ref-docs/kubernetes-api/">Generating Reference Documentation for the Kubernetes API</a></li></ul></div>

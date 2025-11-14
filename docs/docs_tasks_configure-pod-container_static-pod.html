@@ -1,0 +1,123 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Create static Pods</h1><p><em>Static Pods</em> are managed directly by the kubelet daemon on a specific node,
+without the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a>
+observing them.
+Unlike Pods that are managed by the control plane (for example, a
+<a class="glossary-tooltip" title="Manages a replicated application on your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/deployment/" target="_blank" aria-label="Deployment">Deployment</a>);
+instead, the kubelet watches each static Pod (and restarts it if it fails).</p><p>Static Pods are always bound to one <a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="Kubelet">Kubelet</a> on a specific node.</p><p>The kubelet automatically tries to create a <a class="glossary-tooltip" title="An object in the API server that tracks a static pod on a kubelet." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-mirror-pod" target="_blank" aria-label="mirror Pod">mirror Pod</a>
+on the Kubernetes API server for each static Pod.
+This means that the Pods running on a node are visible on the API server,
+but cannot be controlled from there.
+The Pod names will be suffixed with the node hostname with a leading hyphen.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you are running clustered Kubernetes and are using static
+Pods to run a Pod on every node, you should probably be using a
+<a class="glossary-tooltip" title="Ensures a copy of a Pod is running across a set of nodes in a cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/daemonset" target="_blank" aria-label="DaemonSet">DaemonSet</a> instead.</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>spec</code> of a static Pod cannot refer to other API objects
+(e.g., <a class="glossary-tooltip" title="Provides an identity for processes that run in a Pod." data-toggle="tooltip" data-placement="top" href="/docs/tasks/configure-pod-container/configure-service-account/" target="_blank" aria-label="ServiceAccount">ServiceAccount</a>,
+<a class="glossary-tooltip" title="An API object used to store non-confidential data in key-value pairs. Can be consumed as environment variables, command-line arguments, or configuration files in a volume." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/configmap/" target="_blank" aria-label="ConfigMap">ConfigMap</a>,
+<a class="glossary-tooltip" title="Stores sensitive information, such as passwords, OAuth tokens, and ssh keys." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/secret/" target="_blank" aria-label="Secret">Secret</a>, etc).</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Static pods do not support <a href="/docs/concepts/workloads/pods/ephemeral-containers/">ephemeral containers</a>.</div><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><p>This page assumes you're using <a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" data-toggle="tooltip" data-placement="top" href="https://cri-o.io/#what-is-cri-o" target="_blank" aria-label="CRI-O">CRI-O</a> to run Pods,
+and that your nodes are running the Fedora operating system.
+Instructions for other distributions or Kubernetes installations may vary.</p><h2 id="static-pod-creation">Create a static pod</h2><p>You can configure a static Pod with either a
+<a href="/docs/tasks/configure-pod-container/static-pod/#configuration-files">file system hosted configuration file</a>
+or a <a href="/docs/tasks/configure-pod-container/static-pod/#pods-created-via-http">web hosted configuration file</a>.</p><h3 id="configuration-files">Filesystem-hosted static Pod manifest</h3><p>Manifests are standard Pod definitions in JSON or YAML format in a specific directory.
+Use the <code>staticPodPath: &lt;the directory&gt;</code> field in the
+<a href="/docs/reference/config-api/kubelet-config.v1beta1/">kubelet configuration file</a>,
+which periodically scans the directory and creates/deletes static Pods as YAML/JSON files appear/disappear there.
+Note that the kubelet will ignore files starting with dots when scanning the specified directory.</p><p>For example, this is how to start a simple web server as a static Pod:</p><ol><li><p>Choose a node where you want to run the static Pod. In this example, it's <code>my-node1</code>.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>ssh my-node1
+</span></span></code></pre></div></li><li><p>Choose a directory, say <code>/etc/kubernetes/manifests</code> and place a web server
+Pod definition there, for example <code>/etc/kubernetes/manifests/static-web.yaml</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this command on the node where kubelet is running</span>
+</span></span><span style="display:flex"><span>mkdir -p /etc/kubernetes/manifests/
+</span></span><span style="display:flex"><span>cat <span style="color:#b44">&lt;&lt;EOF &gt;/etc/kubernetes/manifests/static-web.yaml
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: Pod
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: static-web
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  labels:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    role: myrole
+</span></span></span><span style="display:flex"><span><span style="color:#b44">spec:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  containers:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    - name: web
+</span></span></span><span style="display:flex"><span><span style="color:#b44">      image: nginx
+</span></span></span><span style="display:flex"><span><span style="color:#b44">      ports:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">        - name: web
+</span></span></span><span style="display:flex"><span><span style="color:#b44">          containerPort: 80
+</span></span></span><span style="display:flex"><span><span style="color:#b44">          protocol: TCP
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div></li><li><p>Configure the kubelet on that node to set a <code>staticPodPath</code> value in the
+<a href="/docs/reference/config-api/kubelet-config.v1beta1/">kubelet configuration file</a>.<br/>See <a href="/docs/tasks/administer-cluster/kubelet-config-file/">Set Kubelet Parameters Via A Configuration File</a>
+for more information.</p><p>An alternative and deprecated method is to configure the kubelet on that node
+to look for static Pod manifests locally, using a command line argument.
+To use the deprecated approach, start the kubelet with the<br/><code>--pod-manifest-path=/etc/kubernetes/manifests/</code> argument.</p></li><li><p>Restart the kubelet. On Fedora, you would run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this command on the node where the kubelet is running</span>
+</span></span><span style="display:flex"><span>systemctl restart kubelet
+</span></span></code></pre></div></li></ol><h3 id="pods-created-via-http">Web-hosted static pod manifest</h3><p>Kubelet periodically downloads a file specified by <code>--manifest-url=&lt;URL&gt;</code> argument
+and interprets it as a JSON/YAML file that contains Pod definitions.
+Similar to how <a href="#configuration-files">filesystem-hosted manifests</a> work, the kubelet
+refetches the manifest on a schedule. If there are changes to the list of static
+Pods, the kubelet applies them.</p><p>To use this approach:</p><ol><li><p>Create a YAML file and store it on a web server so that you can pass the URL of that file to the kubelet.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>static-web<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">role</span>:<span style="color:#bbb"> </span>myrole<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>web<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>web<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span></code></pre></div></li><li><p>Configure the kubelet on your selected node to use this web manifest by
+running it with <code>--manifest-url=&lt;manifest-url&gt;</code>.
+On Fedora, edit <code>/etc/kubernetes/kubelet</code> to include this line:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">KUBELET_ARGS</span><span style="color:#666">=</span><span style="color:#b44">"--cluster-dns=10.254.0.10 --cluster-domain=kube.local --manifest-url=&lt;manifest-url&gt;"</span>
+</span></span></code></pre></div></li><li><p>Restart the kubelet. On Fedora, you would run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this command on the node where the kubelet is running</span>
+</span></span><span style="display:flex"><span>systemctl restart kubelet
+</span></span></code></pre></div></li></ol><h2 id="behavior-of-static-pods">Observe static pod behavior</h2><p>When the kubelet starts, it automatically starts all defined static Pods. As you have
+defined a static Pod and restarted the kubelet, the new static Pod should
+already be running.</p><p>You can view running containers (including static Pods) by running (on the node):</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this command on the node where the kubelet is running</span>
+</span></span><span style="display:flex"><span>crictl ps
+</span></span></code></pre></div><p>The output might be something like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">CONTAINER       IMAGE                                 CREATED           STATE      NAME    ATTEMPT    POD ID
+</span></span></span><span style="display:flex"><span><span style="color:#888">129fd7d382018   docker.io/library/nginx@sha256:...    11 minutes ago    Running    web     0          34533c6729106
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><code>crictl</code> outputs the image URI and SHA-256 checksum. <code>NAME</code> will look more like:
+<code>docker.io/library/nginx@sha256:0d17b565c37bcbd895e9d92315a05c1c3c9a29f762b011a10c54a66cd53c9b31</code>.</div><p>You can see the mirror Pod on the API server:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">NAME                  READY   STATUS    RESTARTS        AGE
+</span></span></span><span style="display:flex"><span><span style="color:#888">static-web-my-node1   1/1     Running   0               2m
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Make sure the kubelet has permission to create the mirror Pod in the API server.
+If not, the creation request is rejected by the API server.</div><p><a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="Labels">Labels</a> from the static Pod are
+propagated into the mirror Pod. You can use those labels as normal via
+<a class="glossary-tooltip" title="Allows users to filter a list of resources based on labels." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels/" target="_blank" aria-label="selectors">selectors</a>, etc.</p><p>If you try to use <code>kubectl</code> to delete the mirror Pod from the API server,
+the kubelet <em>doesn't</em> remove the static Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete pod static-web-my-node1
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">pod "static-web-my-node1" deleted
+</span></span></span></code></pre></div><p>You can see that the Pod is still running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">NAME                  READY   STATUS    RESTARTS   AGE
+</span></span></span><span style="display:flex"><span><span style="color:#888">static-web-my-node1   1/1     Running   0          4s
+</span></span></span></code></pre></div><p>Back on your node where the kubelet is running, you can try to stop the container manually.
+You'll see that, after a time, the kubelet will notice and will restart the Pod
+automatically:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run these commands on the node where the kubelet is running</span>
+</span></span><span style="display:flex"><span>crictl stop 129fd7d382018 <span style="color:#080;font-style:italic"># replace with the ID of your container</span>
+</span></span><span style="display:flex"><span>sleep <span style="color:#666">20</span>
+</span></span><span style="display:flex"><span>crictl ps
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">CONTAINER       IMAGE                                 CREATED           STATE      NAME    ATTEMPT    POD ID
+</span></span></span><span style="display:flex"><span><span style="color:#888">89db4553e1eeb   docker.io/library/nginx@sha256:...    19 seconds ago    Running    web     1          34533c6729106
+</span></span></span></code></pre></div><p>Once you identify the right container, you can get the logs for that container with <code>crictl</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run these commands on the node where the container is running</span>
+</span></span><span style="display:flex"><span>crictl logs &lt;container_id&gt;
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">10.240.0.48 - - [16/Nov/2022:12:45:49 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.47.0" "-"
+</span></span></span><span style="display:flex"><span><span style="color:#888">10.240.0.48 - - [16/Nov/2022:12:45:50 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.47.0" "-"
+</span></span></span><span style="display:flex"><span><span style="color:#888">10.240.0.48 - - [16/Nove/2022:12:45:51 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.47.0" "-"
+</span></span></span></code></pre></div><p>To find more about how to debug using <code>crictl</code>, please visit
+<a href="/docs/tasks/debug/debug-cluster/crictl/"><em>Debugging Kubernetes nodes with crictl</em></a>.</p><h2 id="dynamic-addition-and-removal-of-static-pods">Dynamic addition and removal of static pods</h2><p>The running kubelet periodically scans the configured directory
+(<code>/etc/kubernetes/manifests</code> in our example) for changes and
+adds/removes Pods as files appear/disappear in this directory.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># This assumes you are using filesystem-hosted static Pod configuration</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run these commands on the node where the container is running</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic">#</span>
+</span></span><span style="display:flex"><span>mv /etc/kubernetes/manifests/static-web.yaml /tmp
+</span></span><span style="display:flex"><span>sleep <span style="color:#666">20</span>
+</span></span><span style="display:flex"><span>crictl ps
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># You see that no nginx container is running</span>
+</span></span><span style="display:flex"><span>mv /tmp/static-web.yaml  /etc/kubernetes/manifests/
+</span></span><span style="display:flex"><span>sleep <span style="color:#666">20</span>
+</span></span><span style="display:flex"><span>crictl ps
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">CONTAINER       IMAGE                                 CREATED           STATE      NAME    ATTEMPT    POD ID
+</span></span></span><span style="display:flex"><span><span style="color:#888">f427638871c35   docker.io/library/nginx@sha256:...    19 seconds ago    Running    web     1          34533c6729106
+</span></span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li><a href="/docs/reference/setup-tools/kubeadm/implementation-details/#generate-static-pod-manifests-for-control-plane-components">Generate static Pod manifests for control plane components</a></li><li><a href="/docs/reference/setup-tools/kubeadm/implementation-details/#generate-static-pod-manifest-for-local-etcd">Generate static Pod manifest for local etcd</a></li><li><a href="/docs/tasks/debug/debug-cluster/crictl/">Debugging Kubernetes nodes with <code>crictl</code></a></li><li><a href="https://github.com/kubernetes-sigs/cri-tools">Learn more about <code>crictl</code></a></li><li><a href="/docs/reference/tools/map-crictl-dockercli/">Map <code>docker</code> CLI commands to <code>crictl</code></a></li><li><a href="/docs/setup/production-environment/tools/kubeadm/setup-ha-etcd-with-kubeadm/">Set up etcd instances as static pods managed by a kubelet</a></li></ul></div>

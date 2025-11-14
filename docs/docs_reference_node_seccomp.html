@@ -1,0 +1,94 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Seccomp and Kubernetes</h1><p>Seccomp stands for secure computing mode and has been a feature of the Linux
+kernel since version 2.6.12. It can be used to sandbox the privileges of a
+process, restricting the calls it is able to make from userspace into the
+kernel. Kubernetes lets you automatically apply seccomp profiles loaded onto a
+<a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a> to your Pods and containers.</p><h2 id="seccomp-fields">Seccomp fields</h2><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.19 [stable]</code></div><p>There are four ways to specify a seccomp profile for a
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="pod">pod</a>:</p><ul><li>for the whole Pod using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context"><code>spec.securityContext.seccompProfile</code></a></li><li>for a single container using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context-1"><code>spec.containers[*].securityContext.seccompProfile</code></a></li><li>for an (restartable / sidecar) init container using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context-1"><code>spec.initContainers[*].securityContext.seccompProfile</code></a></li><li>for an <a href="/docs/concepts/workloads/pods/ephemeral-containers/">ephemeral container</a> using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context-2"><code>spec.ephemeralContainers[*].securityContext.seccompProfile</code></a></li></ul><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/security/seccomp/fields.yaml" download="pods/security/seccomp/fields.yaml"><code>pods/security/seccomp/fields.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-security-seccomp-fields-yaml&quot;)" title="Copy pods/security/seccomp/fields.yaml to clipboard"/></div><div class="includecode" id="pods-security-seccomp-fields-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Unconfined<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ephemeralContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>ephemeral-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>debian<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>RuntimeDefault<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">initContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>init-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>debian<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>RuntimeDefault<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>docker.io/library/debian:stable<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Localhost<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">localhostProfile</span>:<span style="color:#bbb"> </span>my-profile.json<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>The Pod in the example above runs as <code>Unconfined</code>, while the
+<code>ephemeral-container</code> and <code>init-container</code> specifically defines
+<code>RuntimeDefault</code>. If the ephemeral or init container would not have set the
+<code>securityContext.seccompProfile</code> field explicitly, then the value would be
+inherited from the Pod. The same applies to the container, which runs a
+<code>Localhost</code> profile <code>my-profile.json</code>.</p><p>Generally speaking, fields from (ephemeral) containers have a higher priority
+than the Pod level value, while containers which do not set the seccomp field
+inherit the profile from the Pod.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>It is not possible to apply a seccomp profile to a Pod or container running with
+<code>privileged: true</code> set in the container's <code>securityContext</code>. Privileged
+containers always run as <code>Unconfined</code>.</div><p>The following values are possible for the <code>seccompProfile.type</code>:</p><dl><dt><code>Unconfined</code></dt><dd>The workload runs without any seccomp restrictions.</dd><dt><code>RuntimeDefault</code></dt><dd>A default seccomp profile defined by the
+<a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>
+is applied. The default profiles aim to provide a strong set of security
+defaults while preserving the functionality of the workload. It is possible that
+the default profiles differ between container runtimes and their release
+versions, for example when comparing those from
+<a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" data-toggle="tooltip" data-placement="top" href="https://cri-o.io/#what-is-cri-o" target="_blank" aria-label="CRI-O">CRI-O</a> and
+<a class="glossary-tooltip" title="A container runtime with an emphasis on simplicity, robustness and portability" data-toggle="tooltip" data-placement="top" href="https://containerd.io/docs/" target="_blank" aria-label="containerd">containerd</a>.</dd><dt><code>Localhost</code></dt><dd>The <code>localhostProfile</code> will be applied, which has to be available on the node
+disk (on Linux it's <code>/var/lib/kubelet/seccomp</code>). The availability of the seccomp
+profile is verified by the
+<a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>
+on container creation. If the profile does not exist, then the container
+creation will fail with a <code>CreateContainerError</code>.</dd></dl><h3 id="localhost-profiles"><code>Localhost</code> profiles</h3><p>Seccomp profiles are JSON files following the scheme defined by the
+<a href="https://github.com/opencontainers/runtime-spec/blob/f329913/config-linux.md#seccomp">OCI runtime specification</a>.
+A profile basically defines actions based on matched syscalls, but also allows
+to pass specific values as arguments to syscalls. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"defaultAction"</span>: <span style="color:#b44">"SCMP_ACT_ERRNO"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"defaultErrnoRet"</span>: <span style="color:#666">38</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"syscalls"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"names"</span>: [
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"adjtimex"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"alarm"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"bind"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"waitid"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"waitpid"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"write"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"writev"</span>
+</span></span><span style="display:flex"><span>      ],
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"action"</span>: <span style="color:#b44">"SCMP_ACT_ALLOW"</span>
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>The <code>defaultAction</code> in the profile above is defined as <code>SCMP_ACT_ERRNO</code> and
+will return as fallback to the actions defined in <code>syscalls</code>. The error is
+defined as code <code>38</code> via the <code>defaultErrnoRet</code> field.</p><p>The following actions are generally possible:</p><dl><dt><code>SCMP_ACT_ERRNO</code></dt><dd>Return the specified error code.</dd><dt><code>SCMP_ACT_ALLOW</code></dt><dd>Allow the syscall to be executed.</dd><dt><code>SCMP_ACT_KILL_PROCESS</code></dt><dd>Kill the process.</dd><dt><code>SCMP_ACT_KILL_THREAD</code> and <code>SCMP_ACT_KILL</code></dt><dd>Kill only the thread.</dd><dt><code>SCMP_ACT_TRAP</code></dt><dd>Throw a <code>SIGSYS</code> signal.</dd><dt><code>SCMP_ACT_NOTIFY</code> and <code>SECCOMP_RET_USER_NOTIF</code>.</dt><dd>Notify the user space.</dd><dt><code>SCMP_ACT_TRACE</code></dt><dd>Notify a tracing process with the specified value.</dd><dt><code>SCMP_ACT_LOG</code></dt><dd>Allow the syscall to be executed after the action has been logged to syslog or
+auditd.</dd></dl><p>Some actions like <code>SCMP_ACT_NOTIFY</code> or <code>SECCOMP_RET_USER_NOTIF</code> may be not
+supported depending on the container runtime, OCI runtime or Linux kernel
+version being used. There may be also further limitations, for example that
+<code>SCMP_ACT_NOTIFY</code> cannot be used as <code>defaultAction</code> or for certain syscalls like
+<code>write</code>. All those limitations are defined by either the OCI runtime
+(<a href="https://github.com/opencontainers/runc">runc</a>,
+<a href="https://github.com/containers/crun">crun</a>) or
+<a href="https://github.com/seccomp/libseccomp">libseccomp</a>.</p><p>The <code>syscalls</code> JSON array contains a list of objects referencing syscalls by
+their respective <code>names</code>. For example, the action <code>SCMP_ACT_ALLOW</code> can be used
+to create a whitelist of allowed syscalls as outlined in the example above. It
+would also be possible to define another list using the action <code>SCMP_ACT_ERRNO</code>
+but a different return (<code>errnoRet</code>) value.</p><p>It is also possible to specify the arguments (<code>args</code>) passed to certain
+syscalls. More information about those advanced use cases can be found in the
+<a href="https://github.com/opencontainers/runtime-spec/blob/f329913/config-linux.md#seccomp">OCI runtime spec</a>
+and the <a href="https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt">Seccomp Linux kernel documentation</a>.</p><h2 id="further-reading">Further reading</h2><ul><li><a href="/docs/tutorials/security/seccomp/">Restrict a Container's Syscalls with seccomp</a></li><li><a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a></li></ul></div>

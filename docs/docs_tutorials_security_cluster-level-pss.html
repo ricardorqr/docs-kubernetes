@@ -1,0 +1,181 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Apply Pod Security Standards at the Cluster Level</h1><div class="alert alert-primary" role="alert"><h4 class="alert-heading">Note</h4>This tutorial applies only for new clusters.</div><p>Pod Security is an admission controller that carries out checks against the Kubernetes
+<a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a> when new pods are
+created. It is a feature GA'ed in v1.25.
+This tutorial shows you how to enforce the <code>baseline</code> Pod Security
+Standard at the cluster level which applies a standard configuration
+to all namespaces in a cluster.</p><p>To apply Pod Security Standards to specific namespaces, refer to
+<a href="/docs/tutorials/security/ns-level-pss/">Apply Pod Security Standards at the namespace level</a>.</p><p>If you are running a version of Kubernetes other than v1.34,
+check the documentation for that version.</p><h2 id="before-you-begin">Before you begin</h2><p>Install the following on your workstation:</p><ul><li><a href="https://kind.sigs.k8s.io/docs/user/quick-start/#installation">kind</a></li><li><a href="/docs/tasks/tools/">kubectl</a></li></ul><p>This tutorial demonstrates what you can configure for a Kubernetes cluster that you fully
+control. If you are learning how to configure Pod Security Admission for a managed cluster
+where you are not able to configure the control plane, read
+<a href="/docs/tutorials/security/ns-level-pss/">Apply Pod Security Standards at the namespace level</a>.</p><h2 id="choose-the-right-pod-security-standard-to-apply">Choose the right Pod Security Standard to apply</h2><p><a href="/docs/concepts/security/pod-security-admission/">Pod Security Admission</a>
+lets you apply built-in <a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a>
+with the following modes: <code>enforce</code>, <code>audit</code>, and <code>warn</code>.</p><p>To gather information that helps you to choose the Pod Security Standards
+that are most appropriate for your configuration, do the following:</p><ol><li><p>Create a cluster with no Pod Security Standards applied:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kind create cluster --name psa-wo-cluster-pss
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>Creating cluster "psa-wo-cluster-pss" ...
+✓ Ensuring node image (kindest/node:v1.34.0) 🖼
+✓ Preparing nodes 📦
+✓ Writing configuration 📜
+✓ Starting control-plane 🕹️
+✓ Installing CNI 🔌
+✓ Installing StorageClass 💾
+Set kubectl context to "kind-psa-wo-cluster-pss"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-psa-wo-cluster-pss
+
+Thanks for using kind! 😊
+</code></pre></li><li><p>Set the kubectl context to the new cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl cluster-info --context kind-psa-wo-cluster-pss
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Kubernetes control plane is running at https://127.0.0.1:61350
+
+CoreDNS is running at https://127.0.0.1:61350/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+</code></pre></li><li><p>Get a list of namespaces in the cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get ns
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>NAME                 STATUS   AGE
+default              Active   9m30s
+kube-node-lease      Active   9m32s
+kube-public          Active   9m32s
+kube-system          Active   9m32s
+local-path-storage   Active   9m26s
+</code></pre></li><li><p>Use <code>--dry-run=server</code> to understand what happens when different Pod Security Standards
+are applied:</p><ol><li><p>Privileged</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl label --dry-run<span style="color:#666">=</span>server --overwrite ns --all <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>pod-security.kubernetes.io/enforce<span style="color:#666">=</span>privileged
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>namespace/default labeled
+namespace/kube-node-lease labeled
+namespace/kube-public labeled
+namespace/kube-system labeled
+namespace/local-path-storage labeled
+</code></pre></li><li><p>Baseline</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl label --dry-run<span style="color:#666">=</span>server --overwrite ns --all <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>pod-security.kubernetes.io/enforce<span style="color:#666">=</span>baseline
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>namespace/default labeled
+namespace/kube-node-lease labeled
+namespace/kube-public labeled
+Warning: existing pods in namespace "kube-system" violate the new PodSecurity enforce level "baseline:latest"
+Warning: etcd-psa-wo-cluster-pss-control-plane (and 3 other pods): host namespaces, hostPath volumes
+Warning: kindnet-vzj42: non-default capabilities, host namespaces, hostPath volumes
+Warning: kube-proxy-m6hwf: host namespaces, hostPath volumes, privileged
+namespace/kube-system labeled
+namespace/local-path-storage labeled
+</code></pre></li><li><p>Restricted</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl label --dry-run<span style="color:#666">=</span>server --overwrite ns --all <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>pod-security.kubernetes.io/enforce<span style="color:#666">=</span>restricted
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>namespace/default labeled
+namespace/kube-node-lease labeled
+namespace/kube-public labeled
+Warning: existing pods in namespace "kube-system" violate the new PodSecurity enforce level "restricted:latest"
+Warning: coredns-7bb9c7b568-hsptc (and 1 other pod): unrestricted capabilities, runAsNonRoot != true, seccompProfile
+Warning: etcd-psa-wo-cluster-pss-control-plane (and 3 other pods): host namespaces, hostPath volumes, allowPrivilegeEscalation != false, unrestricted capabilities, restricted volume types, runAsNonRoot != true
+Warning: kindnet-vzj42: non-default capabilities, host namespaces, hostPath volumes, allowPrivilegeEscalation != false, unrestricted capabilities, restricted volume types, runAsNonRoot != true, seccompProfile
+Warning: kube-proxy-m6hwf: host namespaces, hostPath volumes, privileged, allowPrivilegeEscalation != false, unrestricted capabilities, restricted volume types, runAsNonRoot != true, seccompProfile
+namespace/kube-system labeled
+Warning: existing pods in namespace "local-path-storage" violate the new PodSecurity enforce level "restricted:latest"
+Warning: local-path-provisioner-d6d9f7ffc-lw9lh: allowPrivilegeEscalation != false, unrestricted capabilities, runAsNonRoot != true, seccompProfile
+namespace/local-path-storage labeled
+</code></pre></li></ol></li></ol><p>From the previous output, you'll notice that applying the <code>privileged</code> Pod Security Standard shows no warnings
+for any namespaces. However, <code>baseline</code> and <code>restricted</code> standards both have
+warnings, specifically in the <code>kube-system</code> namespace.</p><h2 id="set-modes-versions-and-standards">Set modes, versions and standards</h2><p>In this section, you apply the following Pod Security Standards to the <code>latest</code> version:</p><ul><li><code>baseline</code> standard in <code>enforce</code> mode.</li><li><code>restricted</code> standard in <code>warn</code> and <code>audit</code> mode.</li></ul><p>The <code>baseline</code> Pod Security Standard provides a convenient
+middle ground that allows keeping the exemption list short and prevents known
+privilege escalations.</p><p>Additionally, to prevent pods from failing in <code>kube-system</code>, you'll exempt the namespace
+from having Pod Security Standards applied.</p><p>When you implement Pod Security Admission in your own environment, consider the
+following:</p><ol><li><p>Based on the risk posture applied to a cluster, a stricter Pod Security
+Standard like <code>restricted</code> might be a better choice.</p></li><li><p>Exempting the <code>kube-system</code> namespace allows pods to run as
+<code>privileged</code> in this namespace. For real world use, the Kubernetes project
+strongly recommends that you apply strict RBAC
+policies that limit access to <code>kube-system</code>, following the principle of least
+privilege.
+To implement the preceding standards, do the following:</p></li><li><p>Create a configuration file that can be consumed by the Pod Security
+Admission Controller to implement these Pod Security Standards:</p><pre tabindex="0"><code>mkdir -p /tmp/pss
+cat &lt;&lt;EOF &gt; /tmp/pss/cluster-level-pss.yaml
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+- name: PodSecurity
+  configuration:
+    apiVersion: pod-security.admission.config.k8s.io/v1
+    kind: PodSecurityConfiguration
+    defaults:
+      enforce: "baseline"
+      enforce-version: "latest"
+      audit: "restricted"
+      audit-version: "latest"
+      warn: "restricted"
+      warn-version: "latest"
+    exemptions:
+      usernames: []
+      runtimeClasses: []
+      namespaces: [kube-system]
+EOF
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><code>pod-security.admission.config.k8s.io/v1</code> configuration requires v1.25+.
+For v1.23 and v1.24, use <a href="https://v1-24.docs.kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-admission-controller/">v1beta1</a>.
+For v1.22, use <a href="https://v1-22.docs.kubernetes.io/docs/tasks/configure-pod-container/enforce-standards-admission-controller/">v1alpha1</a>.</div></li><li><p>Configure the API server to consume this file during cluster creation:</p><pre tabindex="0"><code>cat &lt;&lt;EOF &gt; /tmp/pss/cluster-config.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+        extraArgs:
+          admission-control-config-file: /etc/config/cluster-level-pss.yaml
+        extraVolumes:
+          - name: accf
+            hostPath: /etc/config
+            mountPath: /etc/config
+            readOnly: false
+            pathType: "DirectoryOrCreate"
+  extraMounts:
+  - hostPath: /tmp/pss
+    containerPath: /etc/config
+    # optional: if set, the mount is read-only.
+    # default false
+    readOnly: false
+    # optional: if set, the mount needs SELinux relabeling.
+    # default false
+    selinuxRelabel: false
+    # optional: set propagation mode (None, HostToContainer or Bidirectional)
+    # see https://kubernetes.io/docs/concepts/storage/volumes/#mount-propagation
+    # default None
+    propagation: None
+EOF
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you use Docker Desktop with <em>kind</em> on macOS, you can
+add <code>/tmp</code> as a Shared Directory under the menu item
+<strong>Preferences &gt; Resources &gt; File Sharing</strong>.</div></li><li><p>Create a cluster that uses Pod Security Admission to apply
+these Pod Security Standards:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kind create cluster --name psa-with-cluster-pss --config /tmp/pss/cluster-config.yaml
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Creating cluster "psa-with-cluster-pss" ...
+ ✓ Ensuring node image (kindest/node:v1.34.0) 🖼
+ ✓ Preparing nodes 📦
+ ✓ Writing configuration 📜
+ ✓ Starting control-plane 🕹️
+ ✓ Installing CNI 🔌
+ ✓ Installing StorageClass 💾
+Set kubectl context to "kind-psa-with-cluster-pss"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-psa-with-cluster-pss
+
+Have a question, bug, or feature request? Let us know! https://kind.sigs.k8s.io/#community 🙂
+</code></pre></li><li><p>Point kubectl to the cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl cluster-info --context kind-psa-with-cluster-pss
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Kubernetes control plane is running at https://127.0.0.1:63855
+CoreDNS is running at https://127.0.0.1:63855/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+</code></pre></li><li><p>Create a Pod in the default namespace:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/security/example-baseline-pod.yaml" download="security/example-baseline-pod.yaml"><code>security/example-baseline-pod.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;security-example-baseline-pod-yaml&quot;)" title="Copy security/example-baseline-pod.yaml to clipboard"/></div><div class="includecode" id="security-example-baseline-pod-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+ </span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+ </span></span></span></code></pre></div></div></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/security/example-baseline-pod.yaml
+</span></span></code></pre></div><p>The pod is started normally, but the output includes a warning:</p><pre tabindex="0"><code>Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "nginx" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "nginx" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "nginx" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "nginx" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+pod/nginx created
+</code></pre></li></ol><h2 id="clean-up">Clean up</h2><p>Now delete the clusters which you created above by running the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kind delete cluster --name psa-with-cluster-pss
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kind delete cluster --name psa-wo-cluster-pss
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li>Run a
+<a href="/examples/security/kind-with-cluster-level-baseline-pod-security.sh">shell script</a>
+to perform all the preceding steps at once:<ol><li>Create a Pod Security Standards based cluster level Configuration</li><li>Create a file to let API server consume this configuration</li><li>Create a cluster that creates an API server with this configuration</li><li>Set kubectl context to this new cluster</li><li>Create a minimal pod yaml file</li><li>Apply this file to create a Pod in the new cluster</li></ol></li><li><a href="/docs/concepts/security/pod-security-admission/">Pod Security Admission</a></li><li><a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a></li><li><a href="/docs/tutorials/security/ns-level-pss/">Apply Pod Security Standards at the namespace level</a></li></ul></div>

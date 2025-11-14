@@ -1,0 +1,7 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Debug a StatefulSet</h1><p>This task shows you how to debug a StatefulSet.</p><h2 id="before-you-begin">Before you begin</h2><ul><li>You need to have a Kubernetes cluster, and the kubectl command-line tool must be configured to communicate with your cluster.</li><li>You should have a StatefulSet running that you want to investigate.</li></ul><h2 id="debugging-a-statefulset">Debugging a StatefulSet</h2><p>In order to list all the pods which belong to a StatefulSet, which have a label <code>app.kubernetes.io/name=MyApp</code> set on them,
+you can use the following:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l app.kubernetes.io/name<span style="color:#666">=</span>MyApp
+</span></span></code></pre></div><p>If you find that any Pods listed are in <code>Unknown</code> or <code>Terminating</code> state for an extended period of time,
+refer to the <a href="/docs/tasks/run-application/delete-stateful-set/">Deleting StatefulSet Pods</a> task for
+instructions on how to deal with them.
+You can debug individual Pods in a StatefulSet using the
+<a href="/docs/tasks/debug/debug-application/debug-pods/">Debugging Pods</a> guide.</p><h2 id="what-s-next">What's next</h2><p>Learn more about <a href="/docs/tasks/debug/debug-application/debug-init-containers/">debugging an init-container</a>.</p></div>

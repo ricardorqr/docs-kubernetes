@@ -1,0 +1,31 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Helping as a blog writing buddy</h1><p>There are two official Kubernetes blogs, and the CNCF has its own blog where you can cover Kubernetes too.
+Read <a href="/docs/contribute/blog/">contributing to Kubernetes blogs</a> to learn about these two blogs.</p><p>When people contribute to either blog as an author, the Kubernetes project pairs up authors
+as <em>writing buddies</em>. This page explains how to fulfil the buddy role.</p><p>You should make sure that you have at least read an outline of <a href="/docs/contribute/blog/article-submission/">article submission</a>
+before you read on within this page.</p><h2 id="buddy-responsibilities">Buddy responsibilities</h2><p>As a writing buddy, you:</p><ul><li>help the blog team get articles ready to merge and to publish</li><li>support your buddy to produce content that is good to merge</li><li>provide a review on the article that your buddy has written</li></ul><p>When the team pairs you up with another author, the idea is that you both support each other by
+reviewing the other author's draft article.
+Most people reading articles on the Kubernetes blog are not experts; the content should
+try to make sense for that audience, or at least to support non-expert readers appropriately.</p><p>The blog team are also there to help you both along the journey from draft to publication.
+They will either be directly able to approve your article for publication, or can arrange for
+the approval to happen.</p><h2 id="supporting-the-blog-team">Supporting the blog team</h2><p>Your main responsibility here is to communicate about your capacity, availability and progress
+in a reasonable timeline. If many weeks go by and your buddy hasn't heard from you, it makes
+the overall work take more time.</p><h2 id="supporting-your-buddy">Supporting your buddy</h2><p>There are two parts to the process</p><ul class="nav nav-tabs" id="buddy-support" role="tablist"><li class="nav-item"><a data-toggle="tab" class="nav-link active" href="#buddy-support-0" role="tab" aria-controls="buddy-support-0" aria-selected="true">Collaborative editing</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#buddy-support-1" role="tab" aria-controls="buddy-support-1">Markdown / Git editing</a></li></ul><div class="tab-content" id="buddy-support"><div id="buddy-support-0" class="tab-pane show active" role="tabpanel" aria-labelledby="buddy-support-0"><p><p><strong>(This is the recommended option)</strong></p><p>The blog team recommend that the main author for the article sets up collaborative editing
+using either a Google Doc or HackMD (their choice). The main author then shares that document
+with the following people:</p><ul><li>Any co-authors</li><li>You (their writing buddy)</li><li>Ideally, with a nominated
+person from the blog team.</li></ul><p>As a writing buddy, you then read the draft text and either directly make suggestions or provide
+feedback in a different way. The author of the blog is very commonly also <strong>your</strong> writing buddy in turn, so they will provide the
+same kind of feedback on the draft for your blog article.</p><p>Your role here is to recommend the smallest set of changes that will get the article look good
+for publication. If there's a diagram that really doesn't make sense, or the writing is really
+unclear: provide feedback. If you have a slight different of opinion about wording or punctuation,
+skip it. Let the article author(s) write in their own style, provided that they align to
+the <a href="/docs/contribute/blog/guidelines/">blog guidelines</a>.</p><p>After this is ready, the lead author will open a pull request and use Markdown to submit the
+article. You then provide a <a href="#pull-request-review">review</a>.</p></p></div><div id="buddy-support-1" class="tab-pane" role="tabpanel" aria-labelledby="buddy-support-1"><p><p>Some authors prefer to start with
+<a href="#buddy-support-0">collaborative editing</a>; others like to go straight into
+GitHub.</p><p>Whichever route they take, your role is to provide feedback that lets the blog team provide
+a simple signoff and confirm that the article can merge as a draft. See
+<a href="/docs/contribute/blog/article-submission/">submitting articles to Kubernetes blogs</a> for what the authors
+need to do.</p><p>Use GitHub suggestions to point out any required changes.</p><p>Once the Markdown and other content (such as images) look right, you provide a
+formal <a href="#pull-request-review">review</a>.</p></p></div></div><h2 id="pull-request-review">Pull request review</h2><p>Follow the <a href="/docs/contribute/review/reviewing-prs/#blog">blog</a> section of <em>Reviewing pull requests</em>.</p><p>When you think that the open blog pull request is good enough to merge, add the <code>/lgtm</code> comment to the pull request.</p><p>This indicates to the repository automation tooling (Prow) that the content "looks good to me". Prow moves things forward. The <code>/lgtm</code> command lets you add your opinion to the record whether or not you are formally a member of the Kubernetes project.</p><p>Either you or the article author(s) should let the blog team know that there is an article
+ready for signoff. It should already be marked as <code>draft: true</code> in the front matter, as
+explained in the submission guidance.</p><h2 id="subsequent-steps">Subsequent steps</h2><p>For you as a writing buddy, <strong>there is no step four</strong>. Once the pull request is good to merge,
+the blog team (or, for the contributor site, the contributor comms team) take things from there.
+It's possible that you'll need to return to an earlier step based on feedback, but you can usually expect that your work as a buddy is done.</p></div>

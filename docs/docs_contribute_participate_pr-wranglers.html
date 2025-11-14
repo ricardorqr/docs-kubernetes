@@ -1,0 +1,55 @@
+<div class="td-content"><h1 data-pagefind-weight="10">PR wranglers</h1><p>SIG Docs <a href="/docs/contribute/participate/roles-and-responsibilities/#approvers">approvers</a>
+take week-long shifts <a href="https://github.com/kubernetes/website/wiki/PR-Wranglers">managing pull requests</a>
+for the repository.</p><p>This section covers the duties of a PR wrangler. For more information on giving good reviews,
+see <a href="/docs/contribute/review/">Reviewing changes</a>.</p><h2 id="duties">Duties</h2><p>Each day in a week-long shift as PR Wrangler:</p><ul><li>Review <a href="https://github.com/kubernetes/website/pulls">open pull requests</a> for quality
+and adherence to the <a href="/docs/contribute/style/style-guide/">Style</a> and
+<a href="/docs/contribute/style/content-guide/">Content</a> guides.<ul><li>Start with the smallest PRs (<code>size/XS</code>) first, and end with the largest (<code>size/XXL</code>).
+Review as many PRs as you can.</li></ul></li><li>Make sure PR contributors sign the <a href="https://github.com/kubernetes/community/blob/master/CLA.md">CLA</a>.<ul><li>Use <a href="https://github.com/zparnold/k8s-docs-pr-botherer">this</a> script to remind contributors
+that haven't signed the CLA to do so.</li></ul></li><li>Provide feedback on changes and ask for technical reviews from members of other SIGs.<ul><li>Provide inline suggestions on the PR for the proposed content changes.</li><li>If you need to verify content, comment on the PR and request more details.</li><li>Assign relevant <code>sig/</code> label(s).</li><li>If needed, assign reviewers from the <code>reviewers:</code> block in the file's front matter.</li><li>You can also tag a <a href="https://github.com/kubernetes/community/blob/master/sig-list.md">SIG</a>
+for a review by commenting <code>@kubernetes/&lt;sig&gt;-pr-reviews</code> on the PR.</li></ul></li><li>Use the <code>/approve</code> comment to approve a PR for merging. Merge the PR when ready.<ul><li>PRs should have a <code>/lgtm</code> comment from another member before merging.</li><li>Consider accepting technically accurate content that doesn't meet the
+<a href="/docs/contribute/style/style-guide/">style guidelines</a>. As you approve the change,
+open a new issue to address the style concern. You can usually write these style fix
+issues as <a href="https://kubernetes.dev/docs/guide/help-wanted/#good-first-issue">good first issues</a>.</li><li>Using style fixups as good first issues is a good way to ensure a supply of easier tasks
+to help onboard new contributors.</li></ul></li><li>Also check for pull requests against the <a href="https://github.com/kubernetes-sigs/reference-docs">reference docs generator</a>
+code, and review those (or bring in help).</li><li>Support the <a href="/docs/contribute/participate/issue-wrangler/">issue wrangler</a> to
+triage and tag incoming issues daily.
+See <a href="/docs/contribute/review/for-approvers/#triage-and-categorize-issues">Triage and categorize issues</a>
+for guidelines on how SIG Docs uses metadata.</li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>PR wrangler duties do not apply to localization PRs (non-English PRs).
+Localization teams have their own processes and teams for reviewing their language PRs.
+However, it's often helpful to ensure language PRs are labeled correctly,
+review small non-language dependent PRs (like a link update),
+or tag reviewers or contributors in long-running PRs
+(ones opened more than 6 months ago and have not been updated in a month or more).</div><h3 id="helpful-github-queries-for-wranglers">Helpful GitHub queries for wranglers</h3><p>The following queries are helpful when wrangling.
+After working through these queries, the remaining list of PRs to review is usually small.
+These queries exclude localization PRs. All queries are against the main branch except the last one.</p><ul><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+label%3A%22cncf-cla%3A+no%22+-label%3A%22do-not-merge%2Fwork-in-progress%22+-label%3A%22do-not-merge%2Fhold%22+label%3Alanguage%2Fen">No CLA, not eligible to merge</a>:
+Remind the contributor to sign the CLA. If both the bot and a human have reminded them, close
+the PR and remind them that they can open it after signing the CLA.
+<strong>Do not review PRs whose authors have not signed the CLA!</strong></li><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+-label%3A%22cncf-cla%3A+no%22+-label%3Ado-not-merge%2Fwork-in-progress+-label%3Ado-not-merge%2Fhold+label%3Alanguage%2Fen+-label%3Algtm">Needs LGTM</a>:
+Lists PRs that need an LGTM from a member. If the PR needs technical review,
+loop in one of the reviewers suggested by the bot. If the content needs work,
+add suggestions and feedback in-line.</li><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+-label%3Ado-not-merge%2Fwork-in-progress+-label%3Ado-not-merge%2Fhold+label%3Alanguage%2Fen+label%3Algtm+">Has LGTM, needs docs approval</a>:
+Lists PRs that need an <code>/approve</code> comment to merge.</li><li><a href="https://github.com/kubernetes/website/pulls?utf8=%E2%9C%93&amp;q=is%3Apr+is%3Aopen+base%3Amain+-label%3A%22do-not-merge%2Fwork-in-progress%22+-label%3A%22do-not-merge%2Fhold%22+label%3A%22cncf-cla%3A+yes%22+label%3A%22size%2FXS%22+label%3A%22language%2Fen%22">Quick Wins</a>:
+Lists PRs against the main branch with no clear blockers.
+(change "XS" in the size label as you work through the PRs [XS, S, M, L, XL, XXL]).</li><li><a href="https://github.com/kubernetes/website/pulls?q=is%3Aopen+is%3Apr+label%3Alanguage%2Fen+-base%3Amain">Not against the primary branch</a>:
+If the PR is against a <code>dev-</code> branch, it's for an upcoming release. Assign the
+<a href="https://github.com/kubernetes/sig-release/tree/master/release-team#kubernetes-release-team-roles">docs release manager</a>
+using: <code>/assign @&lt;manager's_github-username&gt;</code>. If the PR is against an old branch,
+help the author figure out whether it's targeted against the best branch.</li></ul><h3 id="helpful-prow-commands-for-wranglers">Helpful Prow commands for wranglers</h3><pre tabindex="0"><code># add English label
+/language en
+
+# add squash label to PR if more than one commit
+/label tide/merge-method-squash
+
+# retitle a PR via Prow (such as a work-in-progress [WIP] or better detail of PR)
+/retitle [WIP] &lt;TITLE&gt;
+</code></pre><h3 id="when-to-close-pull-requests">When to close Pull Requests</h3><p>Reviews and approvals are one tool to keep our PR queue short and current. Another tool is closure.</p><p>Close PRs where:</p><ul><li><p>The author hasn't signed the CLA for two weeks.</p><p>Authors can reopen the PR after signing the CLA. This is a low-risk way to make
+sure nothing gets merged without a signed CLA.</p></li><li><p>The author has not responded to comments or feedback in 2 or more weeks.</p></li></ul><p>Don't be afraid to close pull requests. Contributors can easily reopen and resume works in progress.
+Often a closure notice is what spurs an author to resume and finish their contribution.</p><p>To close a pull request, leave a <code>/close</code> comment on the PR.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <a href="https://github.com/k8s-triage-robot"><code>k8s-triage-robot</code></a> bot marks issues
+as stale after 90 days of inactivity. After 30 more days it marks issues as rotten
+and closes them. PR wranglers should close issues after 14-30 days of inactivity.</div><h2 id="pr-wrangler-shadow-program">PR Wrangler shadow program</h2><p>In late 2021, SIG Docs introduced the PR Wrangler Shadow Program.
+The program was introduced to help new contributors understand the PR wrangling process.</p><h3 id="become-a-shadow">Become a shadow</h3><ul><li><p>If you are interested in shadowing as a PR wrangler, please visit the
+<a href="https://github.com/kubernetes/website/wiki/PR-Wranglers">PR Wranglers Wiki page</a>
+to see the PR wrangling schedule for this year and sign up.</p></li><li><p>Others can reach out on the <a href="https://kubernetes.slack.com/messages/sig-docs">#sig-docs Slack channel</a>
+for requesting to shadow an assigned PR Wrangler for a specific week. Feel free to reach out to one of
+the <a href="https://github.com/kubernetes/community/tree/master/sig-docs#leadership">SIG Docs co-chairs/leads</a>.</p></li><li><p>Once you've signed up to shadow a PR Wrangler, introduce yourself to the PR Wrangler on the
+<a href="https://slack.k8s.io">Kubernetes Slack</a>.</p></li></ul></div>

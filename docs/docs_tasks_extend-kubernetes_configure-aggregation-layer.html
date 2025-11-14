@@ -1,0 +1,126 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Configure the Aggregation Layer</h1><p>Configuring the <a href="/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/">aggregation layer</a>
+allows the Kubernetes apiserver to be extended with additional APIs, which are not
+part of the core Kubernetes APIs.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>There are a few setup requirements for getting the aggregation layer working in
+your environment to support mutual TLS auth between the proxy and extension apiservers.
+Kubernetes and the kube-apiserver have multiple CAs, so make sure that the proxy is
+signed by the aggregation layer CA and not by something else, like the Kubernetes general CA.</div><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>Reusing the same CA for different client types can negatively impact the cluster's
+ability to function. For more information, see <a href="#ca-reusage-and-conflicts">CA Reusage and Conflicts</a>.</div><h2 id="authentication-flow">Authentication Flow</h2><p>Unlike Custom Resource Definitions (CRDs), the Aggregation API involves
+another server - your Extension apiserver - in addition to the standard Kubernetes apiserver.
+The Kubernetes apiserver will need to communicate with your extension apiserver,
+and your extension apiserver will need to communicate with the Kubernetes apiserver.
+In order for this communication to be secured, the Kubernetes apiserver uses x509
+certificates to authenticate itself to the extension apiserver.</p><p>This section describes how the authentication and authorization flows work,
+and how to configure them.</p><p>The high-level flow is as follows:</p><ol><li>Kubernetes apiserver: authenticate the requesting user and authorize their
+rights to the requested API path.</li><li>Kubernetes apiserver: proxy the request to the extension apiserver</li><li>Extension apiserver: authenticate the request from the Kubernetes apiserver</li><li>Extension apiserver: authorize the request from the original user</li><li>Extension apiserver: execute</li></ol><p>The rest of this section describes these steps in detail.</p><p>The flow can be seen in the following diagram.</p><p><img alt="aggregation auth flows" src="/images/docs/aggregation-api-auth-flow.png"/></p><p>The source for the above swimlanes can be found in the source of this document.</p><h3 id="kubernetes-apiserver-authentication-and-authorization">Kubernetes Apiserver Authentication and Authorization</h3><p>A request to an API path that is served by an extension apiserver begins
+the same way as all API requests: communication to the Kubernetes apiserver.
+This path already has been registered with the Kubernetes apiserver by the extension apiserver.</p><p>The user communicates with the Kubernetes apiserver, requesting access to the path.
+The Kubernetes apiserver uses standard authentication and authorization configured
+with the Kubernetes apiserver to authenticate the user and authorize access to the specific path.</p><p>For an overview of authenticating to a Kubernetes cluster, see
+<a href="/docs/reference/access-authn-authz/authentication/">"Authenticating to a Cluster"</a>.
+For an overview of authorization of access to Kubernetes cluster resources, see
+<a href="/docs/reference/access-authn-authz/authorization/">"Authorization Overview"</a>.</p><p>Everything to this point has been standard Kubernetes API requests, authentication and authorization.</p><p>The Kubernetes apiserver now is prepared to send the request to the extension apiserver.</p><h3 id="kubernetes-apiserver-proxies-the-request">Kubernetes Apiserver Proxies the Request</h3><p>The Kubernetes apiserver now will send, or proxy, the request to the extension
+apiserver that registered to handle the request. In order to do so,
+it needs to know several things:</p><ol><li>How should the Kubernetes apiserver authenticate to the extension apiserver,
+informing the extension apiserver that the request, which comes over the network,
+is coming from a valid Kubernetes apiserver?</li><li>How should the Kubernetes apiserver inform the extension apiserver of the
+username and group for which the original request was authenticated?</li></ol><p>In order to provide for these two, you must configure the Kubernetes apiserver using several flags.</p><h4 id="kubernetes-apiserver-client-authentication">Kubernetes Apiserver Client Authentication</h4><p>The Kubernetes apiserver connects to the extension apiserver over TLS,
+authenticating itself using a client certificate. You must provide the
+following to the Kubernetes apiserver upon startup, using the provided flags:</p><ul><li>private key file via <code>--proxy-client-key-file</code></li><li>signed client certificate file via <code>--proxy-client-cert-file</code></li><li>certificate of the CA that signed the client certificate file via <code>--requestheader-client-ca-file</code></li><li>valid Common Name values (CNs) in the signed client certificate via <code>--requestheader-allowed-names</code></li></ul><p>The Kubernetes apiserver will use the files indicated by <code>--proxy-client-*-file</code>
+to authenticate to the extension apiserver. In order for the request to be considered
+valid by a compliant extension apiserver, the following conditions must be met:</p><ol><li>The connection must be made using a client certificate that is signed by
+the CA whose certificate is in <code>--requestheader-client-ca-file</code>.</li><li>The connection must be made using a client certificate whose CN is one of
+those listed in <code>--requestheader-allowed-names</code>.</li></ol><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>You can set this option to blank as <code>--requestheader-allowed-names=""</code>.
+This will indicate to an extension apiserver that <em>any</em> CN is acceptable.</div><p>When started with these options, the Kubernetes apiserver will:</p><ol><li>Use them to authenticate to the extension apiserver.</li><li>Create a configmap in the <code>kube-system</code> namespace called <code>extension-apiserver-authentication</code>,
+in which it will place the CA certificate and the allowed CNs. These in turn can be retrieved
+by extension apiservers to validate requests.</li></ol><p>Note that the same client certificate is used by the Kubernetes apiserver to authenticate
+against <em>all</em> extension apiservers. It does not create a client certificate per extension
+apiserver, but rather a single one to authenticate as the Kubernetes apiserver.
+This same one is reused for all extension apiserver requests.</p><h4 id="original-request-username-and-group">Original Request Username and Group</h4><p>When the Kubernetes apiserver proxies the request to the extension apiserver,
+it informs the extension apiserver of the username and group with which the
+original request successfully authenticated. It provides these in http headers
+of its proxied request. You must inform the Kubernetes apiserver of the names
+of the headers to be used.</p><ul><li>the header in which to store the username via <code>--requestheader-username-headers</code></li><li>the header in which to store the group via <code>--requestheader-group-headers</code></li><li>the prefix to append to all extra headers via <code>--requestheader-extra-headers-prefix</code></li></ul><p>These header names are also placed in the <code>extension-apiserver-authentication</code> configmap,
+so they can be retrieved and used by extension apiservers.</p><h3 id="extension-apiserver-authenticates-the-request">Extension Apiserver Authenticates the Request</h3><p>The extension apiserver, upon receiving a proxied request from the Kubernetes apiserver,
+must validate that the request actually did come from a valid authenticating proxy,
+which role the Kubernetes apiserver is fulfilling. The extension apiserver validates it via:</p><ol><li>Retrieve the following from the configmap in <code>kube-system</code>, as described above:<ul><li>Client CA certificate</li><li>List of allowed names (CNs)</li><li>Header names for username, group and extra info</li></ul></li><li>Check that the TLS connection was authenticated using a client certificate which:<ul><li>Was signed by the CA whose certificate matches the retrieved CA certificate.</li><li>Has a CN in the list of allowed CNs, unless the list is blank, in which case all CNs are allowed.</li><li>Extract the username and group from the appropriate headers</li></ul></li></ol><p>If the above passes, then the request is a valid proxied request from a legitimate
+authenticating proxy, in this case the Kubernetes apiserver.</p><p>Note that it is the responsibility of the extension apiserver implementation to provide
+the above. Many do it by default, leveraging the <code>k8s.io/apiserver/</code> package.
+Others may provide options to override it using command-line options.</p><p>In order to have permission to retrieve the configmap, an extension apiserver
+requires the appropriate role. There is a default role named <code>extension-apiserver-authentication-reader</code>
+in the <code>kube-system</code> namespace which can be assigned.</p><h3 id="extension-apiserver-authorizes-the-request">Extension Apiserver Authorizes the Request</h3><p>The extension apiserver now can validate that the user/group retrieved from
+the headers are authorized to execute the given request. It does so by sending
+a standard <a href="/docs/reference/access-authn-authz/authorization/">SubjectAccessReview</a>
+request to the Kubernetes apiserver.</p><p>In order for the extension apiserver to be authorized itself to submit the
+<code>SubjectAccessReview</code> request to the Kubernetes apiserver, it needs the correct permissions.
+Kubernetes includes a default <code>ClusterRole</code> named <code>system:auth-delegator</code> that
+has the appropriate permissions. It can be granted to the extension apiserver's service account.</p><h3 id="extension-apiserver-executes">Extension Apiserver Executes</h3><p>If the <code>SubjectAccessReview</code> passes, the extension apiserver executes the request.</p><h2 id="enable-kubernetes-apiserver-flags">Enable Kubernetes Apiserver flags</h2><p>Enable the aggregation layer via the following <code>kube-apiserver</code> flags.
+They may have already been taken care of by your provider.</p><pre><code>--requestheader-client-ca-file=&lt;path to aggregator CA cert&gt;
+--requestheader-allowed-names=front-proxy-client
+--requestheader-extra-headers-prefix=X-Remote-Extra-
+--requestheader-group-headers=X-Remote-Group
+--requestheader-username-headers=X-Remote-User
+--proxy-client-cert-file=&lt;path to aggregator proxy cert&gt;
+--proxy-client-key-file=&lt;path to aggregator proxy key&gt;
+</code></pre><h3 id="ca-reusage-and-conflicts">CA Reusage and Conflicts</h3><p>The Kubernetes apiserver has two client CA options:</p><ul><li><code>--client-ca-file</code></li><li><code>--requestheader-client-ca-file</code></li></ul><p>Each of these functions independently and can conflict with each other,
+if not used correctly.</p><ul><li><code>--client-ca-file</code>: When a request arrives to the Kubernetes apiserver,
+if this option is enabled, the Kubernetes apiserver checks the certificate
+of the request. If it is signed by one of the CA certificates in the file referenced by
+<code>--client-ca-file</code>, then the request is treated as a legitimate request,
+and the user is the value of the common name <code>CN=</code>, while the group is the organization <code>O=</code>.
+See the <a href="/docs/reference/access-authn-authz/authentication/#x509-client-certificates">documentation on TLS authentication</a>.</li><li><code>--requestheader-client-ca-file</code>: When a request arrives to the Kubernetes apiserver,
+if this option is enabled, the Kubernetes apiserver checks the certificate of the request.
+If it is signed by one of the CA certificates in the file reference by <code>--requestheader-client-ca-file</code>,
+then the request is treated as a potentially legitimate request. The Kubernetes apiserver then
+checks if the common name <code>CN=</code> is one of the names in the list provided by <code>--requestheader-allowed-names</code>.
+If the name is allowed, the request is approved; if it is not, the request is not.</li></ul><p>If <em>both</em> <code>--client-ca-file</code> and <code>--requestheader-client-ca-file</code> are provided,
+then the request first checks the <code>--requestheader-client-ca-file</code> CA and then the
+<code>--client-ca-file</code>. Normally, different CAs, either root CAs or intermediate CAs,
+are used for each of these options; regular client requests match against <code>--client-ca-file</code>,
+while aggregation requests match against <code>--requestheader-client-ca-file</code>. However,
+if both use the <em>same</em> CA, then client requests that normally would pass via <code>--client-ca-file</code>
+will fail, because the CA will match the CA in <code>--requestheader-client-ca-file</code>,
+but the common name <code>CN=</code> will <strong>not</strong> match one of the acceptable common names in
+<code>--requestheader-allowed-names</code>. This can cause your kubelets and other control plane components,
+as well as end-users, to be unable to authenticate to the Kubernetes apiserver.</p><p>For this reason, use different CA certs for the <code>--client-ca-file</code>
+option - to authorize control plane components and end-users - and the <code>--requestheader-client-ca-file</code> option - to authorize aggregation apiserver requests.</p><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>Do <strong>not</strong> reuse a CA that is used in a different context unless you understand
+the risks and the mechanisms to protect the CA's usage.</div><p>If you are not running kube-proxy on a host running the API server,
+then you must make sure that the system is enabled with the following
+<code>kube-apiserver</code> flag:</p><pre><code>--enable-aggregator-routing=true
+</code></pre><h3 id="register-apiservice-objects">Register APIService objects</h3><p>You can dynamically configure what client requests are proxied to extension
+apiserver. The following is an example registration:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apiregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>APIService<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>&lt;name of the registration object&gt;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">group</span>:<span style="color:#bbb"> </span>&lt;API group name this extension apiserver hosts&gt;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">version</span>:<span style="color:#bbb"> </span>&lt;API version this extension apiserver hosts&gt;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">groupPriorityMinimum</span>:<span style="color:#bbb"> </span>&lt;priority this APIService for this group, see API documentation&gt;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">versionPriority</span>:<span style="color:#bbb"> </span>&lt;prioritizes ordering of this version within a group, see API documentation&gt;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">service</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>&lt;namespace of the extension apiserver service&gt;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>&lt;name of the extension apiserver service&gt;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">caBundle</span>:<span style="color:#bbb"> </span>&lt;pem encoded ca cert that signs the server cert used by the webhook&gt;<span style="color:#bbb">
+</span></span></span></code></pre></div><p>The name of an APIService object must be a valid
+<a href="/docs/concepts/overview/working-with-objects/names/#path-segment-names">path segment name</a>.</p><h4 id="contacting-the-extension-apiserver">Contacting the extension apiserver</h4><p>Once the Kubernetes apiserver has determined a request should be sent to an extension apiserver,
+it needs to know how to contact it.</p><p>The <code>service</code> stanza is a reference to the service for an extension apiserver.
+The service namespace and name are required. The port is optional and defaults to 443.</p><p>Here is an example of an extension apiserver that is configured to be called on port "1234",
+and to verify the TLS connection against the ServerName
+<code>my-service-name.my-service-namespace.svc</code> using a custom CA bundle.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apiregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>APIService<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>...<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">service</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>my-service-namespace<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-service-name<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">1234</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">caBundle</span>:<span style="color:#bbb"> </span><span style="color:#b44">"Ci0tLS0tQk...&lt;base64-encoded PEM bundle&gt;...tLS0K"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li><a href="/docs/tasks/extend-kubernetes/setup-extension-api-server/">Set up an extension api-server</a>
+to work with the aggregation layer.</li><li>For a high level overview, see
+<a href="/docs/concepts/extend-kubernetes/api-extension/apiserver-aggregation/">Extending the Kubernetes API with the aggregation layer</a>.</li><li>Learn how to <a href="/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/">Extend the Kubernetes API Using Custom Resource Definitions</a>.</li></ul></div>

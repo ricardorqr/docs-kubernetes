@@ -1,0 +1,147 @@
+<div class="td-content"><div class="pageinfo pageinfo-secondary"><h4>Shutdown of interactive tutorials</h4><p>The interactive tutorials previously on this website have been shut down.</p><p>Kubernetes is grateful to O'Reilly and Katacoda for many years of helping
+people take their first steps in learning Kubernetes.</p><p>The shutdown followed O'Reilly Media's 2019
+<a href="https://www.oreilly.com/content/oreilly-acquires-katacoda-and-a-new-way-for-2-5m-customers-to-learn/">acquisition</a>
+of Katacoda.</p><hr/><p>The tutorials ceased to function after the <b>31<sup>st</sup> of March,
+2023</b>. You are seeing this notice because this particular page has not yet been updated
+following that shutdown.</p></div><h1 data-pagefind-weight="10">Docs smoke test page</h1><p>This page serves two purposes:</p><ul><li>Demonstrate how the Kubernetes documentation uses Markdown</li><li>Provide a "smoke test" document we can use to test HTML, CSS, and template
+changes that affect the overall documentation.</li></ul><h2 id="heading-levels">Heading levels</h2><p>The above heading is an H2. The page title renders as an H1. The following
+sections show H3 - H6.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span><span style="color:purple;font-weight:700">### H3
+</span></span></span><span style="display:flex"><span><span style="color:purple;font-weight:700"/>
+</span></span><span style="display:flex"><span>This is in an H3 section.
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:purple;font-weight:700">#### H4
+</span></span></span><span style="display:flex"><span><span style="color:purple;font-weight:700"/>
+</span></span><span style="display:flex"><span>This is in an H4 section.
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:purple;font-weight:700">##### H5
+</span></span></span><span style="display:flex"><span><span style="color:purple;font-weight:700"/>
+</span></span><span style="display:flex"><span>This is in an H5 section.
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:purple;font-weight:700">###### H6
+</span></span></span><span style="display:flex"><span><span style="color:purple;font-weight:700"/>
+</span></span><span style="display:flex"><span>This is in an H6 section.
+</span></span></code></pre></div><p>Produces:</p><h3 id="h3">H3</h3><p>This is in an H3 section.</p><h4 id="h4">H4</h4><p>This is in an H4 section.</p><h5 id="h5">H5</h5><p>This is in an H5 section.</p><h6 id="h6">H6</h6><p>This is in an H6 section.</p><h2 id="inline-elements">Inline elements</h2><p>Inline elements show up within the text of paragraph, list item, admonition, or
+other block-level element.</p><p>Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.</p><h3 id="inline-text-styles">Inline text styles</h3><p>You can use different text styles in markdown like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> **bold**
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> _italic_
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> ***bold italic***
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> ~~strikethrough~~
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> &lt;<span style="color:green;font-weight:700">u</span>&gt;underline&lt;/<span style="color:green;font-weight:700">u</span>&gt;
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> _&lt;<span style="color:green;font-weight:700">u</span>&gt;underline italic&lt;/<span style="color:green;font-weight:700">u</span>&gt;_
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> **&lt;<span style="color:green;font-weight:700">u</span>&gt;underline bold&lt;/<span style="color:green;font-weight:700">u</span>&gt;**
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> ***&lt;<span style="color:green;font-weight:700">u</span>&gt;underline bold italic&lt;/<span style="color:green;font-weight:700">u</span>&gt;***
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> <span style="color:#b44">`monospace text`</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> **`monospace bold`**
+</span></span></code></pre></div><p>Produces:</p><ul><li><strong>bold</strong></li><li><em>italic</em></li><li><em><strong>bold italic</strong></em></li><li><del>strikethrough</del></li><li><u>underline</u></li><li><em><u>underline italic</u></em></li><li><strong><u>underline bold</u></strong></li><li><em><strong><u>underline bold italic</u></strong></em></li><li><code>monospace text</code></li><li><strong><code>monospace bold</code></strong></li></ul><h2 id="lists">Lists</h2><p>Markdown doesn't have strict rules about how to process lists. When we moved
+from Jekyll to Hugo, we broke some lists. To fix them, keep the following in
+mind:</p><ul><li><p>Make sure you indent sub-list items <strong>2 spaces</strong>.</p></li><li><p>To end a list and start another, you need an HTML comment block on a new line
+between the lists, flush with the left-hand border. The first list won't end
+otherwise, no matter how many blank lines you put between it and the second.</p></li></ul><h3 id="bullet-lists">Bullet lists</h3><p>You can add a bullet list in markdown like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> This is a list item.
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">*</span> This is another list item in the same list.
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">-</span> You can mix <span style="color:#b44">`-`</span> and <span style="color:#b44">`*`</span>.
+</span></span><span style="display:flex"><span>  <span style="color:#a2f;font-weight:700">-</span> To make a sub-item, indent two spaces.
+</span></span><span style="display:flex"><span>    <span style="color:#a2f;font-weight:700">-</span> This is a sub-sub-item. Indent two more spaces.
+</span></span><span style="display:flex"><span>  <span style="color:#a2f;font-weight:700">-</span> Another sub-item.
+</span></span></code></pre></div><p>Produces:</p><ul><li>This is a list item.</li></ul><ul><li>This is another list item in the same list.</li></ul><ul><li>You can mix <code>-</code> and <code>*</code>.<ul><li>To make a sub-item, indent two spaces.<ul><li>This is a sub-sub-item. Indent two more spaces.</li></ul></li><li>Another sub-item.</li></ul></li></ul><p>Also,</p><ul><li><p>This is a new list. With Hugo, you need to use a HTML comment to separate two
+consecutive lists. <strong>The HTML comment needs to be at the left margin.</strong></p></li><li><p>Bullet lists can have paragraphs or block elements within them.</p><p>Indent the content to be the same as the first line of the bullet point.
+<strong>This paragraph and the code block line up with the first <code>B</code> in <code>Bullet</code>
+above.</strong></p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>ls -l
+</span></span></code></pre></div><ul><li>And a sub-list after some block-level content</li></ul></li><li><p>A bullet list item can contain a numbered list.</p><ol><li>Numbered sub-list item 1</li><li>Numbered sub-list item 2</li></ol></li></ul><h3 id="numbered-lists">Numbered lists</h3><ol><li>This is a list item.</li><li>This is another list item in the same list. The number you use in Markdown
+does not necessarily correlate to the number in the final output. By
+convention, we keep them in sync.</li></ol><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>For single-digit numbered lists, using two spaces after the period makes
+interior block-level content line up better along tab-stops.</div><ol><li><p>This is a new list. With Hugo, you need to use an HTML comment to separate
+two consecutive lists. <strong>The HTML comment needs to be at the left margin.</strong></p></li><li><p>Numbered lists can have paragraphs or block elements within them.</p><p>Indent the content to be the same as the first line of the bullet
+point. <strong>This paragraph and the code block line up with the <code>N</code> in
+<code>Numbered</code> above.</strong></p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>ls -l
+</span></span></code></pre></div><ul><li>And a sub-list after some block-level content. This is at the same
+"level" as the paragraph and code block above, despite being indented
+more.</li></ul></li></ol><h3 id="tab-lists">Tab lists</h3><p>Tab lists can be used to conditionally display content, e.g., when multiple
+options must be documented that require distinct instructions or context.</p><ul class="nav nav-tabs" id="tab-lists-example" role="tablist"><li class="nav-item"><a data-toggle="tab" class="nav-link active" href="#tab-lists-example-0" role="tab" aria-controls="tab-lists-example-0" aria-selected="true">Choose one...</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#tab-lists-example-1" role="tab" aria-controls="tab-lists-example-1">Formatting tab lists</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#tab-lists-example-2" role="tab" aria-controls="tab-lists-example-2">Nested headers</a></li></ul><div class="tab-content" id="tab-lists-example"><div id="tab-lists-example-0" class="tab-pane show active" role="tabpanel" aria-labelledby="tab-lists-example-0"><p><p>Please select an option.</p></p></div><div id="tab-lists-example-1" class="tab-pane" role="tabpanel" aria-labelledby="tab-lists-example-1"><p><p>Tabs may also nest formatting styles.</p><ol><li>Ordered</li><li>(Or unordered)</li><li>Lists</li></ol><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">'Tab lists may contain code blocks!'</span>
+</span></span></code></pre></div></p></div><div id="tab-lists-example-2" class="tab-pane" role="tabpanel" aria-labelledby="tab-lists-example-2"><p><h3 id="header-within-a-tab-list">Header within a tab list</h3><p>Nested header tags may also be included.</p><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>Headers within tab lists will not appear in the Table of Contents.</div></p></div></div><h3 id="checklists">Checklists</h3><p>Checklists are technically bullet lists, but the bullets are suppressed by CSS.</p><ul><li><input disabled="" type="checkbox"/> This is a checklist item</li><li><input checked="" disabled="" type="checkbox"/> This is a selected checklist item</li></ul><h2 id="code-blocks">Code blocks</h2><p>You can create code blocks two different ways by surrounding the code block with
+three back-tick characters on lines before and after the code block. <strong>Only use
+back-ticks (code fences) for code blocks.</strong> This allows you to specify the
+language of the enclosed code, which enables syntax highlighting. It is also more
+predictable than using indentation.</p><pre tabindex="0"><code>this is a code block created by back-ticks
+</code></pre><p>The back-tick method has some advantages.</p><ul><li>It works nearly every time.</li><li>It is more compact when viewing the source code.</li><li>It allows you to specify what language the code block is in, for syntax
+highlighting.</li><li>It has a definite ending. Sometimes, the indentation method breaks with
+languages where spacing is significant, like Python or YAML.</li></ul><p>To specify the language for the code block, put it directly after the first
+grouping of back-ticks:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>ls -l
+</span></span></code></pre></div><p>Common languages used in Kubernetes documentation code blocks include:</p><ul><li><code>bash</code> / <code>shell</code> (both work the same)</li><li><code>go</code></li><li><code>json</code></li><li><code>yaml</code></li><li><code>xml</code></li><li><code>none</code> (disables syntax highlighting for the block)</li></ul><h3 id="code-blocks-containing-hugo-shortcodes">Code blocks containing Hugo shortcodes</h3><p>To show raw Hugo shortcodes as in the above example and prevent Hugo
+from interpreting them, use C-style comments directly after the <code>&lt;</code> and before
+the <code>&gt;</code> characters. The following example illustrates this (view the Markdown
+source for this page).</p><pre tabindex="0"><code class="language-none" data-lang="none">{{&lt; alert color="warning" &gt;}}This is a warning.{{&lt; /alert &gt;}}
+</code></pre><h2 id="links">Links</h2><p>To format a link, put the link text inside square brackets, followed by the
+link target in parentheses.</p><ul><li><code>[Link to Kubernetes.io](https://kubernetes.io/)</code> or</li><li><code>[Relative link to Kubernetes.io](/)</code></li></ul><p>You can also use HTML, but it is not preferred.
+For example, <code>&lt;a href="https://kubernetes.io/"&gt;Link to Kubernetes.io&lt;/a&gt;</code>.</p><h2 id="images">Images</h2><p>To format an image, use similar syntax to <a href="#links">links</a>, but add a leading <code>!</code>
+character. The square brackets contain the image's alt text. Try to always use
+alt text so that people using screen readers can get some benefit from the
+image.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span>![<span style="color:green;font-weight:700">pencil icon</span>](<span style="color:#b44">/images/pencil.png</span>)
+</span></span></code></pre></div><p>Produces:</p><p><img alt="pencil icon" src="/images/pencil.png"/></p><p>To specify extended attributes, such as width, title, caption, etc, use the
+<a href="https://gohugo.io/content-management/shortcodes/#figure">figure shortcode</a>,
+which is preferred to using a HTML <code>&lt;img&gt;</code> tag. Also, if you need the image to
+also be a hyperlink, use the <code>link</code> attribute, rather than wrapping the whole
+figure in Markdown link syntax as shown below.</p><div style="text-align:center"><figure><img src="/images/pencil.png" alt="An image used to illustrate the figure shortcode" width="200px"/><figcaption><h4>Pencil icon</h4><p>An image used to illustrate the figure shortcode</p></figcaption></figure></div><p>Even if you choose not to use the figure shortcode, an image can also be a link. This
+time the pencil icon links to the Kubernetes website. Outer square brackets enclose
+the entire image tag, and the link target is in the parentheses at the end.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span>[<span style="color:green;font-weight:700">![pencil icon</span>](<span style="color:#b44">/images/pencil.png</span>)](https://kubernetes.io)
+</span></span></code></pre></div><p>Produces:</p><p><a href="https://kubernetes.io"><img alt="pencil icon" src="/images/pencil.png"/></a></p><p>You can also use HTML for images, but it is not preferred.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">img</span> <span style="color:#b44">src</span><span style="color:#666">=</span><span style="color:#b44">"/images/pencil.png"</span> <span style="color:#b44">alt</span><span style="color:#666">=</span><span style="color:#b44">"pencil icon"</span> /&gt;
+</span></span></code></pre></div><p>Produces:</p><img src="/images/pencil.png" alt="pencil icon"/><h2 id="tables">Tables</h2><p>Simple tables have one row per line, and columns are separated by <code>|</code>
+characters. The header is separated from the body by cells containing nothing
+but at least three <code>-</code> characters. For ease of maintenance, try to keep all the
+cell separators even, even if you heed to use extra space.</p><table><thead><tr><th>Heading cell 1</th><th>Heading cell 2</th></tr></thead><tbody><tr><td>Body cell 1</td><td>Body cell 2</td></tr></tbody></table><p>The header is optional. Any text separated by <code>|</code> will render as a table.</p><p>Markdown tables have a hard time with block-level elements within cells, such as
+list items, code blocks, or multiple paragraphs. For complex or very wide
+tables, use HTML instead.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-html" data-lang="html"><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">table</span>&gt;
+</span></span><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">thead</span>&gt;
+</span></span><span style="display:flex"><span>  &lt;<span style="color:green;font-weight:700">tr</span>&gt;
+</span></span><span style="display:flex"><span>    &lt;<span style="color:green;font-weight:700">th</span>&gt;Heading cell 1&lt;/<span style="color:green;font-weight:700">th</span>&gt;
+</span></span><span style="display:flex"><span>    &lt;<span style="color:green;font-weight:700">th</span>&gt;Heading cell 2&lt;/<span style="color:green;font-weight:700">th</span>&gt;
+</span></span><span style="display:flex"><span>  &lt;/<span style="color:green;font-weight:700">tr</span>&gt;
+</span></span><span style="display:flex"><span>&lt;/<span style="color:green;font-weight:700">thead</span>&gt;
+</span></span><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">tbody</span>&gt;
+</span></span><span style="display:flex"><span>  &lt;<span style="color:green;font-weight:700">tr</span>&gt;
+</span></span><span style="display:flex"><span>    &lt;<span style="color:green;font-weight:700">td</span>&gt;Body cell 1&lt;/<span style="color:green;font-weight:700">td</span>&gt;
+</span></span><span style="display:flex"><span>    &lt;<span style="color:green;font-weight:700">td</span>&gt;Body cell 2&lt;/<span style="color:green;font-weight:700">td</span>&gt;
+</span></span><span style="display:flex"><span>  &lt;/<span style="color:green;font-weight:700">tr</span>&gt;
+</span></span><span style="display:flex"><span>&lt;/<span style="color:green;font-weight:700">tbody</span>&gt;
+</span></span><span style="display:flex"><span>&lt;/<span style="color:green;font-weight:700">table</span>&gt;
+</span></span></code></pre></div><p>Produces:</p><table><thead><tr><th>Heading cell 1</th><th>Heading cell 2</th></tr></thead><tbody><tr><td>Body cell 1</td><td>Body cell 2</td></tr></tbody></table><h2 id="visualizations-with-mermaid">Visualizations with Mermaid</h2><p>You can use <a href="https://mermaidjs.github.io">Mermaid JS</a> visualizations.
+The Mermaid JS version is specified in <a href="https://github.com/kubernetes/website/blob/main/layouts/partials/head.html">/layouts/partials/head.html</a></p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span>{{&lt; <span style="color:green;font-weight:700">mermaid</span> &gt;}}
+</span></span><span style="display:flex"><span>graph TD;
+</span></span><span style="display:flex"><span>  A--&gt;B;
+</span></span><span style="display:flex"><span>  A--&gt;C;
+</span></span><span style="display:flex"><span>  B--&gt;D;
+</span></span><span style="display:flex"><span>  C--&gt;D;
+</span></span><span style="display:flex"><span>{{&lt;/ <span style="color:green;font-weight:700">mermaid</span> &gt;}}
+</span></span></code></pre></div><p>Produces:</p><figure><div class="mermaid">graph TD;
+A--&gt;B;
+A--&gt;C;
+B--&gt;D;
+C--&gt;D;</div></figure><noscript><div class="alert alert-secondary callout" role="alert"><em class="javascript-required">JavaScript must be <a href="https://www.enable-javascript.com/">enabled</a> to view this content</em></div></noscript><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-markdown" data-lang="markdown"><span style="display:flex"><span>{{&lt; <span style="color:green;font-weight:700">mermaid</span> &gt;}}
+</span></span><span style="display:flex"><span>sequenceDiagram
+</span></span><span style="display:flex"><span>    Alice -&gt;&gt; Bob: Hello Bob, how are you?
+</span></span><span style="display:flex"><span>    Bob--&gt;&gt;John: How about you John?
+</span></span><span style="display:flex"><span>    Bob--x Alice: I am good thanks!
+</span></span><span style="display:flex"><span>    Bob-x John: I am good thanks!
+</span></span><span style="display:flex"><span>    Note right of John: Bob thinks a long&lt;<span style="color:green;font-weight:700">br</span>/&gt;long time, so long&lt;<span style="color:green;font-weight:700">br</span>/&gt;that the text does&lt;<span style="color:green;font-weight:700">br</span>/&gt;not fit on a row.
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>    Bob--&gt;Alice: Checking with John...
+</span></span><span style="display:flex"><span>    Alice-&gt;John: Yes... John, how are you?
+</span></span><span style="display:flex"><span>{{&lt;/ <span style="color:green;font-weight:700">mermaid</span> &gt;}}
+</span></span></code></pre></div><p>Produces:</p><figure><div class="mermaid">sequenceDiagram
+Alice -&gt;&gt; Bob: Hello Bob, how are you?
+Bob--&gt;&gt;John: How about you John?
+Bob--x Alice: I am good thanks!
+Bob-x John: I am good thanks!
+Note right of John: Bob thinks a long<br/>long time, so long<br/>that the text does<br/>not fit on a row.
+Bob--&gt;Alice: Checking with John...
+Alice-&gt;John: Yes... John, how are you?</div></figure><noscript><div class="alert alert-secondary callout" role="alert"><em class="javascript-required">JavaScript must be <a href="https://www.enable-javascript.com/">enabled</a> to view this content</em></div></noscript><p>You can check more <a href="https://mermaid-js.github.io/mermaid/#/examples">examples</a> from the official docs.</p><h2 id="sidebars-and-admonitions">Sidebars and Admonitions</h2><p>Sidebars and admonitions provide ways to add visual importance to text. Use
+them sparingly.</p><h3 id="sidebars">Sidebars</h3><p>A sidebar offsets text visually, but without the visual prominence of
+<a href="#admonitions">admonitions</a>.</p><blockquote><p>This is a sidebar.</p><p>You can have paragraphs and block-level elements within a sidebar.</p><p>You can even have code blocks.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>sudo dmesg
+</span></span></code></pre></div></blockquote><h3 id="admonitions">Admonitions</h3><p>Admonitions (notes, warnings, etc) use Hugo shortcodes.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>Notes catch the reader's attention without a sense of urgency.</p><p>You can have multiple paragraphs and block-level elements inside an admonition.</p><p>You can also add tables to organize and highlight key information.</p><table><thead><tr><th>Header 1</th><th>Header 2</th><th>Header 3</th></tr></thead><tbody><tr><td>Data 1</td><td>Data A</td><td>Info X</td></tr><tr><td>Data 2</td><td>Data B</td><td>Info Y</td></tr></tbody></table></div><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>The reader should proceed with caution.</div><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>Warnings point out something that could cause harm if ignored.</div><h2 id="includes">Includes</h2><p>To add shortcodes to includes.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul></div><h2 id="katacoda-embedded-live-environment">Katacoda Embedded Live Environment</h2></div>

@@ -1,0 +1,24 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Volume Health Monitoring</h1><div class="feature-state-notice feature-alpha"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.21 [alpha]</code></div><p><a class="glossary-tooltip" title="The Container Storage Interface (CSI) defines a standard interface to expose storage systems to containers." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/volumes/#csi" target="_blank" aria-label="CSI">CSI</a> volume health monitoring allows
+CSI Drivers to detect abnormal volume conditions from the underlying storage systems
+and report them as events on <a class="glossary-tooltip" title="Claims storage resources defined in a PersistentVolume so that it can be mounted as a volume in a container." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims" target="_blank" aria-label="PVCs">PVCs</a>
+or <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a>.</p><h2 id="volume-health-monitoring">Volume health monitoring</h2><p>Kubernetes <em>volume health monitoring</em> is part of how Kubernetes implements the
+Container Storage Interface (CSI). Volume health monitoring feature is implemented
+in two components: an External Health Monitor controller, and the
+<a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="kubelet">kubelet</a>.</p><p>If a CSI Driver supports Volume Health Monitoring feature from the controller side,
+an event will be reported on the related
+<a class="glossary-tooltip" title="Claims storage resources defined in a PersistentVolume so that it can be mounted as a volume in a container." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims" target="_blank" aria-label="PersistentVolumeClaim">PersistentVolumeClaim</a> (PVC)
+when an abnormal volume condition is detected on a CSI volume.</p><p>The External Health Monitor <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a>
+also watches for node failure events. You can enable node failure monitoring by setting
+the <code>enable-node-watcher</code> flag to true. When the external health monitor detects a node
+failure event, the controller reports an Event will be reported on the PVC to indicate
+that pods using this PVC are on a failed node.</p><p>If a CSI Driver supports Volume Health Monitoring feature from the node side,
+an Event will be reported on every Pod using the PVC when an abnormal volume
+condition is detected on a CSI volume. In addition, Volume Health information
+is exposed as Kubelet VolumeStats metrics. A new metric kubelet_volume_stats_health_status_abnormal
+is added. This metric includes two labels: <code>namespace</code> and <code>persistentvolumeclaim</code>.
+The count is either 1 or 0. 1 indicates the volume is unhealthy, 0 indicates volume
+is healthy. For more information, please check
+<a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-storage/1432-volume-health-monitor#kubelet-metrics-changes">KEP</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>You need to enable the <code>CSIVolumeHealth</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>
+to use this feature from the node side.</div><h2 id="what-s-next">What's next</h2><p>See the <a href="https://kubernetes-csi.github.io/docs/drivers.html">CSI driver documentation</a>
+to find out which CSI drivers have implemented this feature.</p></div>

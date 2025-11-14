@@ -1,0 +1,94 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Configuring each kubelet in your cluster using kubeadm</h1><div class="alert alert-secondary callout note" role="alert"><strong>Note:</strong> Dockershim has been removed from the Kubernetes project as of release 1.24. Read the <a href="/dockershim">Dockershim Removal FAQ</a> for further details.</div><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.11 [stable]</code></div><p>The lifecycle of the kubeadm CLI tool is decoupled from the
+<a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet</a>, which is a daemon that runs
+on each node within the Kubernetes cluster. The kubeadm CLI tool is executed by the user when Kubernetes is
+initialized or upgraded, whereas the kubelet is always running in the background.</p><p>Since the kubelet is a daemon, it needs to be maintained by some kind of an init
+system or service manager. When the kubelet is installed using DEBs or RPMs,
+systemd is configured to manage the kubelet. You can use a different service
+manager instead, but you need to configure it manually.</p><p>Some kubelet configuration details need to be the same across all kubelets involved in the cluster, while
+other configuration aspects need to be set on a per-kubelet basis to accommodate the different
+characteristics of a given machine (such as OS, storage, and networking). You can manage the configuration
+of your kubelets manually, but kubeadm now provides a <code>KubeletConfiguration</code> API type for
+<a href="#configure-kubelets-using-kubeadm">managing your kubelet configurations centrally</a>.</p><h2 id="kubelet-configuration-patterns">Kubelet configuration patterns</h2><p>The following sections describe patterns to kubelet configuration that are simplified by
+using kubeadm, rather than managing the kubelet configuration for each Node manually.</p><h3 id="propagating-cluster-level-configuration-to-each-kubelet">Propagating cluster-level configuration to each kubelet</h3><p>You can provide the kubelet with default values to be used by <code>kubeadm init</code> and <code>kubeadm join</code>
+commands. Interesting examples include using a different container runtime or setting the default subnet
+used by services.</p><p>If you want your services to use the subnet <code>10.96.0.0/12</code> as the default for services, you can pass
+the <code>--service-cidr</code> parameter to kubeadm:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubeadm init --service-cidr 10.96.0.0/12
+</span></span></code></pre></div><p>Virtual IPs for services are now allocated from this subnet. You also need to set the DNS address used
+by the kubelet, using the <code>--cluster-dns</code> flag. This setting needs to be the same for every kubelet
+on every manager and Node in the cluster. The kubelet provides a versioned, structured API object
+that can configure most parameters in the kubelet and push out this configuration to each running
+kubelet in the cluster. This object is called
+<a href="/docs/reference/config-api/kubelet-config.v1beta1/"><code>KubeletConfiguration</code></a>.
+The <code>KubeletConfiguration</code> allows the user to specify flags such as the cluster DNS IP addresses expressed as
+a list of values to a camelCased key, illustrated by the following example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">clusterDNS</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:#666">10.96.0.10</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>For more details on the <code>KubeletConfiguration</code> have a look at <a href="#configure-kubelets-using-kubeadm">this section</a>.</p><h3 id="providing-instance-specific-configuration-details">Providing instance-specific configuration details</h3><p>Some hosts require specific kubelet configurations due to differences in hardware, operating system,
+networking, or other host-specific parameters. The following list provides a few examples.</p><ul><li><p>The path to the DNS resolution file, as specified by the <code>--resolv-conf</code> kubelet
+configuration flag, may differ among operating systems, or depending on whether you are using
+<code>systemd-resolved</code>. If this path is wrong, DNS resolution will fail on the Node whose kubelet
+is configured incorrectly.</p></li><li><p>The Node API object <code>.metadata.name</code> is set to the machine's hostname by default,
+unless you are using a cloud provider. You can use the <code>--hostname-override</code> flag to override the
+default behavior if you need to specify a Node name different from the machine's hostname.</p></li><li><p>Currently, the kubelet cannot automatically detect the cgroup driver used by the container runtime,
+but the value of <code>--cgroup-driver</code> must match the cgroup driver used by the container runtime to ensure
+the health of the kubelet.</p></li><li><p>To specify the container runtime you must set its endpoint with the
+<code>--container-runtime-endpoint=&lt;path&gt;</code> flag.</p></li></ul><p>The recommended way of applying such instance-specific configuration is by using
+<a href="/docs/setup/production-environment/tools/kubeadm/control-plane-flags/#patches"><code>KubeletConfiguration</code> patches</a>.</p><h2 id="configure-kubelets-using-kubeadm">Configure kubelets using kubeadm</h2><p>It is possible to configure the kubelet that kubeadm will start if a custom
+<a href="/docs/reference/config-api/kubelet-config.v1beta1/"><code>KubeletConfiguration</code></a>
+API object is passed with a configuration file like so <code>kubeadm ... --config some-config-file.yaml</code>.</p><p>By calling <code>kubeadm config print init-defaults --component-configs KubeletConfiguration</code> you can
+see all the default values for this structure.</p><p>It is also possible to apply instance-specific patches over the base <code>KubeletConfiguration</code>.
+Have a look at <a href="/docs/setup/production-environment/tools/kubeadm/control-plane-flags/#customizing-the-kubelet">Customizing the kubelet</a>
+for more details.</p><h3 id="workflow-when-using-kubeadm-init">Workflow when using <code>kubeadm init</code></h3><p>When you call <code>kubeadm init</code>, the kubelet configuration is marshalled to disk
+at <code>/var/lib/kubelet/config.yaml</code>, and also uploaded to a <code>kubelet-config</code>
+ConfigMap in the <code>kube-system</code> namespace of the cluster.
+Additionally, the kubeadm tool detects the CRI socket on the node and writes its details
+(including the socket path) into a local configuration, <code>/var/lib/kubelet/instance-config.yaml</code>.
+A kubelet configuration file is also written to <code>/etc/kubernetes/kubelet.conf</code>
+with the baseline cluster-wide configuration for all kubelets in the cluster. This configuration file
+points to the client certificates that allow the kubelet to communicate with the API server. This
+addresses the need to
+<a href="#propagating-cluster-level-configuration-to-each-kubelet">propagate cluster-level configuration to each kubelet</a>.</p><p>To address the second pattern of
+<a href="#providing-instance-specific-configuration-details">providing instance-specific configuration details</a>,
+kubeadm writes an environment file to <code>/var/lib/kubelet/kubeadm-flags.env</code>, which contains a list of
+flags to pass to the kubelet when it starts. The flags are presented in the file like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#b8860b">KUBELET_KUBEADM_ARGS</span><span style="color:#666">=</span><span style="color:#b44">"--flag1=value1 --flag2=value2 ..."</span>
+</span></span></code></pre></div><p>In addition to the flags used when starting the kubelet, the file also contains dynamic
+parameters such as the cgroup driver.</p><p>After marshalling these two files to disk, kubeadm attempts to run the following two
+commands, if you are using systemd:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>systemctl daemon-reload <span style="color:#666">&amp;&amp;</span> systemctl restart kubelet
+</span></span></code></pre></div><p>If the reload and restart are successful, the normal <code>kubeadm init</code> workflow continues.</p><h3 id="workflow-when-using-kubeadm-join">Workflow when using <code>kubeadm join</code></h3><p>When you run <code>kubeadm join</code>, kubeadm uses the Bootstrap Token credential to perform
+a TLS bootstrap, which fetches the credential needed to download the
+<code>kubelet-config</code> ConfigMap and writes it to <code>/var/lib/kubelet/config.yaml</code>.
+Additionally, the kubeadm tool detects the CRI socket on the node and writes its details
+(including the socket path) into a local configuration, <code>/var/lib/kubelet/instance-config.yaml</code>.
+The dynamic environment file is generated in exactly the same way as <code>kubeadm init</code>.</p><p>Next, <code>kubeadm</code> runs the following two commands to load the new configuration into the kubelet:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>systemctl daemon-reload <span style="color:#666">&amp;&amp;</span> systemctl restart kubelet
+</span></span></code></pre></div><p>After the kubelet loads the new configuration, kubeadm writes the
+<code>/etc/kubernetes/bootstrap-kubelet.conf</code> KubeConfig file, which contains a CA certificate and Bootstrap
+Token. These are used by the kubelet to perform the TLS Bootstrap and obtain a unique
+credential, which is stored in <code>/etc/kubernetes/kubelet.conf</code>.</p><p>When the <code>/etc/kubernetes/kubelet.conf</code> file is written, the kubelet has finished performing the TLS Bootstrap.
+Kubeadm deletes the <code>/etc/kubernetes/bootstrap-kubelet.conf</code> file after completing the TLS Bootstrap.</p><h2 id="the-kubelet-drop-in-file-for-systemd">The kubelet drop-in file for systemd</h2><p><code>kubeadm</code> ships with configuration for how systemd should run the kubelet.
+Note that the kubeadm CLI command never touches this drop-in file.</p><p>This configuration file installed by the <code>kubeadm</code>
+<a href="https://github.com/kubernetes/release/blob/cd53840/cmd/krel/templates/latest/kubeadm/10-kubeadm.conf">package</a> is written to
+<code>/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf</code> and is used by systemd.
+It augments the basic
+<a href="https://github.com/kubernetes/release/blob/cd53840/cmd/krel/templates/latest/kubelet/kubelet.service"><code>kubelet.service</code></a>.</p><p>If you want to override that further, you can make a directory <code>/etc/systemd/system/kubelet.service.d/</code>
+(not <code>/usr/lib/systemd/system/kubelet.service.d/</code>) and put your own customizations into a file there.
+For example, you might add a new local file <code>/etc/systemd/system/kubelet.service.d/local-overrides.conf</code>
+to override the unit settings configured by <code>kubeadm</code>.</p><p>Here is what you are likely to find in <code>/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf</code>:</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The contents below are just an example. If you don't want to use a package manager
+follow the guide outlined in the (<a href="/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#k8s-install-2">Without a package manager</a>)
+section.</div><pre tabindex="0"><code class="language-none" data-lang="none">[Service]
+Environment="KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf --kubeconfig=/etc/kubernetes/kubelet.conf"
+Environment="KUBELET_CONFIG_ARGS=--config=/var/lib/kubelet/config.yaml"
+# This is a file that "kubeadm init" and "kubeadm join" generate at runtime, populating
+# the KUBELET_KUBEADM_ARGS variable dynamically
+EnvironmentFile=-/var/lib/kubelet/kubeadm-flags.env
+# This is a file that the user can use for overrides of the kubelet args as a last resort. Preferably,
+# the user should use the .NodeRegistration.KubeletExtraArgs object in the configuration files instead.
+# KUBELET_EXTRA_ARGS should be sourced from this file.
+EnvironmentFile=-/etc/default/kubelet
+ExecStart=
+ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
+</code></pre><p>This file specifies the default locations for all of the files managed by kubeadm for the kubelet.</p><ul><li>The KubeConfig file to use for the TLS Bootstrap is <code>/etc/kubernetes/bootstrap-kubelet.conf</code>,
+but it is only used if <code>/etc/kubernetes/kubelet.conf</code> does not exist.</li><li>The KubeConfig file with the unique kubelet identity is <code>/etc/kubernetes/kubelet.conf</code>.</li><li>The file containing the kubelet's ComponentConfig is <code>/var/lib/kubelet/config.yaml</code>.</li><li>The dynamic environment file that contains <code>KUBELET_KUBEADM_ARGS</code> is sourced from <code>/var/lib/kubelet/kubeadm-flags.env</code>.</li><li>The file that can contain user-specified flag overrides with <code>KUBELET_EXTRA_ARGS</code> is sourced from
+<code>/etc/default/kubelet</code> (for DEBs), or <code>/etc/sysconfig/kubelet</code> (for RPMs). <code>KUBELET_EXTRA_ARGS</code>
+is last in the flag chain and has the highest priority in the event of conflicting settings.</li></ul><h2 id="kubernetes-binaries-and-package-contents">Kubernetes binaries and package contents</h2><p>The DEB and RPM packages shipped with the Kubernetes releases are:</p><table><thead><tr><th>Package name</th><th>Description</th></tr></thead><tbody><tr><td><code>kubeadm</code></td><td>Installs the <code>/usr/bin/kubeadm</code> CLI tool and the <a href="#the-kubelet-drop-in-file-for-systemd">kubelet drop-in file</a> for the kubelet.</td></tr><tr><td><code>kubelet</code></td><td>Installs the <code>/usr/bin/kubelet</code> binary.</td></tr><tr><td><code>kubectl</code></td><td>Installs the <code>/usr/bin/kubectl</code> binary.</td></tr><tr><td><code>cri-tools</code></td><td>Installs the <code>/usr/bin/crictl</code> binary from the <a href="https://github.com/kubernetes-sigs/cri-tools">cri-tools git repository</a>.</td></tr><tr><td><code>kubernetes-cni</code></td><td>Installs the <code>/opt/cni/bin</code> binaries from the <a href="https://github.com/containernetworking/plugins">plugins git repository</a>.</td></tr></tbody></table></div>

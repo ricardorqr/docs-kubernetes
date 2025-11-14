@@ -1,0 +1,52 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Safely Drain a Node</h1><p>This page shows how to safely drain a <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a>,
+optionally respecting the PodDisruptionBudget you have defined.</p><h2 id="before-you-begin">Before you begin</h2><p>This task assumes that you have met the following prerequisites:</p><ol><li>You do not require your applications to be highly available during the
+node drain, or</li><li>You have read about the <a href="/docs/concepts/workloads/pods/disruptions/">PodDisruptionBudget</a> concept,
+and have <a href="/docs/tasks/run-application/configure-pdb/">configured PodDisruptionBudgets</a> for
+applications that need them.</li></ol><h2 id="configure-poddisruptionbudget">(Optional) Configure a disruption budget</h2><p>To ensure that your workloads remain available during maintenance, you can
+configure a <a href="/docs/concepts/workloads/pods/disruptions/">PodDisruptionBudget</a>.</p><p>If availability is important for any applications that run or could run on the node(s)
+that you are draining, <a href="/docs/tasks/run-application/configure-pdb/">configure a PodDisruptionBudgets</a>
+first and then continue following this guide.</p><p>It is recommended to set <code>AlwaysAllow</code> <a href="/docs/tasks/run-application/configure-pdb/#unhealthy-pod-eviction-policy">Unhealthy Pod Eviction Policy</a>
+to your PodDisruptionBudgets to support eviction of misbehaving applications during a node drain.
+The default behavior is to wait for the application pods to become <a href="/docs/tasks/run-application/configure-pdb/#healthiness-of-a-pod">healthy</a>
+before the drain can proceed.</p><h2 id="use-kubectl-drain-to-remove-a-node-from-service">Use <code>kubectl drain</code> to remove a node from service</h2><p>You can use <code>kubectl drain</code> to safely evict all of your pods from a
+node before you perform maintenance on the node (e.g. kernel upgrade,
+hardware maintenance, etc.). Safe evictions allow the pod's containers
+to <a href="/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination">gracefully terminate</a>
+and will respect the PodDisruptionBudgets you have specified.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>By default <code>kubectl drain</code> ignores certain system pods on the node
+that cannot be killed; see
+the <a href="/docs/reference/generated/kubectl/kubectl-commands/#drain">kubectl drain</a>
+documentation for more details.</div><p>When <code>kubectl drain</code> returns successfully, that indicates that all of
+the pods (except the ones excluded as described in the previous paragraph)
+have been safely evicted (respecting the desired graceful termination period,
+and respecting the PodDisruptionBudget you have defined). It is then safe to
+bring down the node by powering down its physical machine or, if running on a
+cloud platform, deleting its virtual machine.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>If any new Pods tolerate the <code>node.kubernetes.io/unschedulable</code> taint, then those Pods
+might be scheduled to the node you have drained. Avoid tolerating that taint other than
+for DaemonSets.</p><p>If you or another API user directly set the <a href="/docs/concepts/scheduling-eviction/assign-pod-node/#nodename"><code>nodeName</code></a>
+field for a Pod (bypassing the scheduler), then the Pod is bound to the specified node
+and will run there, even though you have drained that node and marked it unschedulable.</p></div><p>First, identify the name of the node you wish to drain. You can list all of the nodes in your cluster with</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get nodes
+</span></span></code></pre></div><p>Next, tell Kubernetes to drain the node:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl drain --ignore-daemonsets &lt;node name&gt;
+</span></span></code></pre></div><p>If there are pods managed by a DaemonSet, you will need to specify
+<code>--ignore-daemonsets</code> with <code>kubectl</code> to successfully drain the node. The <code>kubectl drain</code> subcommand on its own does not actually drain
+a node of its DaemonSet pods:
+the DaemonSet controller (part of the control plane) immediately replaces missing Pods with
+new equivalent Pods. The DaemonSet controller also creates Pods that ignore unschedulable
+taints, which allows the new Pods to launch onto a node that you are draining.</p><p>Once it returns (without giving an error), you can power down the node
+(or equivalently, if on a cloud platform, delete the virtual machine backing the node).
+If you leave the node in the cluster during the maintenance operation, you need to run</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl uncordon &lt;node name&gt;
+</span></span></code></pre></div><p>afterwards to tell Kubernetes that it can resume scheduling new pods onto the node.</p><h2 id="draining-multiple-nodes-in-parallel">Draining multiple nodes in parallel</h2><p>The <code>kubectl drain</code> command should only be issued to a single node at a
+time. However, you can run multiple <code>kubectl drain</code> commands for
+different nodes in parallel, in different terminals or in the
+background. Multiple drain commands running concurrently will still
+respect the PodDisruptionBudget you specify.</p><p>For example, if you have a StatefulSet with three replicas and have
+set a PodDisruptionBudget for that set specifying <code>minAvailable: 2</code>,
+<code>kubectl drain</code> only evicts a pod from the StatefulSet if all three
+replicas pods are <a href="/docs/tasks/run-application/configure-pdb/#healthiness-of-a-pod">healthy</a>;
+if then you issue multiple drain commands in parallel,
+Kubernetes respects the PodDisruptionBudget and ensures that
+only 1 (calculated as <code>replicas - minAvailable</code>) Pod is unavailable
+at any given time. Any drains that would cause the number of <a href="/docs/tasks/run-application/configure-pdb/#healthiness-of-a-pod">healthy</a>
+replicas to fall below the specified budget are blocked.</p><h2 id="eviction-api">The Eviction API</h2><p>If you prefer not to use <a href="/docs/reference/generated/kubectl/kubectl-commands/#drain">kubectl drain</a> (such as
+to avoid calling to an external command, or to get finer control over the pod
+eviction process), you can also programmatically cause evictions using the
+eviction API.</p><p>For more information, see <a href="/docs/concepts/scheduling-eviction/api-eviction/">API-initiated eviction</a>.</p><h2 id="what-s-next">What's next</h2><ul><li>Follow steps to protect your application by <a href="/docs/tasks/run-application/configure-pdb/">configuring a Pod Disruption Budget</a>.</li></ul></div>

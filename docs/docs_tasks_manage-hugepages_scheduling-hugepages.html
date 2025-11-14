@@ -1,0 +1,92 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Manage HugePages</h1><div class="lead">Configure and manage huge pages as a schedulable resource in a cluster.</div><div class="feature-state-notice feature-stable" title="Feature Gate: HugePages"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.14 [stable]</code> (enabled by default: true)</div><p>Kubernetes supports the allocation and consumption of pre-allocated huge pages
+by applications in a Pod. This page describes how users can consume huge pages.</p><h2 id="before-you-begin">Before you begin</h2><p>Kubernetes nodes must
+<a href="https://www.kernel.org/doc/html/latest/admin-guide/mm/hugetlbpage.html">pre-allocate huge pages</a>
+in order for the node to report its huge page capacity.</p><p>A node can pre-allocate huge pages for multiple sizes, for instance,
+the following line in <code>/etc/default/grub</code> allocates <code>2*1GiB</code> of 1 GiB
+and <code>512*2 MiB</code> of 2 MiB pages:</p><pre tabindex="0"><code>GRUB_CMDLINE_LINUX="hugepagesz=1G hugepages=2 hugepagesz=2M hugepages=512"
+</code></pre><p>The nodes will automatically discover and report all huge page resources as
+schedulable resources.</p><p>When you describe the Node, you should see something similar to the following
+in the following in the <code>Capacity</code> and <code>Allocatable</code> sections:</p><pre tabindex="0"><code>Capacity:
+  cpu:                ...
+  ephemeral-storage:  ...
+  hugepages-1Gi:      2Gi
+  hugepages-2Mi:      1Gi
+  memory:             ...
+  pods:               ...
+Allocatable:
+  cpu:                ...
+  ephemeral-storage:  ...
+  hugepages-1Gi:      2Gi
+  hugepages-2Mi:      1Gi
+  memory:             ...
+  pods:               ...
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>For dynamically allocated pages (after boot), the Kubelet needs to be restarted
+for the new allocations to be refrelected.</div><h2 id="api">API</h2><p>Huge pages can be consumed via container level resource requirements using the
+resource name <code>hugepages-&lt;size&gt;</code>, where <code>&lt;size&gt;</code> is the most compact binary
+notation using integer values supported on a particular node. For example, if a
+node supports 2048KiB and 1048576KiB page sizes, it will expose a schedulable
+resources <code>hugepages-2Mi</code> and <code>hugepages-1Gi</code>. Unlike CPU or memory, huge pages
+do not support overcommit. Note that when requesting hugepage resources, either
+memory or CPU resources must be requested as well.</p><p>A pod may consume multiple huge page sizes in a single pod spec. In this case it
+must use <code>medium: HugePages-&lt;hugepagesize&gt;</code> notation for all volume mounts.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>huge-pages-example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>fedora:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- sleep<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- inf<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/hugepages-2Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hugepage-2mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/hugepages-1Gi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hugepage-1gi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">hugepages-2Mi</span>:<span style="color:#bbb"> </span>100Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">hugepages-1Gi</span>:<span style="color:#bbb"> </span>2Gi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span>100Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span>100Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hugepage-2mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">medium</span>:<span style="color:#bbb"> </span>HugePages-2Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hugepage-1gi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">medium</span>:<span style="color:#bbb"> </span>HugePages-1Gi<span style="color:#bbb">
+</span></span></span></code></pre></div><p>A pod may use <code>medium: HugePages</code> only if it requests huge pages of one size.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>huge-pages-example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>fedora:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- sleep<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- inf<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/hugepages<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hugepage<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">hugepages-2Mi</span>:<span style="color:#bbb"> </span>100Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span>100Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span>100Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hugepage<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">medium</span>:<span style="color:#bbb"> </span>HugePages<span style="color:#bbb">
+</span></span></span></code></pre></div><ul><li>Huge page requests must equal the limits. This is the default if limits are
+specified, but requests are not.</li><li>Huge pages are isolated at a container scope, so each container has own
+limit on their cgroup sandbox as requested in a container spec.</li><li>EmptyDir volumes backed by huge pages may not consume more huge page memory
+than the pod request.</li><li>Applications that consume huge pages via <code>shmget()</code> with <code>SHM_HUGETLB</code> must
+run with a supplemental group that matches <code>proc/sys/vm/hugetlb_shm_group</code>.</li><li>Huge page usage in a namespace is controllable via ResourceQuota similar
+to other compute resources like <code>cpu</code> or <code>memory</code> using the <code>hugepages-&lt;size&gt;</code>
+token.</li></ul></div>

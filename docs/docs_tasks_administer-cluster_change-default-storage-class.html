@@ -1,0 +1,35 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Change the default StorageClass</h1><p>This page shows how to change the default Storage Class that is used to
+provision volumes for PersistentVolumeClaims that have no special requirements.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="why-change-the-default-storage-class">Why change the default storage class?</h2><p>Depending on the installation method, your Kubernetes cluster may be deployed with
+an existing StorageClass that is marked as default. This default StorageClass
+is then used to dynamically provision storage for PersistentVolumeClaims
+that do not require any specific storage class. See
+<a href="/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims">PersistentVolumeClaim documentation</a>
+for details.</p><p>The pre-installed default StorageClass may not fit well with your expected workload;
+for example, it might provision storage that is too expensive. If this is the case,
+you can either change the default StorageClass or disable it completely to avoid
+dynamic provisioning of storage.</p><p>Deleting the default StorageClass may not work, as it may be re-created
+automatically by the addon manager running in your cluster. Please consult the docs for your installation
+for details about addon manager and how to disable individual addons.</p><h2 id="changing-the-default-storageclass">Changing the default StorageClass</h2><ol><li><p>List the StorageClasses in your cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl get storageclass
+</span></span></code></pre></div><p>The output is similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>NAME                 PROVISIONER               AGE
+</span></span><span style="display:flex"><span>standard <span style="color:#666">(</span>default<span style="color:#666">)</span>   kubernetes.io/gce-pd      1d
+</span></span><span style="display:flex"><span>gold                 kubernetes.io/gce-pd      1d
+</span></span></code></pre></div><p>The default StorageClass is marked by <code>(default)</code>.</p></li><li><p>Mark the default StorageClass as non-default:</p><p>The default StorageClass has an annotation
+<code>storageclass.kubernetes.io/is-default-class</code> set to <code>true</code>. Any other value
+or absence of the annotation is interpreted as <code>false</code>.</p><p>To mark a StorageClass as non-default, you need to change its value to <code>false</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl patch storageclass standard -p <span style="color:#b44">'{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'</span>
+</span></span></code></pre></div><p>where <code>standard</code> is the name of your chosen StorageClass.</p></li><li><p>Mark a StorageClass as default:</p><p>Similar to the previous step, you need to add/set the annotation
+<code>storageclass.kubernetes.io/is-default-class=true</code>.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl patch storageclass gold -p <span style="color:#b44">'{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'</span>
+</span></span></code></pre></div><p>Please note you can have multiple <code>StorageClass</code> marked as default. If more
+than one <code>StorageClass</code> is marked as default, a <code>PersistentVolumeClaim</code> without
+an explicitly defined <code>storageClassName</code> will be created using the most recently
+created default <code>StorageClass</code>.
+When a <code>PersistentVolumeClaim</code> is created with a specified <code>volumeName</code>, it remains
+in a pending state if the static volume's <code>storageClassName</code> does not match the
+<code>StorageClass</code> on the <code>PersistentVolumeClaim</code>.</p></li><li><p>Verify that your chosen StorageClass is default:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl get storageclass
+</span></span></code></pre></div><p>The output is similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>NAME             PROVISIONER               AGE
+</span></span><span style="display:flex"><span>standard         kubernetes.io/gce-pd      1d
+</span></span><span style="display:flex"><span>gold <span style="color:#666">(</span>default<span style="color:#666">)</span>   kubernetes.io/gce-pd      1d
+</span></span></code></pre></div></li></ol><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/concepts/storage/persistent-volumes/">PersistentVolumes</a>.</li></ul></div>

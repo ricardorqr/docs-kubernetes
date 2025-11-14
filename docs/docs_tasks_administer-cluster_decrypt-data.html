@@ -1,0 +1,69 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Decrypt Confidential Data that is Already Encrypted at Rest</h1><p>All of the APIs in Kubernetes that let you write persistent API resource data support
+at-rest encryption. For example, you can enable at-rest encryption for
+<a class="glossary-tooltip" title="Stores sensitive information, such as passwords, OAuth tokens, and ssh keys." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/secret/" target="_blank" aria-label="Secrets">Secrets</a>.
+This at-rest encryption is additional to any system-level encryption for the
+etcd cluster or for the filesystem(s) on hosts where you are running the
+kube-apiserver.</p><p>This page shows how to switch from encryption of API data at rest, so that API data
+are stored unencrypted. You might want to do this to improve performance; usually,
+though, if it was a good idea to encrypt some data, it's also a good idea to leave them
+encrypted.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>This task covers encryption for resource data stored using the
+<a class="glossary-tooltip" title="The application that serves Kubernetes functionality through a RESTful interface and stores the state of the cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/kubernetes-api/" target="_blank" aria-label="Kubernetes API">Kubernetes API</a>. For example, you can
+encrypt Secret objects, including the key-value data they contain.</p><p>If you wanted to manage encryption for data in filesystems that are mounted into containers, you instead
+need to either:</p><ul><li>use a storage integration that provides encrypted
+<a class="glossary-tooltip" title="A directory containing data, accessible to the containers in a pod." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/volumes/" target="_blank" aria-label="volumes">volumes</a></li><li>encrypt the data within your own application</li></ul></div><h2 id="before-you-begin">Before you begin</h2><ul><li><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul></li><li><p>This task assumes that you are running the Kubernetes API server as a
+<a class="glossary-tooltip" title="A pod managed directly by the kubelet daemon on a specific node." data-toggle="tooltip" data-placement="top" href="/docs/tasks/configure-pod-container/static-pod/" target="_blank" aria-label="static pod">static pod</a> on each control
+plane node.</p></li><li><p>Your cluster's control plane <strong>must</strong> use etcd v3.x (major version 3, any minor version).</p></li><li><p>To encrypt a custom resource, your cluster must be running Kubernetes v1.26 or newer.</p></li><li><p>You should have some API data that are already encrypted.</p></li></ul><p>To check the version, enter <code>kubectl version</code>.</p><h2 id="determine-whether-encryption-at-rest-is-already-enabled">Determine whether encryption at rest is already enabled</h2><p>By default, the API server uses an <code>identity</code> provider that stores plain-text representations
+of resources.
+<strong>The default <code>identity</code> provider does not provide any confidentiality protection.</strong></p><p>The <code>kube-apiserver</code> process accepts an argument <code>--encryption-provider-config</code>
+that specifies a path to a configuration file. The contents of that file, if you specify one,
+control how Kubernetes API data is encrypted in etcd.
+If it is not specified, you do not have encryption at rest enabled.</p><p>The format of that configuration file is YAML, representing a configuration API kind named
+<a href="/docs/reference/config-api/apiserver-config.v1/"><code>EncryptionConfiguration</code></a>.
+You can see an example configuration
+in <a href="/docs/tasks/administer-cluster/encrypt-data/#understanding-the-encryption-at-rest-configuration">Encryption at rest configuration</a>.</p><p>If <code>--encryption-provider-config</code> is set, check which resources (such as <code>secrets</code>) are
+configured for encryption, and what provider is used.
+Make sure that the preferred provider for that resource type is <strong>not</strong> <code>identity</code>; you
+only set <code>identity</code> (<em>no encryption</em>) as default when you want to disable encryption at
+rest.
+Verify that the first-listed provider for a resource is something <strong>other</strong> than <code>identity</code>,
+which means that any new information written to resources of that type will be encrypted as
+configured. If you do see <code>identity</code> as the first-listed provider for any resource, this
+means that those resources are being written out to etcd without encryption.</p><h2 id="decrypting-all-data">Decrypt all data</h2><p>This example shows how to stop encrypting the Secret API at rest. If you are encrypting
+other API kinds, adjust the steps to match.</p><h3 id="locate-the-encryption-configuration-file">Locate the encryption configuration file</h3><p>First, find the API server configuration files. On each control plane node, static Pod manifest
+for the kube-apiserver specifies a command line argument, <code>--encryption-provider-config</code>.
+You are likely to find that this file is mounted into the static Pod using a
+<a href="/docs/concepts/storage/volumes/#hostpath"><code>hostPath</code></a> volume mount. Once you locate the volume
+you can find the file on the node filesystem and inspect it.</p><h3 id="configure-the-api-server-to-decrypt-objects">Configure the API server to decrypt objects</h3><p>To disable encryption at rest, place the <code>identity</code> provider as the first
+entry in your encryption configuration file.</p><p>For example, if your existing EncryptionConfiguration file reads:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apiserver.config.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>EncryptionConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- secrets<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">providers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">aescbc</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">keys</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:#080;font-style:italic"># Do not use this (invalid) example key for encryption</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">secret</span>:<span style="color:#bbb"> </span>2KfZgdiq2K0g2YrYpyDYs9mF2LPZhQ==<span style="color:#bbb">
+</span></span></span></code></pre></div><p>then change it to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apiserver.config.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>EncryptionConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- secrets<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">providers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">identity</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># add this line</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">aescbc</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">keys</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">secret</span>:<span style="color:#bbb"> </span>2KfZgdiq2K0g2YrYpyDYs9mF2LPZhQ==<span style="color:#bbb">
+</span></span></span></code></pre></div><p>and restart the kube-apiserver Pod on this node.</p><h3 id="api-server-config-update-more-1">Reconfigure other control plane hosts</h3><p>If you have multiple API servers in your cluster, you should deploy the changes in turn to each API server.</p><p>Make sure that you use the same encryption configuration on each control plane host.</p><h3 id="force-decryption">Force decryption</h3><p>Then run the following command to force decryption of all Secrets:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># If you are decrypting a different kind of object, change "secrets" to match.</span>
+</span></span><span style="display:flex"><span>kubectl get secrets --all-namespaces -o json | kubectl replace -f -
+</span></span></code></pre></div><p>Once you have replaced <strong>all</strong> existing encrypted resources with backing data that
+don't use encryption, you can remove the encryption settings from the
+<code>kube-apiserver</code>.</p><p>The command line options to remove are:</p><ul><li><code>--encryption-provider-config</code></li><li><code>--encryption-provider-config-automatic-reload</code></li></ul><p>Restart the kube-apiserver Pod again to apply the new configuration.</p><h3 id="api-server-config-update-more-2">Reconfigure other control plane hosts</h3><p>If you have multiple API servers in your cluster, you should again deploy the changes in turn to each API server.</p><p>Make sure that you use the same encryption configuration on each control plane host.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn more about the <a href="/docs/reference/config-api/apiserver-config.v1/">EncryptionConfiguration configuration API (v1)</a>.</li></ul></div>

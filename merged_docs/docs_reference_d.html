@@ -1,0 +1,77 @@
+<hr>
+<div class="td-content"><h1>Debug cluster</h1><div class="section-index"><hr class="panel-line"/><div class="entry"><h5><a href="/docs/reference/debug-cluster/flow-control/">Flow control</a></h5><p/></div></div></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Flow control</h1><p>API Priority and Fairness controls the behavior of the Kubernetes API server in
+an overload situation. You can find more information about it in the
+<a href="/docs/concepts/cluster-administration/flow-control/">API Priority and Fairness</a>
+documentation.</p><h2 id="diagnostics">Diagnostics</h2><p>Every HTTP response from an API server with the priority and fairness feature
+enabled has two extra headers: <code>X-Kubernetes-PF-FlowSchema-UID</code> and
+<code>X-Kubernetes-PF-PriorityLevel-UID</code>, noting the flow schema that matched the request
+and the priority level to which it was assigned, respectively. The API objects'
+names are not included in these headers (to avoid revealing details in case the
+requesting user does not have permission to view them). When debugging, you
+can use a command such as:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get flowschemas -o custom-columns<span style="color:#666">=</span><span style="color:#b44">"uid:{metadata.uid},name:{metadata.name}"</span>
+</span></span><span style="display:flex"><span>kubectl get prioritylevelconfigurations -o custom-columns<span style="color:#666">=</span><span style="color:#b44">"uid:{metadata.uid},name:{metadata.name}"</span>
+</span></span></code></pre></div><p>to get a mapping of UIDs to names for both FlowSchemas and
+PriorityLevelConfigurations.</p><h2 id="debug-endpoints">Debug endpoints</h2><p>With the <code>APIPriorityAndFairness</code> feature enabled, the <code>kube-apiserver</code>
+serves the following additional paths at its HTTP(S) ports.</p><p>You need to ensure you have permissions to access these endpoints.
+You don't have to do anything if you are using admin.
+Permissions can be granted if needed following the <a href="/docs/reference/access-authn-authz/rbac/">RBAC</a> doc
+to access <code>/debug/api_priority_and_fairness/</code> by specifying <code>nonResourceURLs</code>.</p><ul><li><p><code>/debug/api_priority_and_fairness/dump_priority_levels</code> - a listing of
+all the priority levels and the current state of each. You can fetch like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw /debug/api_priority_and_fairness/dump_priority_levels
+</span></span></code></pre></div><p>The output will be in CSV and similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">PriorityLevelName, ActiveQueues, IsIdle, IsQuiescing, WaitingRequests, ExecutingRequests, DispatchedRequests, RejectedRequests, TimedoutRequests, CancelledRequests
+catch-all,         0,            true,   false,       0,               0,                 1,                  0,                0,                0
+exempt,            0,            true,   false,       0,               0,                 0,                  0,                0,                0
+global-default,    0,            true,   false,       0,               0,                 46,                 0,                0,                0
+leader-election,   0,            true,   false,       0,               0,                 4,                  0,                0,                0
+node-high,         0,            true,   false,       0,               0,                 34,                 0,                0,                0
+system,            0,            true,   false,       0,               0,                 48,                 0,                0,                0
+workload-high,     0,            true,   false,       0,               0,                 500,                0,                0,                0
+workload-low,      0,            true,   false,       0,               0,                 0,                  0,                0,                0
+</code></pre><p>Explanation for selected column names:</p><ul><li><code>IsQuiescing</code> indicates if this priority level will be removed when its queues have been drained.</li></ul></li><li><p><code>/debug/api_priority_and_fairness/dump_queues</code> - a listing of all the
+queues and their current state. You can fetch like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw /debug/api_priority_and_fairness/dump_queues
+</span></span></code></pre></div><p>The output will be in CSV and similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">PriorityLevelName, Index,  PendingRequests, ExecutingRequests, SeatsInUse, NextDispatchR,   InitialSeatsSum, MaxSeatsSum, TotalWorkSum
+workload-low,      14,     27,              0,                 0,          77.64342019ss,   270,             270,         0.81000000ss
+workload-low,      74,     26,              0,                 0,          76.95387841ss,   260,             260,         0.78000000ss
+...
+leader-election,   0,      0,               0,                 0,          5088.87053833ss, 0,               0,           0.00000000ss
+leader-election,   1,      0,               0,                 0,          0.00000000ss,    0,               0,           0.00000000ss
+...
+workload-high,     0,      0,               0,                 0,          0.00000000ss,    0,               0,           0.00000000ss
+workload-high,     1,      0,               0,                 0,          1119.44936475ss, 0,               0,           0.00000000ss
+</code></pre><p>Explanation for selected column names:</p><ul><li><code>NextDispatchR</code>: The R progress meter reading, in units of seat-seconds, at
+which the next request will be dispatched.</li><li><code>InitialSeatsSum</code>: The sum of InitialSeats associated with all requests in
+a given queue.</li><li><code>MaxSeatsSum</code>: The sum of MaxSeats associated with all requests in a given
+queue.</li><li><code>TotalWorkSum</code>: The sum of total work, in units of seat-seconds, of all
+waiting requests in a given queue.</li></ul><p>Note: <code>seat-second</code> (abbreviate as <code>ss</code>) is a measure of work, in units of
+seat-seconds, in the APF world.</p></li><li><p><code>/debug/api_priority_and_fairness/dump_requests</code> - a listing of all the requests
+including requests waiting in a queue and requests being executing.
+You can fetch like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw /debug/api_priority_and_fairness/dump_requests
+</span></span></code></pre></div><p>The output will be in CSV and similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">PriorityLevelName, FlowSchemaName,   QueueIndex, RequestIndexInQueue, FlowDistingsher,                        ArriveTime,                     InitialSeats, FinalSeats, AdditionalLatency, StartTime
+exempt,            exempt,           -1,         -1,                  ,                                       2023-07-15T04:51:25.596404345Z, 1,            0,          0s,                2023-07-15T04:51:25.596404345Z
+workload-low,      service-accounts, 14,         0,                   system:serviceaccount:default:loadtest, 2023-07-18T00:12:51.386556253Z, 10,           0,          0s,                0001-01-01T00:00:00Z
+workload-low,      service-accounts, 14,         1,                   system:serviceaccount:default:loadtest, 2023-07-18T00:12:51.487092539Z, 10,           0,          0s,                0001-01-01T00:00:00Z
+</code></pre><p>You can get a more detailed listing with a command like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw <span style="color:#b44">'/debug/api_priority_and_fairness/dump_requests?includeRequestDetails=1'</span>
+</span></span></code></pre></div><p>The output will be in CSV and similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">PriorityLevelName, FlowSchemaName,   QueueIndex, RequestIndexInQueue, FlowDistingsher,                        ArriveTime,                     InitialSeats, FinalSeats, AdditionalLatency, StartTime,                      UserName,                               Verb,   APIPath,                                   Namespace,   Name,   APIVersion, Resource,   SubResource
+exempt,            exempt,           -1,         -1,                  ,                                       2023-07-15T04:51:25.596404345Z, 1,            0,          0s,                2023-07-15T04:51:25.596404345Z, system:serviceaccount:system:admin,     list,   /api/v1/namespaces/kube-stress/configmaps, kube-stress, ,       v1,         configmaps,
+workload-low,      service-accounts, 14,         0,                   system:serviceaccount:default:loadtest, 2023-07-18T00:13:08.986534842Z, 10,           0,          0s,                0001-01-01T00:00:00Z,           system:serviceaccount:default:loadtest, list,   /api/v1/namespaces/kube-stress/configmaps, kube-stress, ,       v1,         configmaps,
+workload-low,      service-accounts, 14,         1,                   system:serviceaccount:default:loadtest, 2023-07-18T00:13:09.086476021Z, 10,           0,          0s,                0001-01-01T00:00:00Z,           system:serviceaccount:default:loadtest, list,   /api/v1/namespaces/kube-stress/configmaps, kube-stress, ,       v1,         configmaps,
+</code></pre><p>Explanation for selected column names:</p><ul><li><code>QueueIndex</code>: The index of the queue. It will be -1 for priority levels
+without queues.</li><li><code>RequestIndexInQueue</code>: The index in the queue for a given request. It will
+be -1 for executing requests.</li><li><code>InitialSeats</code>: The number of seats will be occupied during the initial
+(normal) stage of execution of the request.</li><li><code>FinalSeats</code>: The number of seats will be occupied during the final stage
+of request execution, accounting for the associated WATCH notifications.</li><li><code>AdditionalLatency</code>: The extra time taken during the final stage of request
+execution. FinalSeats will be occupied during this time period. It does not
+mean any latency that a user will observe.</li><li><code>StartTime</code>: The time a request starts to execute. It will be
+0001-01-01T00:00:00Z for queued requests.</li></ul></li></ul><h2 id="debug-logging">Debug logging</h2><p>At <code>-v=3</code> or more verbosity, the API server outputs an httplog line for every
+request in the API server log, and it includes the following attributes.</p><ul><li><code>apf_fs</code>: the name of the flow schema to which the request was classified.</li><li><code>apf_pl</code>: the name of the priority level for that flow schema.</li><li><code>apf_iseats</code>: the number of seats determined for the initial
+(normal) stage of execution of the request.</li><li><code>apf_fseats</code>: the number of seats determined for the final stage of
+execution (accounting for the associated <code>watch</code> notifications) of the
+request.</li><li><code>apf_additionalLatency</code>: the duration of the final stage of
+execution of the request.</li></ul><p>At higher levels of verbosity there will be log lines exposing details
+of how APF handled the request, primarily for debugging purposes.</p><h2 id="response-headers">Response headers</h2><p>APF adds the following two headers to each HTTP response message.
+They won't appear in the audit log. They can be viewed from the client side.
+For client using <code>klog</code>, use verbosity <code>-v=8</code> or higher to view these headers.</p><ul><li><code>X-Kubernetes-PF-FlowSchema-UID</code> holds the UID of the FlowSchema
+object to which the corresponding request was classified.</li><li><code>X-Kubernetes-PF-PriorityLevel-UID</code> holds the UID of the
+PriorityLevelConfiguration object associated with that FlowSchema.</li></ul><h2 id="what-s-next">What's next</h2><p>For background information on design details for API priority and fairness, see
+the <a href="https://github.com/kubernetes/enhancements/tree/master/keps/sig-api-machinery/1040-priority-and-fairness">enhancement proposal</a>.</p></div>

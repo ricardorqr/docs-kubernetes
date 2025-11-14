@@ -1,0 +1,50 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Workloads</h1><div class="lead">Understand Pods, the smallest deployable compute object in Kubernetes, and the higher-level abstractions that help you to run them.</div><p>A workload is an application running on Kubernetes.
+Whether your workload is a single component or several that work together, on Kubernetes you run
+it inside a set of <a href="/docs/concepts/workloads/pods/"><em>pods</em></a>.
+In Kubernetes, a Pod represents a set of running
+<a class="glossary-tooltip" title="A lightweight and portable executable image that contains software and all of its dependencies." data-toggle="tooltip" data-placement="top" href="/docs/concepts/containers/" target="_blank" aria-label="containers">containers</a> on your cluster.</p><p>Kubernetes pods have a <a href="/docs/concepts/workloads/pods/pod-lifecycle/">defined lifecycle</a>.
+For example, once a pod is running in your cluster then a critical fault on the
+<a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a> where that pod is running means that
+all the pods on that node fail. Kubernetes treats that level of failure as final: you
+would need to create a new Pod to recover, even if the node later becomes healthy.</p><p>However, to make life considerably easier, you don't need to manage each Pod directly.
+Instead, you can use <em>workload resources</em> that manage a set of pods on your behalf.
+These resources configure <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controllers">controllers</a>
+that make sure the right number of the right kind of pod are running, to match the state
+you specified.</p><p>Kubernetes provides several built-in workload resources:</p><ul><li><a href="/docs/concepts/workloads/controllers/deployment/">Deployment</a> and <a href="/docs/concepts/workloads/controllers/replicaset/">ReplicaSet</a>
+(replacing the legacy resource
+<a class="glossary-tooltip" title="A (deprecated) API object that manages a replicated application." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-replication-controller" target="_blank" aria-label="ReplicationController">ReplicationController</a>).
+Deployment is a good fit for managing a stateless application workload on your cluster,
+where any Pod in the Deployment is interchangeable and can be replaced if needed.</li><li><a href="/docs/concepts/workloads/controllers/statefulset/">StatefulSet</a> lets you
+run one or more related Pods that do track state somehow. For example, if your workload
+records data persistently, you can run a StatefulSet that matches each Pod with a
+<a href="/docs/concepts/storage/persistent-volumes/">PersistentVolume</a>. Your code, running in the
+Pods for that StatefulSet, can replicate data to other Pods in the same StatefulSet
+to improve overall resilience.</li><li><a href="/docs/concepts/workloads/controllers/daemonset/">DaemonSet</a> defines Pods that provide
+facilities that are local to nodes.
+Every time you add a node to your cluster that matches the specification in a DaemonSet,
+the control plane schedules a Pod for that DaemonSet onto the new node.
+Each pod in a DaemonSet performs a job similar to a system daemon on a classic Unix / POSIX
+server. A DaemonSet might be fundamental to the operation of your cluster, such as
+a plugin to run <a href="/docs/concepts/cluster-administration/networking/#how-to-implement-the-kubernetes-network-model">cluster networking</a>,
+it might help you to manage the node,
+or it could provide optional behavior that enhances the container platform you are running.</li><li><a href="/docs/concepts/workloads/controllers/job/">Job</a> and
+<a href="/docs/concepts/workloads/controllers/cron-jobs/">CronJob</a> provide different ways to
+define tasks that run to completion and then stop.
+You can use a <a href="/docs/concepts/workloads/controllers/job/">Job</a> to
+define a task that runs to completion, just once. You can use a
+<a href="/docs/concepts/workloads/controllers/cron-jobs/">CronJob</a> to run
+the same Job multiple times according a schedule.</li></ul><p>In the wider Kubernetes ecosystem, you can find third-party workload resources that provide
+additional behaviors. Using a
+<a href="/docs/concepts/extend-kubernetes/api-extension/custom-resources/">custom resource definition</a>,
+you can add in a third-party workload resource if you want a specific behavior that's not part
+of Kubernetes' core. For example, if you wanted to run a group of Pods for your application but
+stop work unless <em>all</em> the Pods are available (perhaps for some high-throughput distributed task),
+then you can implement or install an extension that does provide that feature.</p><h2 id="what-s-next">What's next</h2><p>As well as reading about each API kind for workload management, you can read how to
+do specific tasks:</p><ul><li><a href="/docs/tasks/run-application/run-stateless-application-deployment/">Run a stateless application using a Deployment</a></li><li>Run a stateful application either as a <a href="/docs/tasks/run-application/run-single-instance-stateful-application/">single instance</a>
+or as a <a href="/docs/tasks/run-application/run-replicated-stateful-application/">replicated set</a></li><li><a href="/docs/tasks/job/automated-tasks-with-cron-jobs/">Run automated tasks with a CronJob</a></li></ul><p>To learn about Kubernetes' mechanisms for separating code from configuration,
+visit <a href="/docs/concepts/configuration/">Configuration</a>.</p><p>There are two supporting concepts that provide backgrounds about how Kubernetes manages pods
+for applications:</p><ul><li><a href="/docs/concepts/architecture/garbage-collection/">Garbage collection</a> tidies up objects
+from your cluster after their <em>owning resource</em> has been removed.</li><li>The <a href="/docs/concepts/workloads/controllers/ttlafterfinished/"><em>time-to-live after finished</em> controller</a>
+removes Jobs once a defined time has passed since they completed.</li></ul><p>Once your application is running, you might want to make it available on the internet as
+a <a href="/docs/concepts/services-networking/service/">Service</a> or, for web application only,
+using an <a href="/docs/concepts/services-networking/ingress/">Ingress</a>.</p><div class="section-index"/></div>

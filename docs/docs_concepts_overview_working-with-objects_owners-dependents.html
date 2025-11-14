@@ -1,0 +1,52 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Owners and Dependents</h1><p>In Kubernetes, some <a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="objects">objects</a> are
+<em>owners</em> of other objects. For example, a
+<a class="glossary-tooltip" title="ReplicaSet ensures that a specified number of Pod replicas are running at one time" data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/replicaset/" target="_blank" aria-label="ReplicaSet">ReplicaSet</a> is the owner
+of a set of Pods. These owned objects are <em>dependents</em> of their owner.</p><p>Ownership is different from the <a href="/docs/concepts/overview/working-with-objects/labels/">labels and selectors</a>
+mechanism that some resources also use. For example, consider a Service that
+creates <code>EndpointSlice</code> objects. The Service uses <a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="labels">labels</a> to allow the control plane to
+determine which <code>EndpointSlice</code> objects are used for that Service. In addition
+to the labels, each <code>EndpointSlice</code> that is managed on behalf of a Service has
+an owner reference. Owner references help different parts of Kubernetes avoid
+interfering with objects they don’t control.</p><h2 id="owner-references-in-object-specifications">Owner references in object specifications</h2><p>Dependent objects have a <code>metadata.ownerReferences</code> field that references their
+owner object. A valid owner reference consists of the object name and a <a class="glossary-tooltip" title="A Kubernetes systems-generated string to uniquely identify objects." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/names" target="_blank" aria-label="UID">UID</a>
+within the same <a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="namespace">namespace</a> as the dependent object. Kubernetes sets the value of
+this field automatically for objects that are dependents of other objects like
+ReplicaSets, DaemonSets, Deployments, Jobs and CronJobs, and ReplicationControllers.
+You can also configure these relationships manually by changing the value of
+this field. However, you usually don't need to and can allow Kubernetes to
+automatically manage the relationships.</p><p>Dependent objects also have an <code>ownerReferences.blockOwnerDeletion</code> field that
+takes a boolean value and controls whether specific dependents can block garbage
+collection from deleting their owner object. Kubernetes automatically sets this
+field to <code>true</code> if a <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a>
+(for example, the Deployment controller) sets the value of the
+<code>metadata.ownerReferences</code> field. You can also set the value of the
+<code>blockOwnerDeletion</code> field manually to control which dependents block garbage
+collection.</p><p>A Kubernetes admission controller controls user access to change this field for
+dependent resources, based on the delete permissions of the owner. This control
+prevents unauthorized users from delaying owner object deletion.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>Cross-namespace owner references are disallowed by design.
+Namespaced dependents can specify cluster-scoped or namespaced owners.
+A namespaced owner <strong>must</strong> exist in the same namespace as the dependent.
+If it does not, the owner reference is treated as absent, and the dependent
+is subject to deletion once all owners are verified absent.</p><p>Cluster-scoped dependents can only specify cluster-scoped owners.
+In v1.20+, if a cluster-scoped dependent specifies a namespaced kind as an owner,
+it is treated as having an unresolvable owner reference, and is not able to be garbage collected.</p><p>In v1.20+, if the garbage collector detects an invalid cross-namespace <code>ownerReference</code>,
+or a cluster-scoped dependent with an <code>ownerReference</code> referencing a namespaced kind, a warning Event
+with a reason of <code>OwnerRefInvalidNamespace</code> and an <code>involvedObject</code> of the invalid dependent is reported.
+You can check for that kind of Event by running
+<code>kubectl get events -A --field-selector=reason=OwnerRefInvalidNamespace</code>.</p></div><h2 id="ownership-and-finalizers">Ownership and finalizers</h2><p>When you tell Kubernetes to delete a resource, the API server allows the
+managing controller to process any <a href="/docs/concepts/overview/working-with-objects/finalizers/">finalizer rules</a>
+for the resource. <a class="glossary-tooltip" title="A namespaced key that tells Kubernetes to wait until specific conditions are met before it fully deletes an object marked for deletion." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/finalizers/" target="_blank" aria-label="Finalizers">Finalizers</a>
+prevent accidental deletion of resources your cluster may still need to function
+correctly. For example, if you try to delete a <a href="/docs/concepts/storage/persistent-volumes/">PersistentVolume</a> that is still
+in use by a Pod, the deletion does not happen immediately because the
+<code>PersistentVolume</code> has the <code>kubernetes.io/pv-protection</code> finalizer on it.
+Instead, the <a href="/docs/concepts/storage/volumes/">volume</a> remains in the <code>Terminating</code> status until Kubernetes clears
+the finalizer, which only happens after the <code>PersistentVolume</code> is no longer
+bound to a Pod.</p><p>Kubernetes also adds finalizers to an owner resource when you use either
+<a href="/docs/concepts/architecture/garbage-collection/#cascading-deletion">foreground or orphan cascading deletion</a>.
+In foreground deletion, it adds the <code>foreground</code> finalizer so that the
+controller must delete dependent resources that also have
+<code>ownerReferences.blockOwnerDeletion=true</code> before it deletes the owner. If you
+specify an orphan deletion policy, Kubernetes adds the <code>orphan</code> finalizer so
+that the controller ignores dependent resources after it deletes the owner
+object.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/concepts/overview/working-with-objects/finalizers/">Kubernetes finalizers</a>.</li><li>Learn about <a href="/docs/concepts/architecture/garbage-collection/">garbage collection</a>.</li><li>Read the API reference for <a href="/docs/reference/kubernetes-api/common-definitions/object-meta/#System">object metadata</a>.</li></ul></div>

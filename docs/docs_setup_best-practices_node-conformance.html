@@ -1,0 +1,34 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Validate node setup</h1><h2 id="node-conformance-test">Node Conformance Test</h2><p><em>Node conformance test</em> is a containerized test framework that provides a system
+verification and functionality test for a node. The test validates whether the
+node meets the minimum requirements for Kubernetes; a node that passes the test
+is qualified to join a Kubernetes cluster.</p><h2 id="node-prerequisite">Node Prerequisite</h2><p>To run node conformance test, a node must satisfy the same prerequisites as a
+standard Kubernetes node. At a minimum, the node should have the following
+daemons installed:</p><ul><li>CRI-compatible container runtimes such as Docker, containerd and CRI-O</li><li>kubelet</li></ul><h2 id="running-node-conformance-test">Running Node Conformance Test</h2><p>To run the node conformance test, perform the following steps:</p><ol><li><p>Work out the value of the <code>--kubeconfig</code> option for the kubelet; for example:
+<code>--kubeconfig=/var/lib/kubelet/config.yaml</code>.
+Because the test framework starts a local control plane to test the kubelet,
+use <code>http://localhost:8080</code> as the URL of the API server.
+There are some other kubelet command line parameters you may want to use:</p><ul><li><code>--cloud-provider</code>: If you are using <code>--cloud-provider=gce</code>, you should
+remove the flag to run the test.</li></ul></li><li><p>Run the node conformance test with command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># $CONFIG_DIR is the pod manifest path of your kubelet.</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># $LOG_DIR is the test output path.</span>
+</span></span><span style="display:flex"><span>sudo docker run -it --rm --privileged --net<span style="color:#666">=</span>host <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  -v /:/rootfs -v <span style="color:#b8860b">$CONFIG_DIR</span>:<span style="color:#b8860b">$CONFIG_DIR</span> -v <span style="color:#b8860b">$LOG_DIR</span>:/var/result <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  registry.k8s.io/node-test:0.2
+</span></span></code></pre></div></li></ol><h2 id="running-node-conformance-test-for-other-architectures">Running Node Conformance Test for Other Architectures</h2><p>Kubernetes also provides node conformance test docker images for other
+architectures:</p><table><thead><tr><th>Arch</th><th style="text-align:center">Image</th></tr></thead><tbody><tr><td>amd64</td><td style="text-align:center">node-test-amd64</td></tr><tr><td>arm</td><td style="text-align:center">node-test-arm</td></tr><tr><td>arm64</td><td style="text-align:center">node-test-arm64</td></tr></tbody></table><h2 id="running-selected-test">Running Selected Test</h2><p>To run specific tests, overwrite the environment variable <code>FOCUS</code> with the
+regular expression of tests you want to run.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo docker run -it --rm --privileged --net<span style="color:#666">=</span>host <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  -v /:/rootfs:ro -v <span style="color:#b8860b">$CONFIG_DIR</span>:<span style="color:#b8860b">$CONFIG_DIR</span> -v <span style="color:#b8860b">$LOG_DIR</span>:/var/result <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  -e <span style="color:#b8860b">FOCUS</span><span style="color:#666">=</span>MirrorPod <span style="color:#b62;font-weight:700">\ </span><span style="color:#080;font-style:italic"># Only run MirrorPod test</span>
+</span></span><span style="display:flex"><span>  registry.k8s.io/node-test:0.2
+</span></span></code></pre></div><p>To skip specific tests, overwrite the environment variable <code>SKIP</code> with the
+regular expression of tests you want to skip.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo docker run -it --rm --privileged --net<span style="color:#666">=</span>host <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  -v /:/rootfs:ro -v <span style="color:#b8860b">$CONFIG_DIR</span>:<span style="color:#b8860b">$CONFIG_DIR</span> -v <span style="color:#b8860b">$LOG_DIR</span>:/var/result <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  -e <span style="color:#b8860b">SKIP</span><span style="color:#666">=</span>MirrorPod <span style="color:#b62;font-weight:700">\ </span><span style="color:#080;font-style:italic"># Run all conformance tests but skip MirrorPod test</span>
+</span></span><span style="display:flex"><span>  registry.k8s.io/node-test:0.2
+</span></span></code></pre></div><p>Node conformance test is a containerized version of
+<a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-node/e2e-node-tests.md">node e2e test</a>.
+By default, it runs all conformance tests.</p><p>Theoretically, you can run any node e2e test if you configure the container and
+mount required volumes properly. But <strong>it is strongly recommended to only run conformance
+test</strong>, because it requires much more complex configuration to run non-conformance test.</p><h2 id="caveats">Caveats</h2><ul><li>The test leaves some docker images on the node, including the node conformance
+test image and images of containers used in the functionality
+test.</li><li>The test leaves dead containers on the node. These containers are created
+during the functionality test.</li></ul></div>

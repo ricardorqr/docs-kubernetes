@@ -1,0 +1,930 @@
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Local Files And Paths Used By The Kubelet</h1><p>The <a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="kubelet">kubelet</a> is mostly a stateless
+process running on a Kubernetes <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a>.
+This document outlines files that kubelet reads and writes.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This document is for informational purpose and not describing any guaranteed behaviors or APIs.
+It lists resources used by the kubelet, which is an implementation detail and a subject to change at any release.</div><p>The kubelet typically uses the <a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a> as
+the source of truth on what needs to run on the Node, and the
+<a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a> to retrieve
+the current state of containers. So long as you provide a <em>kubeconfig</em> (API client configuration)
+to the kubelet, the kubelet does connect to your control plane; otherwise the node operates in
+<em>standalone mode</em>.</p><p>On Linux nodes, the kubelet also relies on reading cgroups and various system files to collect metrics.</p><p>On Windows nodes, the kubelet collects metrics via a different mechanism that does not rely on
+paths.</p><p>There are also a few other files that are used by the kubelet as well,
+as kubelet communicates using local Unix-domain sockets. Some are sockets that the
+kubelet listens on, and for other sockets the kubelet discovers them and then connects
+as a client.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This page lists paths as Linux paths, which map to the Windows paths by adding a root disk
+<code>C:\</code> in place of <code>/</code> (unless specified otherwise).
+For example, <code>/var/lib/kubelet/device-plugins</code> maps to <code>C:\var\lib\kubelet\device-plugins</code>.</div><h2 id="configuration">Configuration</h2><h3 id="kubelet-configuration-files">Kubelet configuration files</h3><p>The path to the kubelet configuration file can be configured
+using the command line argument <code>--config</code>. The kubelet also supports
+<a href="/docs/tasks/administer-cluster/kubelet-config-file/#kubelet-conf-d">drop-in configuration files</a>
+to enhance configuration.</p><h3 id="certificates">Certificates</h3><p>Certificates and private keys are typically located at <code>/var/lib/kubelet/pki</code>,
+but can be configured using the <code>--cert-dir</code> kubelet command line argument.
+Names of certificate files are also configurable.</p><h3 id="manifests">Manifests</h3><p>Manifests for static pods are typically located in <code>/etc/kubernetes/manifests</code>.
+Location can be configured using the <code>staticPodPath</code> kubelet configuration option.</p><h3 id="systemd-unit-settings">Systemd unit settings</h3><p>When kubelet is running as a systemd unit, some kubelet configuration may be declared
+in systemd unit settings file. Typically it includes:</p><ul><li>command line arguments to <a href="/docs/reference/command-line-tools-reference/kubelet/">run kubelet</a></li><li>environment variables, used by kubelet or <a href="https://pkg.go.dev/runtime#hdr-Environment_Variables">configuring golang runtime</a></li></ul><h2 id="state">State</h2><h3 id="resource-managers-state">Checkpoint files for resource managers</h3><p>All resource managers keep the mapping of Pods to allocated resources in state files.
+State files are located in the kubelet's base directory, also termed the <em>root directory</em>
+(but not the same as <code>/</code>, the node root directory). You can configure the base directory
+for the kubelet
+using the kubelet command line argument <code>--root-dir</code>.</p><p>Names of files:</p><ul><li><code>memory_manager_state</code> for the <a href="/docs/tasks/administer-cluster/memory-manager/">Memory Manager</a></li><li><code>cpu_manager_state</code> for the <a href="/docs/tasks/administer-cluster/cpu-management-policies/">CPU Manager</a></li><li><code>dra_manager_state</code> for <a href="/docs/concepts/scheduling-eviction/dynamic-resource-allocation/">DRA</a></li></ul><h3 id="device-manager-state">Checkpoint file for device manager</h3><p>Device manager creates checkpoints in the same directory with socket files: <code>/var/lib/kubelet/device-plugins/</code>.
+The name of a checkpoint file is <code>kubelet_internal_checkpoint</code> for
+<a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#device-plugin-integration-with-the-topology-manager">Device Manager</a></p><h3 id="pod-resource-checkpoints">Pod resource checkpoints</h3><div class="feature-state-notice feature-beta" title="Feature Gate: InPlacePodVerticalScaling"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [beta]</code> (enabled by default: true)</div><p>If a node has enabled the <code>InPlacePodVerticalScaling</code><a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>,
+the kubelet stores a local record of <em>allocated</em> and <em>actuated</em> Pod resources.
+See <a href="/docs/tasks/configure-pod-container/resize-container-resources/">Resize CPU and Memory Resources assigned to Containers</a>
+for more details on how these records are used.</p><p>Names of files:</p><ul><li><code>allocated_pods_state</code> records the resources allocated to each pod running on the node</li><li><code>actuated_pods_state</code> records the resources that have been accepted by the runtime
+for each pod pod running on the node</li></ul><p>The files are located within the kubelet base directory
+(<code>/var/lib/kubelet</code> by default on Linux; configurable using <code>--root-dir</code>).</p><h3 id="container-runtime">Container runtime</h3><p>Kubelet communicates with the container runtime using socket configured via the
+configuration parameters:</p><ul><li><code>containerRuntimeEndpoint</code> for runtime operations</li><li><code>imageServiceEndpoint</code> for image management operations</li></ul><p>The actual values of those endpoints depend on the container runtime being used.</p><h3 id="device-plugins">Device plugins</h3><p>The kubelet exposes a socket at the path <code>/var/lib/kubelet/device-plugins/kubelet.sock</code> for
+various <a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#device-plugin-implementation">Device Plugins to register</a>.</p><p>When a device plugin registers itself, it provides its socket path for the kubelet to connect.</p><p>The device plugin socket should be in the directory <code>device-plugins</code> within the kubelet base
+directory. On a typical Linux node, this means <code>/var/lib/kubelet/device-plugins</code>.</p><h3 id="pod-resources-api">Pod resources API</h3><p><a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#monitoring-device-plugin-resources">Pod Resources API</a>
+will be exposed at the path <code>/var/lib/kubelet/pod-resources</code>.</p><h3 id="dra-csi-and-device-plugins">DRA, CSI, and Device plugins</h3><p>The kubelet looks for socket files created by device plugins managed via <a href="/docs/concepts/scheduling-eviction/dynamic-resource-allocation/">DRA</a>,
+device manager, or storage plugins, and then attempts to connect
+to these sockets. The directory that the kubelet looks in is <code>plugins_registry</code> within the kubelet base
+directory, so on a typical Linux node this means <code>/var/lib/kubelet/plugins_registry</code>.</p><p>Note, for the device plugins there are two alternative registration mechanisms
+Only one should be used for a given plugin.</p><p>The types of plugins that can place socket files into that directory are:</p><ul><li>CSI plugins</li><li>DRA plugins</li><li>Device Manager plugins</li></ul><p>(typically <code>/var/lib/kubelet/plugins_registry</code>).</p><h3 id="graceful-node-shutdown">Graceful node shutdown</h3><div class="feature-state-notice feature-beta" title="Feature Gate: GracefulNodeShutdown"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.21 [beta]</code> (enabled by default: true)</div><p><a href="/docs/concepts/cluster-administration/node-shutdown/#graceful-node-shutdown">Graceful node shutdown</a>
+stores state locally at <code>/var/lib/kubelet/graceful_node_shutdown_state</code>.</p><h3 id="image-pull-records">Image Pull Records</h3><div class="feature-state-notice feature-alpha" title="Feature Gate: KubeletEnsureSecretPulledImages"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [alpha]</code> (enabled by default: false)</div><p>The kubelet stores records of attempted and successful image pulls, and uses it
+to verify that the image was previously successfully pulled with the same credentials.</p><p>These records are cached as files in the <code>image_registry</code> directory within
+the kubelet base directory. On a typical Linux node, this means <code>/var/lib/kubelet/image_manager</code>.
+There are two subdirectories to <code>image_manager</code>:</p><ul><li><code>pulling</code> - stores records about images the Kubelet is attempting to pull.</li><li><code>pulled</code> - stores records about images that were successfully pulled by the Kubelet,
+along with metadata about the credentials used for the pulls.</li></ul><p>See <a href="/docs/concepts/containers/images/#ensureimagepullcredentialverification">Ensure Image Pull Credential Verification</a>
+for details.</p><h2 id="security-profiles-configuration">Security profiles &amp; configuration</h2><h3 id="seccomp">Seccomp</h3><p>Seccomp profile files referenced from Pods should be placed in <code>/var/lib/kubelet/seccomp</code>.
+See the <a href="/docs/reference/node/seccomp/">seccomp reference</a> for details.</p><h3 id="apparmor">AppArmor</h3><p>The kubelet does not load or refer to AppArmor profiles by a Kubernetes-specific path.
+AppArmor profiles are loaded via the node operating system rather then referenced by their path.</p><h2 id="locking">Locking</h2><div class="feature-state-notice feature-alpha"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.2 [alpha]</code></div><p>A lock file for the kubelet; typically <code>/var/run/kubelet.lock</code>. The kubelet uses this to ensure
+that two different kubelets don't try to run in conflict with each other.
+You can configure the path to the lock file using the the <code>--lock-file</code> kubelet command line argument.</p><p>If two kubelets on the same node use a different value for the lock file path, they will not be able to
+detect a conflict when both are running.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn about the kubelet <a href="/docs/reference/command-line-tools-reference/kubelet/">command line arguments</a>.</li><li>Review the <a href="/docs/reference/config-api/kubelet-config.v1beta1/">Kubelet Configuration (v1beta1) reference</a></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Ports and Protocols</h1><p>When running Kubernetes in an environment with strict network boundaries, such
+as on-premises datacenter with physical network firewalls or Virtual
+Networks in Public Cloud, it is useful to be aware of the ports and protocols
+used by Kubernetes components.</p><h2 id="control-plane">Control plane</h2><table><thead><tr><th>Protocol</th><th>Direction</th><th>Port Range</th><th>Purpose</th><th>Used By</th></tr></thead><tbody><tr><td>TCP</td><td>Inbound</td><td>6443</td><td>Kubernetes API server</td><td>All</td></tr><tr><td>TCP</td><td>Inbound</td><td>2379-2380</td><td>etcd server client API</td><td>kube-apiserver, etcd</td></tr><tr><td>TCP</td><td>Inbound</td><td>10250</td><td>Kubelet API</td><td>Self, Control plane</td></tr><tr><td>TCP</td><td>Inbound</td><td>10259</td><td>kube-scheduler</td><td>Self</td></tr><tr><td>TCP</td><td>Inbound</td><td>10257</td><td>kube-controller-manager</td><td>Self</td></tr></tbody></table><p>Although etcd ports are included in control plane section, you can also host your own
+etcd cluster externally or on custom ports.</p><h2 id="node">Worker node(s)</h2><table><thead><tr><th>Protocol</th><th>Direction</th><th>Port Range</th><th>Purpose</th><th>Used By</th></tr></thead><tbody><tr><td>TCP</td><td>Inbound</td><td>10250</td><td>Kubelet API</td><td>Self, Control plane</td></tr><tr><td>TCP</td><td>Inbound</td><td>10256</td><td>kube-proxy</td><td>Self, Load balancers</td></tr><tr><td>TCP</td><td>Inbound</td><td>30000-32767</td><td>NodePort Services†</td><td>All</td></tr><tr><td>UDP</td><td>Inbound</td><td>30000-32767</td><td>NodePort Services†</td><td>All</td></tr></tbody></table><p>† Default port range for <a href="/docs/concepts/services-networking/service/">NodePort Services</a>.</p><p>All default port numbers can be overridden. When custom ports are used those
+ports need to be open instead of defaults mentioned here.</p><p>One common example is API server port that is sometimes switched
+to 443. Alternatively, the default port is kept as is and API server is put
+behind a load balancer that listens on 443 and routes the requests to API server
+on the default port.</p></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Seccomp and Kubernetes</h1><p>Seccomp stands for secure computing mode and has been a feature of the Linux
+kernel since version 2.6.12. It can be used to sandbox the privileges of a
+process, restricting the calls it is able to make from userspace into the
+kernel. Kubernetes lets you automatically apply seccomp profiles loaded onto a
+<a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a> to your Pods and containers.</p><h2 id="seccomp-fields">Seccomp fields</h2><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.19 [stable]</code></div><p>There are four ways to specify a seccomp profile for a
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="pod">pod</a>:</p><ul><li>for the whole Pod using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context"><code>spec.securityContext.seccompProfile</code></a></li><li>for a single container using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context-1"><code>spec.containers[*].securityContext.seccompProfile</code></a></li><li>for an (restartable / sidecar) init container using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context-1"><code>spec.initContainers[*].securityContext.seccompProfile</code></a></li><li>for an <a href="/docs/concepts/workloads/pods/ephemeral-containers/">ephemeral container</a> using <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#security-context-2"><code>spec.ephemeralContainers[*].securityContext.seccompProfile</code></a></li></ul><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/security/seccomp/fields.yaml" download="pods/security/seccomp/fields.yaml"><code>pods/security/seccomp/fields.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-security-seccomp-fields-yaml&quot;)" title="Copy pods/security/seccomp/fields.yaml to clipboard"/></div><div class="includecode" id="pods-security-seccomp-fields-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Unconfined<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ephemeralContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>ephemeral-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>debian<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>RuntimeDefault<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">initContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>init-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>debian<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>RuntimeDefault<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>docker.io/library/debian:stable<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">seccompProfile</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Localhost<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">localhostProfile</span>:<span style="color:#bbb"> </span>my-profile.json<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>The Pod in the example above runs as <code>Unconfined</code>, while the
+<code>ephemeral-container</code> and <code>init-container</code> specifically defines
+<code>RuntimeDefault</code>. If the ephemeral or init container would not have set the
+<code>securityContext.seccompProfile</code> field explicitly, then the value would be
+inherited from the Pod. The same applies to the container, which runs a
+<code>Localhost</code> profile <code>my-profile.json</code>.</p><p>Generally speaking, fields from (ephemeral) containers have a higher priority
+than the Pod level value, while containers which do not set the seccomp field
+inherit the profile from the Pod.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>It is not possible to apply a seccomp profile to a Pod or container running with
+<code>privileged: true</code> set in the container's <code>securityContext</code>. Privileged
+containers always run as <code>Unconfined</code>.</div><p>The following values are possible for the <code>seccompProfile.type</code>:</p><dl><dt><code>Unconfined</code></dt><dd>The workload runs without any seccomp restrictions.</dd><dt><code>RuntimeDefault</code></dt><dd>A default seccomp profile defined by the
+<a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>
+is applied. The default profiles aim to provide a strong set of security
+defaults while preserving the functionality of the workload. It is possible that
+the default profiles differ between container runtimes and their release
+versions, for example when comparing those from
+<a class="glossary-tooltip" title="A lightweight container runtime specifically for Kubernetes" data-toggle="tooltip" data-placement="top" href="https://cri-o.io/#what-is-cri-o" target="_blank" aria-label="CRI-O">CRI-O</a> and
+<a class="glossary-tooltip" title="A container runtime with an emphasis on simplicity, robustness and portability" data-toggle="tooltip" data-placement="top" href="https://containerd.io/docs/" target="_blank" aria-label="containerd">containerd</a>.</dd><dt><code>Localhost</code></dt><dd>The <code>localhostProfile</code> will be applied, which has to be available on the node
+disk (on Linux it's <code>/var/lib/kubelet/seccomp</code>). The availability of the seccomp
+profile is verified by the
+<a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>
+on container creation. If the profile does not exist, then the container
+creation will fail with a <code>CreateContainerError</code>.</dd></dl><h3 id="localhost-profiles"><code>Localhost</code> profiles</h3><p>Seccomp profiles are JSON files following the scheme defined by the
+<a href="https://github.com/opencontainers/runtime-spec/blob/f329913/config-linux.md#seccomp">OCI runtime specification</a>.
+A profile basically defines actions based on matched syscalls, but also allows
+to pass specific values as arguments to syscalls. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"defaultAction"</span>: <span style="color:#b44">"SCMP_ACT_ERRNO"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"defaultErrnoRet"</span>: <span style="color:#666">38</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"syscalls"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"names"</span>: [
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"adjtimex"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"alarm"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"bind"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"waitid"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"waitpid"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"write"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:#b44">"writev"</span>
+</span></span><span style="display:flex"><span>      ],
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"action"</span>: <span style="color:#b44">"SCMP_ACT_ALLOW"</span>
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>The <code>defaultAction</code> in the profile above is defined as <code>SCMP_ACT_ERRNO</code> and
+will return as fallback to the actions defined in <code>syscalls</code>. The error is
+defined as code <code>38</code> via the <code>defaultErrnoRet</code> field.</p><p>The following actions are generally possible:</p><dl><dt><code>SCMP_ACT_ERRNO</code></dt><dd>Return the specified error code.</dd><dt><code>SCMP_ACT_ALLOW</code></dt><dd>Allow the syscall to be executed.</dd><dt><code>SCMP_ACT_KILL_PROCESS</code></dt><dd>Kill the process.</dd><dt><code>SCMP_ACT_KILL_THREAD</code> and <code>SCMP_ACT_KILL</code></dt><dd>Kill only the thread.</dd><dt><code>SCMP_ACT_TRAP</code></dt><dd>Throw a <code>SIGSYS</code> signal.</dd><dt><code>SCMP_ACT_NOTIFY</code> and <code>SECCOMP_RET_USER_NOTIF</code>.</dt><dd>Notify the user space.</dd><dt><code>SCMP_ACT_TRACE</code></dt><dd>Notify a tracing process with the specified value.</dd><dt><code>SCMP_ACT_LOG</code></dt><dd>Allow the syscall to be executed after the action has been logged to syslog or
+auditd.</dd></dl><p>Some actions like <code>SCMP_ACT_NOTIFY</code> or <code>SECCOMP_RET_USER_NOTIF</code> may be not
+supported depending on the container runtime, OCI runtime or Linux kernel
+version being used. There may be also further limitations, for example that
+<code>SCMP_ACT_NOTIFY</code> cannot be used as <code>defaultAction</code> or for certain syscalls like
+<code>write</code>. All those limitations are defined by either the OCI runtime
+(<a href="https://github.com/opencontainers/runc">runc</a>,
+<a href="https://github.com/containers/crun">crun</a>) or
+<a href="https://github.com/seccomp/libseccomp">libseccomp</a>.</p><p>The <code>syscalls</code> JSON array contains a list of objects referencing syscalls by
+their respective <code>names</code>. For example, the action <code>SCMP_ACT_ALLOW</code> can be used
+to create a whitelist of allowed syscalls as outlined in the example above. It
+would also be possible to define another list using the action <code>SCMP_ACT_ERRNO</code>
+but a different return (<code>errnoRet</code>) value.</p><p>It is also possible to specify the arguments (<code>args</code>) passed to certain
+syscalls. More information about those advanced use cases can be found in the
+<a href="https://github.com/opencontainers/runtime-spec/blob/f329913/config-linux.md#seccomp">OCI runtime spec</a>
+and the <a href="https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt">Seccomp Linux kernel documentation</a>.</p><h2 id="further-reading">Further reading</h2><ul><li><a href="/docs/tutorials/security/seccomp/">Restrict a Container's Syscalls with seccomp</a></li><li><a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a></li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Node Status</h1><p>The status of a <a href="/docs/concepts/architecture/nodes/">node</a> in Kubernetes is a critical
+aspect of managing a Kubernetes cluster. In this article, we'll cover the basics of
+monitoring and maintaining node status to ensure a healthy and stable cluster.</p><h2 id="node-status-fields">Node status fields</h2><p>A Node's status contains the following information:</p><ul><li><a href="#addresses">Addresses</a></li><li><a href="#condition">Conditions</a></li><li><a href="#capacity">Capacity and Allocatable</a></li><li><a href="#info">Info</a></li></ul><p>You can use <code>kubectl</code> to view a Node's status and other details:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe node &lt;insert-node-name-here&gt;
+</span></span></code></pre></div><p>Each section of the output is described below.</p><h2 id="addresses">Addresses</h2><p>The usage of these fields varies depending on your cloud provider or bare metal configuration.</p><ul><li>HostName: The hostname as reported by the node's kernel. Can be overridden via the kubelet
+<code>--hostname-override</code> parameter.</li><li>ExternalIP: Typically the IP address of the node that is externally routable (available from
+outside the cluster).</li><li>InternalIP: Typically the IP address of the node that is routable only within the cluster.</li></ul><h2 id="condition">Conditions</h2><p>The <code>conditions</code> field describes the status of all <code>Running</code> nodes. Examples of conditions include:</p><table><caption style="display:none">Node conditions, and a description of when each condition applies.</caption><thead><tr><th>Node Condition</th><th>Description</th></tr></thead><tbody><tr><td><code>Ready</code></td><td><code>True</code> if the node is healthy and ready to accept pods, <code>False</code> if the node is not healthy and is not accepting pods, and <code>Unknown</code> if the node controller has not heard from the node in the last <code>node-monitor-grace-period</code> (default is 50 seconds)</td></tr><tr><td><code>DiskPressure</code></td><td><code>True</code> if pressure exists on the disk size—that is, if the disk capacity is low; otherwise <code>False</code></td></tr><tr><td><code>MemoryPressure</code></td><td><code>True</code> if pressure exists on the node memory—that is, if the node memory is low; otherwise <code>False</code></td></tr><tr><td><code>PIDPressure</code></td><td><code>True</code> if pressure exists on the processes—that is, if there are too many processes on the node; otherwise <code>False</code></td></tr><tr><td><code>NetworkUnavailable</code></td><td><code>True</code> if the network for the node is not correctly configured, otherwise <code>False</code></td></tr></tbody></table><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you use command-line tools to print details of a cordoned Node, the Condition includes
+<code>SchedulingDisabled</code>. <code>SchedulingDisabled</code> is not a Condition in the Kubernetes API; instead,
+cordoned nodes are marked Unschedulable in their spec.</div><p>In the Kubernetes API, a node's condition is represented as part of the <code>.status</code>
+of the Node resource. For example, the following JSON structure describes a healthy node:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span><span style="color:#b44">"conditions"</span><span>:</span> [
+</span></span><span style="display:flex"><span>  {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"type"</span>: <span style="color:#b44">"Ready"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"status"</span>: <span style="color:#b44">"True"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"reason"</span>: <span style="color:#b44">"KubeletReady"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"message"</span>: <span style="color:#b44">"kubelet is posting ready status"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"lastHeartbeatTime"</span>: <span style="color:#b44">"2019-06-05T18:38:35Z"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"lastTransitionTime"</span>: <span style="color:#b44">"2019-06-05T11:41:27Z"</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>]
+</span></span></code></pre></div><p>When problems occur on nodes, the Kubernetes control plane automatically creates
+<a href="/docs/concepts/scheduling-eviction/taint-and-toleration/">taints</a> that match the conditions
+affecting the node. An example of this is when the <code>status</code> of the Ready condition
+remains <code>Unknown</code> or <code>False</code> for longer than the kube-controller-manager's <code>NodeMonitorGracePeriod</code>,
+which defaults to 50 seconds. This will cause either an <code>node.kubernetes.io/unreachable</code> taint, for an <code>Unknown</code> status,
+or a <code>node.kubernetes.io/not-ready</code> taint, for a <code>False</code> status, to be added to the Node.</p><p>These taints affect pending pods as the scheduler takes the Node's taints into consideration when
+assigning a pod to a Node. Existing pods scheduled to the node may be evicted due to the application
+of <code>NoExecute</code> taints. Pods may also have <a class="glossary-tooltip" title="A core object consisting of three required properties: key, value, and effect. Tolerations enable the scheduling of pods on nodes or node groups that have a matching taint." data-toggle="tooltip" data-placement="top" href="/docs/concepts/scheduling-eviction/taint-and-toleration/" target="_blank" aria-label="tolerations">tolerations</a> that let
+them schedule to and continue running on a Node even though it has a specific taint.</p><p>See <a href="/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-based-evictions">Taint Based Evictions</a> and
+<a href="/docs/concepts/scheduling-eviction/taint-and-toleration/#taint-nodes-by-condition">Taint Nodes by Condition</a>
+for more details.</p><h2 id="capacity">Capacity and Allocatable</h2><p>Describes the resources available on the node: CPU, memory, and the maximum
+number of pods that can be scheduled onto the node.</p><p>The fields in the capacity block indicate the total amount of resources that a
+Node has. The allocatable block indicates the amount of resources on a
+Node that is available to be consumed by normal Pods.</p><p>You may read more about capacity and allocatable resources while learning how
+to <a href="/docs/tasks/administer-cluster/reserve-compute-resources/#node-allocatable">reserve compute resources</a>
+on a Node.</p><h2 id="info">Info</h2><p>Describes general information about the node, such as kernel version, Kubernetes
+version (kubelet and kube-proxy version), container runtime details, and which
+operating system the node uses.
+The kubelet gathers this information from the node and publishes it into
+the Kubernetes API.</p><h2 id="heartbeats">Heartbeats</h2><p>Heartbeats, sent by Kubernetes nodes, help your cluster determine the
+availability of each node, and to take action when failures are detected.</p><p>For nodes there are two forms of heartbeats:</p><ul><li>updates to the <code>.status</code> of a Node</li><li><a href="/docs/concepts/architecture/leases/">Lease</a> objects
+within the <code>kube-node-lease</code>
+<a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="namespace">namespace</a>.
+Each Node has an associated Lease object.</li></ul><p>Compared to updates to <code>.status</code> of a Node, a Lease is a lightweight resource.
+Using Leases for heartbeats reduces the performance impact of these updates
+for large clusters.</p><p>The kubelet is responsible for creating and updating the <code>.status</code> of Nodes,
+and for updating their related Leases.</p><ul><li>The kubelet updates the node's <code>.status</code> either when there is change in status
+or if there has been no update for a configured interval. The default interval
+for <code>.status</code> updates to Nodes is 5 minutes, which is much longer than the 40
+second default timeout for unreachable nodes.</li><li>The kubelet creates and then updates its Lease object every 10 seconds
+(the default update interval). Lease updates occur independently from
+updates to the Node's <code>.status</code>. If the Lease update fails, the kubelet retries,
+using exponential backoff that starts at 200 milliseconds and capped at 7 seconds.</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Linux Node Swap Behaviors</h1><p>To allow Kubernetes workloads to use swap, on a Linux node,
+you must disable the kubelet's default behavior of failing when swap is detected,
+and specify memory-swap behavior as <code>LimitedSwap</code>:</p><p>The available choices for swap behavior are:</p><dl><dt><code>NoSwap</code></dt><dd>(default) Workloads running as Pods on this node do not and cannot use swap. However, processes
+outside of Kubernetes' scope, such as system daemons (including the kubelet itself!) <strong>can</strong> utilize swap.
+This behavior is beneficial for protecting the node from system-level memory spikes,
+but it does not safeguard the workloads themselves from such spikes.</dd><dt><code>LimitedSwap</code></dt><dd>Kubernetes workloads can utilize swap memory. The amount of swap available to a Pod is determined automatically.</dd></dl><p>To learn more, read <a href="/docs/concepts/cluster-administration/swap-memory-management/">swap memory management</a>.</p></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Kubelet Systemd Watchdog</h1><div class="feature-state-notice feature-beta" title="Feature Gate: SystemdWatchdog"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [beta]</code> (enabled by default: true)</div><p>On Linux nodes, Kubernetes 1.34 supports integrating with
+<a href="https://systemd.io/">systemd</a> to allow the operating system supervisor to recover
+a failed kubelet. This integration is not enabled by default.
+It can be used as an alternative to periodically requesting
+the kubelet's <code>/healthz</code> endpoint for health checks. If the kubelet
+does not respond to the watchdog within the timeout period, the watchdog
+will kill the kubelet.</p><p>The systemd watchdog works by requiring the service to periodically send
+a <em>keep-alive</em> signal to the systemd process. If the signal is not received
+within a specified timeout period, the service is considered unresponsive
+and is terminated. The service can then be restarted according to the configuration.</p><h2 id="configuration">Configuration</h2><p>Using the systemd watchdog requires configuring the <code>WatchdogSec</code> parameter
+in the <code>[Service]</code> section of the kubelet service unit file:</p><pre tabindex="0"><code>[Service]
+WatchdogSec=30s
+</code></pre><p>Setting <code>WatchdogSec=30s</code> indicates a service watchdog timeout of 30 seconds.
+Within the kubelet, the <code>sd_notify()</code> function is invoked, at intervals of \( WatchdogSec \div 2\). to send
+<code>WATCHDOG=1</code> (a keep-alive message). If the watchdog is not fed
+within the timeout period, the kubelet will be killed. Setting <code>Restart</code>
+to "always", "on-failure", "on-watchdog", or "on-abnormal" will ensure that the service
+is automatically restarted.</p><p>Some details about the systemd configuration:</p><ol><li>If you set the systemd value for <code>WatchdogSec</code> to 0, or omit setting it, the systemd watchdog is not
+enabled for this unit.</li><li>The kubelet supports a minimum watchdog period of 1.0 seconds; this is to prevent the kubelet
+from being killed unexpectedly. You can set the value of <code>WatchdogSec</code> in a systemd unit definition
+to a period shorter than 1 second, but Kubernetes does not support any shorter interval.
+The timeout does not have to be a whole integer number of seconds.</li><li>The Kubernetes project suggests setting <code>WatchdogSec</code> to approximately a 15s period.
+Periods longer than 10 minutes are supported but explicitly <strong>not</strong> recommended.</li></ol><h3 id="example-configuration">Example Configuration</h3><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-systemd" data-lang="systemd"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">[Unit]</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">Description</span><span style="color:#666">=</span><span style="color:#b44">kubelet: The Kubernetes Node Agent</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">Documentation</span><span style="color:#666">=</span><span style="color:#b44">https://kubernetes.io/docs/home/</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">Wants</span><span style="color:#666">=</span><span style="color:#b44">network-online.target</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">After</span><span style="color:#666">=</span><span style="color:#b44">network-online.target</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">[Service]</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">ExecStart</span><span style="color:#666">=</span><span style="color:#b44">/usr/bin/kubelet</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Configures the watchdog timeout</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">WatchdogSec</span><span style="color:#666">=</span><span style="color:#b44">30s</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">Restart</span><span style="color:#666">=</span><span style="color:#b44">on-failure</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">StartLimitInterval</span><span style="color:#666">=</span><span style="color:#b44">0</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">RestartSec</span><span style="color:#666">=</span><span style="color:#b44">10</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#a2f;font-weight:700">[Install]</span>
+</span></span><span style="display:flex"><span><span style="color:#b44">WantedBy</span><span style="color:#666">=</span><span style="color:#b44">multi-user.target</span>
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><p>For more details about systemd configuration, refer to the
+<a href="https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#WatchdogSec=">systemd documentation</a></p></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Node Reference Information</h1><p>This section contains the following reference topics about nodes:</p><ul><li><p>the kubelet's <a href="/docs/reference/node/kubelet-checkpoint-api/">checkpoint API</a></p></li><li><p>a list of <a href="/docs/reference/node/topics-on-dockershim-and-cri-compatible-runtimes/">Articles on dockershim Removal and on Using CRI-compatible Runtimes</a></p></li><li><p><a href="/docs/reference/node/device-plugin-api-versions/">Kubelet Device Manager API Versions</a></p></li><li><p><a href="/docs/reference/node/node-labels/">Node Labels Populated By The Kubelet</a></p></li><li><p><a href="/docs/reference/node/kubelet-files/">Local Files And Paths Used By The Kubelet</a></p></li><li><p><a href="/docs/reference/node/node-status/">Node <code>.status</code> information</a></p></li><li><p><a href="/docs/reference/node/swap-behavior/">Linux Node Swap Behaviors</a></p></li><li><p><a href="/docs/reference/node/seccomp/">Seccomp information</a></p></li></ul><p>You can also read node reference details from elsewhere in the
+Kubernetes documentation, including:</p><ul><li><p><a href="/docs/reference/instrumentation/node-metrics/">Node Metrics Data</a>.</p></li><li><p><a href="/docs/reference/instrumentation/cri-pod-container-metrics/">CRI Pod &amp; Container Metrics</a>.</p></li><li><p><a href="/docs/reference/instrumentation/understand-psi-metrics/">Understand Pressure Stall Information (PSI) Metrics</a>.</p></li></ul><div class="section-index"/></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Protocols for Services</h1><p>If you configure a <a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a>,
+you can select from any network protocol that Kubernetes supports.</p><p>Kubernetes supports the following protocols with Services:</p><ul><li><a href="#protocol-sctp"><code>SCTP</code></a></li><li><a href="#protocol-tcp"><code>TCP</code></a> <em>(the default)</em></li><li><a href="#protocol-udp"><code>UDP</code></a></li></ul><p>When you define a Service, you can also specify the
+<a href="/docs/concepts/services-networking/service/#application-protocol">application protocol</a>
+that it uses.</p><p>This document details some special cases, all of them typically using TCP
+as a transport protocol:</p><ul><li><a href="#protocol-http-special">HTTP</a> and <a href="#protocol-http-special">HTTPS</a></li><li><a href="#protocol-proxy-special">PROXY protocol</a></li><li><a href="#protocol-tls-special">TLS</a> termination at the load balancer</li></ul><h2 id="protocol-support">Supported protocols</h2><p>There are 3 valid values for the <code>protocol</code> of a port for a Service:</p><h3 id="protocol-sctp"><code>SCTP</code></h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.20 [stable]</code></div><p>When using a network plugin that supports SCTP traffic, you can use SCTP for
+most Services. For <code>type: LoadBalancer</code> Services, SCTP support depends on the cloud
+provider offering this facility. (Most do not).</p><p>SCTP is not supported on nodes that run Windows.</p><h4 id="caveat-sctp-multihomed">Support for multihomed SCTP associations</h4><p>The support of multihomed SCTP associations requires that the CNI plugin can support the assignment of multiple interfaces and IP addresses to a Pod.</p><p>NAT for multihomed SCTP associations requires special logic in the corresponding kernel modules.</p><h3 id="protocol-tcp"><code>TCP</code></h3><p>You can use TCP for any kind of Service, and it's the default network protocol.</p><h3 id="protocol-udp"><code>UDP</code></h3><p>You can use UDP for most Services. For <code>type: LoadBalancer</code> Services,
+UDP support depends on the cloud provider offering this facility.</p><h2 id="special-cases">Special cases</h2><h3 id="protocol-http-special">HTTP</h3><p>If your cloud provider supports it, you can use a Service in LoadBalancer mode to
+configure a load balancer outside of your Kubernetes cluster, in a special mode
+where your cloud provider's load balancer implements HTTP / HTTPS reverse proxying,
+with traffic forwarded to the backend endpoints for that Service.</p><p>Typically, you set the protocol for the Service to <code>TCP</code> and add an
+<a class="glossary-tooltip" title="A key-value pair that is used to attach arbitrary non-identifying metadata to objects." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/annotations" target="_blank" aria-label="annotation">annotation</a>
+(usually specific to your cloud provider) that configures the load balancer
+to handle traffic at the HTTP level.
+This configuration might also include serving HTTPS (HTTP over TLS) and
+reverse-proxying plain HTTP to your workload.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>You can also use an <a class="glossary-tooltip" title="An API object that manages external access to the services in a cluster, typically HTTP." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/ingress/" target="_blank" aria-label="Ingress">Ingress</a> to expose
+HTTP/HTTPS Services.</div><p>You might additionally want to specify that the
+<a href="/docs/concepts/services-networking/service/#application-protocol">application protocol</a>
+of the connection is <code>http</code> or <code>https</code>. Use <code>http</code> if the session from the
+load balancer to your workload is HTTP without TLS, and use <code>https</code> if the
+session from the load balancer to your workload uses TLS encryption.</p><h3 id="protocol-proxy-special">PROXY protocol</h3><p>If your cloud provider supports it, you can use a Service set to <code>type: LoadBalancer</code>
+to configure a load balancer outside of Kubernetes itself, that will forward connections
+wrapped with the
+<a href="https://www.haproxy.org/download/2.5/doc/proxy-protocol.txt">PROXY protocol</a>.</p><p>The load balancer then sends an initial series of octets describing the
+incoming connection, similar to this example (PROXY protocol v1):</p><pre tabindex="0"><code>PROXY TCP4 192.0.2.202 10.0.42.7 12345 7\r\n
+</code></pre><p>The data after the proxy protocol preamble are the original
+data from the client. When either side closes the connection,
+the load balancer also triggers a connection close and sends
+any remaining data where feasible.</p><p>Typically, you define a Service with the protocol to <code>TCP</code>.
+You also set an annotation, specific to your
+cloud provider, that configures the load balancer to wrap each incoming connection in the PROXY protocol.</p><h3 id="protocol-tls-special">TLS</h3><p>If your cloud provider supports it, you can use a Service set to <code>type: LoadBalancer</code> as
+a way to set up external reverse proxying, where the connection from client to load
+balancer is TLS encrypted and the load balancer is the TLS server peer.
+The connection from the load balancer to your workload can also be TLS,
+or might be plain text. The exact options available to you depend on your
+cloud provider or custom Service implementation.</p><p>Typically, you set the protocol to <code>TCP</code> and set an annotation
+(usually specific to your cloud provider) that configures the load balancer
+to act as a TLS server. You would configure the TLS identity (as server,
+and possibly also as a client that connects to your workload) using
+mechanisms that are specific to your cloud provider.</p></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Node Labels Populated By The Kubelet</h1><p>Kubernetes <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="nodes">nodes</a> come pre-populated
+with a standard set of <a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="labels">labels</a>.</p><p>You can also set your own labels on nodes, either through the kubelet configuration or
+using the Kubernetes API.</p><h2 id="preset-labels">Preset labels</h2><p>The preset labels that Kubernetes sets on nodes are:</p><ul><li><a href="/docs/reference/labels-annotations-taints/#kubernetes-io-arch"><code>kubernetes.io/arch</code></a></li><li><a href="/docs/reference/labels-annotations-taints/#kubernetesiohostname"><code>kubernetes.io/hostname</code></a></li><li><a href="/docs/reference/labels-annotations-taints/#kubernetes-io-os"><code>kubernetes.io/os</code></a></li><li><a href="/docs/reference/labels-annotations-taints/#nodekubernetesioinstance-type"><code>node.kubernetes.io/instance-type</code></a>
+(if known to the kubelet – Kubernetes may not have this information to set the label)</li><li><a href="/docs/reference/labels-annotations-taints/#topologykubernetesioregion"><code>topology.kubernetes.io/region</code></a>
+(if known to the kubelet – Kubernetes may not have this information to set the label)</li><li><a href="/docs/reference/labels-annotations-taints/#topologykubernetesiozone"><code>topology.kubernetes.io/zone</code></a>
+(if known to the kubelet – Kubernetes may not have this information to set the label)</li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The value of these labels is cloud provider specific and is not guaranteed to be reliable.
+For example, the value of <code>kubernetes.io/hostname</code> may be the same as the node name in some environments
+and a different value in other environments.</div><h2 id="what-s-next">What's next</h2><ul><li>See <a href="/docs/reference/labels-annotations-taints/">Well-Known Labels, Annotations and Taints</a> for a list of common labels.</li><li>Learn how to <a href="/docs/tasks/configure-pod-container/assign-pods-nodes/#add-a-label-to-a-node">add a label to a node</a>.</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Linux Kernel Version Requirements</h1><div class="alert alert-secondary callout third-party-content" role="alert"><strong>Note:</strong> This section links to third party projects that provide functionality required by Kubernetes. The Kubernetes project authors aren't responsible for these projects, which are listed alphabetically. To add a project to this list, read the <a href="/docs/contribute/style/content-guide/#third-party-content">content guide</a> before submitting a change. <a href="#third-party-content-disclaimer">More information.</a></div><p>Many features rely on specific kernel functionalities and have minimum kernel version requirements.
+However, relying solely on kernel version numbers may not be sufficient
+for certain operating system distributions,
+as maintainers for distributions such as RHEL, Ubuntu and SUSE often backport selected features
+to older kernel releases (retaining the older kernel version).</p><h2 id="pod-sysctls">Pod sysctls</h2><p>On Linux, the <code>sysctl()</code> system call configures kernel parameters at run time. There is a command
+line tool named <code>sysctl</code> that you can use to configure these parameters, and many are exposed via
+the <code>proc</code> filesystem.</p><p>Some sysctls are only available if you have a modern enough kernel.</p><p>The following sysctls have a minimal kernel version requirement,
+and are supported in the <a href="/docs/tasks/administer-cluster/sysctl-cluster/#safe-and-unsafe-sysctls">safe set</a>:</p><ul><li><code>net.ipv4.ip_local_reserved_ports</code> (since Kubernetes 1.27, needs kernel 3.16+);</li><li><code>net.ipv4.tcp_keepalive_time</code> (since Kubernetes 1.29, needs kernel 4.5+);</li><li><code>net.ipv4.tcp_fin_timeout</code> (since Kubernetes 1.29, needs kernel 4.6+);</li><li><code>net.ipv4.tcp_keepalive_intvl</code> (since Kubernetes 1.29, needs kernel 4.5+);</li><li><code>net.ipv4.tcp_keepalive_probes</code> (since Kubernetes 1.29, needs kernel 4.5+);</li><li><code>net.ipv4.tcp_syncookies</code> (namespaced since kernel 4.6+).</li><li><code>net.ipv4.tcp_rmem</code> (since Kubernetes 1.32, needs kernel 4.15+).</li><li><code>net.ipv4.tcp_wmem</code> (since Kubernetes 1.32, needs kernel 4.15+).</li><li><code>net.ipv4.vs.conn_reuse_mode</code> (used in <code>ipvs</code> proxy mode, needs kernel 4.1+);</li></ul><h3 id="kube-proxy-nftables-proxy-mode">kube proxy <code>nftables</code> proxy mode</h3><p>For Kubernetes 1.34, the
+<a href="/docs/reference/networking/virtual-ips/#proxy-mode-nftables"><code>nftables</code> mode</a> of kube-proxy requires
+version 1.0.1 or later
+of the nft command-line tool, as well as kernel 5.13 or later.</p><p>For testing/development purposes, you can use older kernels, as far back as 5.4 if you set the
+<code>nftables.skipKernelVersionCheck</code> option in the kube-proxy config.
+But this is not recommended in production since it may cause problems with other nftables
+users on the system.</p><h2 id="version-2-control-groups">Version 2 control groups</h2><p>Kubernetes cgroup v1 support is in maintained mode starting from Kubernetes v1.31; using cgroup v2
+is recommended.
+In <a href="https://github.com/torvalds/linux/commit/4a7e89c5ec0238017a757131eb9ab8dc111f961c">Linux 5.8</a>, the system-level <code>cpu.stat</code> file was added to the root cgroup for convenience.</p><p>In runc document, Kernel older than 5.2 is not recommended due to lack of freezer.</p><h2 id="requirements-psi">Pressure Stall Information (PSI)</h2><p><a href="/docs/reference/instrumentation/understand-psi-metrics/">Pressure Stall Information</a> is supported in Linux kernel versions 4.20 and up, but requires the following configuration:</p><ul><li>The kernel must be compiled with the <code>CONFIG_PSI=y</code> option. Most modern distributions enable this by default. You can check your kernel's configuration by running <code>zgrep CONFIG_PSI /proc/config.gz</code>.</li><li>Some Linux distributions may compile PSI into the kernel but disable it by default. If so, you need to enable it at boot time by adding the <code>psi=1</code> parameter to the kernel command line.</li></ul><h2 id="requirements-other">Other kernel requirements</h2><p>Some features may depend on new kernel functionalities and have specific kernel requirements:</p><ol><li><a href="/docs/concepts/storage/volumes/#recursive-read-only-mounts">Recursive read only mount</a>:
+This is implemented by applying the <code>MOUNT_ATTR_RDONLY</code> attribute with the <code>AT_RECURSIVE</code> flag
+using <code>mount_setattr</code>(2) added in Linux kernel v5.12.</li><li>Pod user namespace support requires minimal kernel version 6.5+, according to
+<a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/127-user-namespaces/README.md">KEP-127</a>.</li><li>For <a href="/docs/concepts/architecture/nodes/#swap-memory">node system swap</a>, tmpfs set to <code>noswap</code>
+is not supported until kernel 6.3.</li></ol><h2 id="linux-kernel-long-term-maintenance">Linux kernel long term maintenance</h2><p>Active kernel releases can be found in <a href="https://www.kernel.org/category/releases.html">kernel.org</a>.</p><p>There are usually several <em>long term maintenance</em> kernel releases provided for the purposes of backporting
+bug fixes for older kernel trees. Only important bug fixes are applied to such kernels and they don't
+usually see very frequent releases, especially for older trees.
+See the Linux kernel website for the <a href="https://www.kernel.org/category/releases.html">list of releases</a>
+in the <em>Longterm</em> category.</p><h2 id="what-s-next">What's next</h2><ul><li>See <a href="/docs/tasks/administer-cluster/sysctl-cluster/">sysctls</a> for more details.</li><li>Allow running kube-proxy with in <a href="/docs/reference/networking/virtual-ips/#proxy-mode-nftables">nftables mode</a>.</li><li>Read more information in <a href="/docs/concepts/architecture/cgroups/">cgroups v2</a>.</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Kubelet Configuration Directory Merging</h1><p>When using the kubelet's <code>--config-dir</code> flag to specify a drop-in directory for
+configuration, there is some specific behavior on how different types are
+merged.</p><p>Here are some examples of how different data types behave during configuration merging:</p><h3 id="structure-fields">Structure Fields</h3><p>There are two types of structure fields in a YAML structure: singular (or a
+scalar type) and embedded (structures that contain scalar types).
+The configuration merging process handles the overriding of singular and embedded struct fields to create a resulting kubelet configuration.</p><p>For instance, you may want a baseline kubelet configuration for all nodes, but you may want to customize the <code>address</code> and <code>authorization</code> fields.
+This can be done as follows:</p><p>Main kubelet configuration file contents:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">20250</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">authorization</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">mode</span>:<span style="color:#bbb"> </span>Webhook<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">webhook</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cacheAuthorizedTTL</span>:<span style="color:#bbb"> </span><span style="color:#b44">"5m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cacheUnauthorizedTTL</span>:<span style="color:#bbb"> </span><span style="color:#b44">"30s"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">serializeImagePulls</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">address</span>:<span style="color:#bbb"> </span><span style="color:#b44">"192.168.0.1"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Contents of a file in <code>--config-dir</code> directory:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">authorization</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">mode</span>:<span style="color:#bbb"> </span>AlwaysAllow<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">webhook</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cacheAuthorizedTTL</span>:<span style="color:#bbb"> </span><span style="color:#b44">"8m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cacheUnauthorizedTTL</span>:<span style="color:#bbb"> </span><span style="color:#b44">"45s"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">address</span>:<span style="color:#bbb"> </span><span style="color:#b44">"192.168.0.8"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The resulting configuration will be as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">20250</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">serializeImagePulls</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">authorization</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">mode</span>:<span style="color:#bbb"> </span>AlwaysAllow<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">webhook</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cacheAuthorizedTTL</span>:<span style="color:#bbb"> </span><span style="color:#b44">"8m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cacheUnauthorizedTTL</span>:<span style="color:#bbb"> </span><span style="color:#b44">"45s"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">address</span>:<span style="color:#bbb"> </span><span style="color:#b44">"192.168.0.8"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h3 id="lists">Lists</h3><p>You can override the slices/lists values of the kubelet configuration.
+However, the entire list gets overridden during the merging process.
+For example, you can override the <code>clusterDNS</code> list as follows:</p><p>Main kubelet configuration file contents:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">20250</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">serializeImagePulls</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">clusterDNS</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.9"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.8"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Contents of a file in <code>--config-dir</code> directory:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">clusterDNS</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.3"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.5"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The resulting configuration will be as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">20250</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">serializeImagePulls</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">clusterDNS</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.3"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"192.168.0.5"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h3 id="maps-including-nested-structures">Maps, including Nested Structures</h3><p>Individual fields in maps, regardless of their value types (boolean, string, etc.), can be selectively overridden.
+However, for <code>map[string][]string</code>, the entire list associated with a specific field gets overridden.
+Let's understand this better with an example, particularly on fields like <code>featureGates</code> and <code>staticPodURLHeader</code>:</p><p>Main kubelet configuration file contents:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">20250</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">serializeImagePulls</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">featureGates</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">AllAlpha</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">MemoryQoS</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">staticPodURLHeader</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">kubelet-api-support</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"Authorization: 234APSDFA"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"X-Custom-Header: 123"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">custom-static-pod</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"Authorization: 223EWRWER"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"X-Custom-Header: 456"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Contents of a file in <code>--config-dir</code> directory:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">featureGates</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">MemoryQoS</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">KubeletTracing</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">DynamicResourceAllocation</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">staticPodURLHeader</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">custom-static-pod</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"Authorization: 223EWRWER"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"X-Custom-Header: 345"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The resulting configuration will be as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubelet.config.k8s.io/v1beta1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeletConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">20250</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">serializeImagePulls</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">featureGates</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">AllAlpha</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">MemoryQoS</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">KubeletTracing</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">DynamicResourceAllocation</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">staticPodURLHeader</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">kubelet-api-support</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"Authorization: 234APSDFA"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"X-Custom-Header: 123"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">custom-static-pod</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"Authorization: 223EWRWER"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:#b44">"X-Custom-Header: 345"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Kubelet Device Manager API Versions</h1><p>This page provides details of version compatibility between the Kubernetes
+<a href="https://github.com/kubernetes/kubelet/tree/master/pkg/apis/deviceplugin">device plugin API</a>,
+and different versions of Kubernetes itself.</p><h2 id="compatibility-matrix">Compatibility matrix</h2><table><thead><tr><th/><th><code>v1alpha1</code></th><th><code>v1beta1</code></th></tr></thead><tbody><tr><td>Kubernetes 1.21</td><td>-</td><td>✓</td></tr><tr><td>Kubernetes 1.22</td><td>-</td><td>✓</td></tr><tr><td>Kubernetes 1.23</td><td>-</td><td>✓</td></tr><tr><td>Kubernetes 1.24</td><td>-</td><td>✓</td></tr><tr><td>Kubernetes 1.25</td><td>-</td><td>✓</td></tr><tr><td>Kubernetes 1.26</td><td>-</td><td>✓</td></tr></tbody></table><p>Key:</p><ul><li><code>✓</code> Exactly the same features / API objects in both device plugin API and
+the Kubernetes version.</li><li><code>+</code> The device plugin API has features or API objects that may not be present in the
+Kubernetes cluster, either because the device plugin API has added additional new API
+calls, or that the server has removed an old API call. However, everything they have in
+common (most other APIs) will work. Note that alpha APIs may vanish or
+change significantly between one minor release and the next.</li><li><code>-</code> The Kubernetes cluster has features the device plugin API can't use,
+either because server has added additional API calls, or that device plugin API has
+removed an old API call. However, everything they share in common (most APIs) will work.</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Kubelet Checkpoint API</h1><div class="feature-state-notice feature-beta" title="Feature Gate: ContainerCheckpoint"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.30 [beta]</code> (enabled by default: true)</div><p>Checkpointing a container is the functionality to create a stateful copy of a
+running container. Once you have a stateful copy of a container, you could
+move it to a different computer for debugging or similar purposes.</p><p>If you move the checkpointed container data to a computer that's able to restore
+it, that restored container continues to run at exactly the same
+point it was checkpointed. You can also inspect the saved data, provided that you
+have suitable tools for doing so.</p><p>Creating a checkpoint of a container might have security implications. Typically
+a checkpoint contains all memory pages of all processes in the checkpointed
+container. This means that everything that used to be in memory is now available
+on the local disk. This includes all private data and possibly keys used for
+encryption. The underlying CRI implementations (the container runtime on that node)
+should create the checkpoint archive to be only accessible by the <code>root</code> user. It
+is still important to remember if the checkpoint archive is transferred to another
+system all memory pages will be readable by the owner of the checkpoint archive.</p><h2 id="operations">Operations</h2><h3 id="post-checkpoint"><code>post</code> checkpoint the specified container</h3><p>Tell the kubelet to checkpoint a specific container from the specified Pod.</p><p>Consult the <a href="/docs/reference/access-authn-authz/kubelet-authn-authz/">Kubelet authentication/authorization reference</a>
+for more information about how access to the kubelet checkpoint interface is
+controlled.</p><p>The kubelet will request a checkpoint from the underlying
+<a class="glossary-tooltip" title="Protocol for communication between the kubelet and the local container runtime." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cri" target="_blank" aria-label="CRI">CRI</a> implementation. In the checkpoint
+request the kubelet will specify the name of the checkpoint archive as
+<code>checkpoint-&lt;podFullName&gt;-&lt;containerName&gt;-&lt;timestamp&gt;.tar</code> and also request to
+store the checkpoint archive in the <code>checkpoints</code> directory below its root
+directory (as defined by <code>--root-dir</code>). This defaults to
+<code>/var/lib/kubelet/checkpoints</code>.</p><p>The checkpoint archive is in <em>tar</em> format, and could be listed using an implementation of
+<a href="https://pubs.opengroup.org/onlinepubs/7908799/xcu/tar.html"><code>tar</code></a>. The contents of the
+archive depend on the underlying CRI implementation (the container runtime on that node).</p><h4 id="post-checkpoint-request">HTTP Request</h4><p>POST /checkpoint/{namespace}/{pod}/{container}</p><h4 id="post-checkpoint-params">Parameters</h4><ul><li><p><strong>namespace</strong> (<em>in path</em>): string, required</p><a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="Namespace">Namespace</a></li><li><p><strong>pod</strong> (<em>in path</em>): string, required</p><a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a></li><li><p><strong>container</strong> (<em>in path</em>): string, required</p><a class="glossary-tooltip" title="A lightweight and portable executable image that contains software and all of its dependencies." data-toggle="tooltip" data-placement="top" href="/docs/concepts/containers/" target="_blank" aria-label="Container">Container</a></li><li><p><strong>timeout</strong> (<em>in query</em>): integer</p><p>Timeout in seconds to wait until the checkpoint creation is finished.
+If zero or no timeout is specified the default <a class="glossary-tooltip" title="Protocol for communication between the kubelet and the local container runtime." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cri" target="_blank" aria-label="CRI">CRI</a> timeout value will be used. Checkpoint
+creation time depends directly on the used memory of the container.
+The more memory a container uses the more time is required to create
+the corresponding checkpoint.</p></li></ul><h4 id="post-checkpoint-response">Response</h4><p>200: OK</p><p>401: Unauthorized</p><p>404: Not Found (if the <code>ContainerCheckpoint</code> feature gate is disabled)</p><p>404: Not Found (if the specified <code>namespace</code>, <code>pod</code> or <code>container</code> cannot be found)</p><p>500: Internal Server Error (if the CRI implementation encounter an error during checkpointing (see error message for further details))</p><p>500: Internal Server Error (if the CRI implementation does not implement the checkpoint CRI API (see error message for further details))</p></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Networking Reference</h1><p>This section of the Kubernetes documentation provides reference details
+of Kubernetes networking.</p><div class="section-index"><hr class="panel-line"/><div class="entry"><h5><a href="/docs/reference/networking/service-protocols/">Protocols for Services</a></h5><p/></div><div class="entry"><h5><a href="/docs/reference/networking/ports-and-protocols/">Ports and Protocols</a></h5><p/></div><div class="entry"><h5><a href="/docs/reference/networking/virtual-ips/">Virtual IPs and Service Proxies</a></h5><p/></div></div></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Virtual IPs and Service Proxies</h1><p>Every <a class="glossary-tooltip" title="A node is a worker machine in Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/nodes/" target="_blank" aria-label="node">node</a> in a Kubernetes
+<a class="glossary-tooltip" title="A set of worker machines, called nodes, that run containerized applications. Every cluster has at least one worker node." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-cluster" target="_blank" aria-label="cluster">cluster</a> runs a
+<a href="/docs/reference/command-line-tools-reference/kube-proxy/">kube-proxy</a>
+(unless you have deployed your own alternative component in place of <code>kube-proxy</code>).</p><p>The <code>kube-proxy</code> component is responsible for implementing a <em>virtual IP</em>
+mechanism for <a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Services">Services</a>
+of <code>type</code> other than
+<a href="/docs/concepts/services-networking/service/#externalname"><code>ExternalName</code></a>.
+Each instance of kube-proxy watches the Kubernetes
+<a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a>
+for the addition and removal of Service and <a class="glossary-tooltip" title="EndpointSlices track the IP addresses of Pods for Services." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/endpoint-slices/" target="_blank" aria-label="EndpointSlice">EndpointSlice</a>
+<a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="objects">objects</a>. For each Service, kube-proxy
+calls appropriate APIs (depending on the kube-proxy mode) to configure
+the node to capture traffic to the Service's <code>clusterIP</code> and <code>port</code>,
+and redirect that traffic to one of the Service's endpoints
+(usually a Pod, but possibly an arbitrary user-provided IP address). A control
+loop ensures that the rules on each node are reliably synchronized with
+the Service and EndpointSlice state as indicated by the API server.</p><figure class="diagram-medium"><img src="/images/docs/services-iptables-overview.svg"/><figcaption><h4>Virtual IP mechanism for Services, using iptables mode</h4></figcaption></figure><p>A question that pops up every now and then is why Kubernetes relies on
+proxying to forward inbound traffic to backends. What about other
+approaches? For example, would it be possible to configure DNS records that
+have multiple A values (or AAAA for IPv6), and rely on round-robin name
+resolution?</p><p>There are a few reasons for using proxying for Services:</p><ul><li>There is a long history of DNS implementations not respecting record TTLs,
+and caching the results of name lookups after they should have expired.</li><li>Some apps do DNS lookups only once and cache the results indefinitely.</li><li>Even if apps and libraries did proper re-resolution, the low or zero TTLs
+on the DNS records could impose a high load on DNS that then becomes
+difficult to manage.</li></ul><p>Later in this page you can read about how various kube-proxy implementations work.
+Overall, you should note that, when running <code>kube-proxy</code>, kernel level rules may be modified
+(for example, iptables rules might get created), which won't get cleaned up, in some
+cases until you reboot. Thus, running kube-proxy is something that should only be done
+by an administrator who understands the consequences of having a low level, privileged
+network proxying service on a computer. Although the <code>kube-proxy</code> executable supports a
+<code>cleanup</code> function, this function is not an official feature and thus is only available
+to use as-is.</p><p><a id="example"/>Some of the details in this reference refer to an example: the backend
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a> for a stateless
+image-processing workloads, running with
+three replicas. Those replicas are
+fungible—frontends do not care which backend they use. While the actual Pods that
+compose the backend set may change, the frontend clients should not need to be aware of that,
+nor should they need to keep track of the set of backends themselves.</p><h2 id="proxy-modes">Proxy modes</h2><p>The kube-proxy starts up in different modes, which are determined by its configuration.</p><p>On Linux nodes, the available modes for kube-proxy are:</p><dl><dt><a href="#proxy-mode-iptables"><code>iptables</code></a></dt><dd>A mode where the kube-proxy configures packet forwarding rules using iptables.</dd><dt><a href="#proxy-mode-ipvs"><code>ipvs</code></a></dt><dd>a mode where the kube-proxy configures packet forwarding rules using ipvs.</dd><dt><a href="#proxy-mode-nftables"><code>nftables</code></a></dt><dd>a mode where the kube-proxy configures packet forwarding rules using nftables.</dd></dl><p>There is only one mode available for kube-proxy on Windows:</p><dl><dt><a href="#proxy-mode-kernelspace"><code>kernelspace</code></a></dt><dd>a mode where the kube-proxy configures packet forwarding rules in the Windows kernel</dd></dl><h3 id="proxy-mode-iptables"><code>iptables</code> proxy mode</h3><p><em>This proxy mode is only available on Linux nodes.</em></p><p>In this mode, kube-proxy configures packet forwarding rules using the
+iptables API of the kernel netfilter subsystem. For each endpoint, it
+installs iptables rules which, by default, select a backend Pod at
+random.</p><h4 id="packet-processing-iptables">Example</h4><p>As an example, consider the image processing application described <a href="#example">earlier</a>
+in the page.
+When the backend Service is created, the Kubernetes control plane assigns a virtual
+IP address, for example 10.0.0.1. For this example, assume that the
+Service port is 1234.
+All of the kube-proxy instances in the cluster observe the creation of the new
+Service.</p><p>When kube-proxy on a node sees a new Service, it installs a series of iptables rules
+which redirect from the virtual IP address to more iptables rules, defined per Service.
+The per-Service rules link to further rules for each backend endpoint, and the per-
+endpoint rules redirect traffic (using destination NAT) to the backends.</p><p>When a client connects to the Service's virtual IP address the iptables rule kicks in.
+A backend is chosen (either based on session affinity or randomly) and packets are
+redirected to the backend without rewriting the client IP address.</p><p>This same basic flow executes when traffic comes in through a <code>type: NodePort</code> Service, or
+through a load-balancer, though in those cases the client IP address does get altered.</p><h4 id="optimizing-iptables-mode-performance">Optimizing iptables mode performance</h4><p>In iptables mode, kube-proxy creates a few iptables rules for every
+Service, and a few iptables rules for each endpoint IP address. In
+clusters with tens of thousands of Pods and Services, this means tens
+of thousands of iptables rules, and kube-proxy may take a long time to update the rules
+in the kernel when Services (or their EndpointSlices) change. You can adjust the syncing
+behavior of kube-proxy via options in the
+<a href="/docs/reference/config-api/kube-proxy-config.v1alpha1/#kubeproxy-config-k8s-io-v1alpha1-KubeProxyIPTablesConfiguration"><code>iptables</code> section</a>
+of the kube-proxy <a href="/docs/reference/config-api/kube-proxy-config.v1alpha1/">configuration file</a>
+(which you specify via <code>kube-proxy --config &lt;path&gt;</code>):</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">iptables</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">minSyncPeriod</span>:<span style="color:#bbb"> </span>1s<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">syncPeriod</span>:<span style="color:#bbb"> </span>30s<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h5 id="minsyncperiod"><code>minSyncPeriod</code></h5><p>The <code>minSyncPeriod</code> parameter sets the minimum duration between
+attempts to resynchronize iptables rules with the kernel. If it is
+<code>0s</code>, then kube-proxy will always immediately synchronize the rules
+every time any Service or EndpointSlice changes. This works fine in very
+small clusters, but it results in a lot of redundant work when lots of
+things change in a small time period. For example, if you have a
+Service backed by a <a class="glossary-tooltip" title="Manages a replicated application on your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/deployment/" target="_blank" aria-label="Deployment">Deployment</a>
+with 100 pods, and you delete the
+Deployment, then with <code>minSyncPeriod: 0s</code>, kube-proxy would end up
+removing the Service's endpoints from the iptables rules one by one,
+resulting in a total of 100 updates. With a larger <code>minSyncPeriod</code>, multiple
+Pod deletion events would get aggregated together, so kube-proxy might
+instead end up making, say, 5 updates, each removing 20 endpoints,
+which will be much more efficient in terms of CPU, and result in the
+full set of changes being synchronized faster.</p><p>The larger the value of <code>minSyncPeriod</code>, the more work that can be
+aggregated, but the downside is that each individual change may end up
+waiting up to the full <code>minSyncPeriod</code> before being processed, meaning
+that the iptables rules spend more time being out-of-sync with the
+current API server state.</p><p>The default value of <code>1s</code> should work well in most clusters, but in very
+large clusters it may be necessary to set it to a larger value.
+Especially, if kube-proxy's <code>sync_proxy_rules_duration_seconds</code> metric
+indicates an average time much larger than 1 second, then bumping up
+<code>minSyncPeriod</code> may make updates more efficient.</p><h5 id="minimize-iptables-restore">Updating legacy <code>minSyncPeriod</code> configuration</h5><p>Older versions of kube-proxy updated all the rules for all Services on
+every sync; this led to performance issues (update lag) in large
+clusters, and the recommended solution was to set a larger
+<code>minSyncPeriod</code>. Since Kubernetes v1.28, the iptables mode of
+kube-proxy uses a more minimal approach, only making updates where
+Services or EndpointSlices have actually changed.</p><p>If you were previously overriding <code>minSyncPeriod</code>, you should try
+removing that override and letting kube-proxy use the default value
+(<code>1s</code>) or at least a smaller value than you were using before upgrading.</p><p>If you are not running kube-proxy from Kubernetes 1.34, check
+the behavior and associated advice for the version that you are actually running.</p><h5 id="syncperiod"><code>syncPeriod</code></h5><p>The <code>syncPeriod</code> parameter controls a handful of synchronization
+operations that are not directly related to changes in individual
+Services and EndpointSlices. In particular, it controls how quickly
+kube-proxy notices if an external component has interfered with
+kube-proxy's iptables rules. In large clusters, kube-proxy also only
+performs certain cleanup operations once every <code>syncPeriod</code> to avoid
+unnecessary work.</p><p>For the most part, increasing <code>syncPeriod</code> is not expected to have much
+impact on performance, but in the past, it was sometimes useful to set
+it to a very large value (eg, <code>1h</code>). This is no longer recommended,
+and is likely to hurt functionality more than it improves performance.</p><h3 id="proxy-mode-ipvs">IPVS proxy mode</h3><p><em>This proxy mode is only available on Linux nodes.</em></p><p>In <code>ipvs</code> mode, kube-proxy uses the kernel IPVS and iptables APIs to
+create rules to redirect traffic from Service IPs to endpoint IPs.</p><p>The IPVS proxy mode is based on netfilter hook function that is similar to
+iptables mode, but uses a hash table as the underlying data structure and works
+in the kernel space.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The <code>ipvs</code> proxy mode was an experiment in providing a Linux
+kube-proxy backend with better rule-synchronizing performance and
+higher network-traffic throughput than the <code>iptables</code> mode. While it
+succeeded in those goals, the kernel IPVS API turned out to be a bad
+match for the Kubernetes Services API, and the <code>ipvs</code> backend was
+never able to implement all of the edge cases of Kubernetes Service
+functionality correctly. At some point in the future, it is expected
+to be formally deprecated as a feature.</p><p>The <code>nftables</code> proxy mode (described below) is essentially a
+replacement for both the <code>iptables</code> and <code>ipvs</code> modes, with better
+performance than either of them, and is recommended as a replacement
+for <code>ipvs</code>. If you are deploying onto Linux systems that are too old
+to run the <code>nftables</code> proxy mode, you should also consider trying the
+<code>iptables</code> mode rather than <code>ipvs</code>, since the performance of
+<code>iptables</code> mode has improved greatly since the <code>ipvs</code> mode was first
+introduced.</p></div><p>IPVS provides more options for balancing traffic to backend Pods;
+these are:</p><ul><li><p><code>rr</code> (Round Robin): Traffic is equally distributed amongst the backing servers.</p></li><li><p><code>wrr</code> (Weighted Round Robin): Traffic is routed to the backing servers based on
+the weights of the servers. Servers with higher weights receive new connections
+and get more requests than servers with lower weights.</p></li><li><p><code>lc</code> (Least Connection): More traffic is assigned to servers with fewer active connections.</p></li><li><p><code>wlc</code> (Weighted Least Connection): More traffic is routed to servers with fewer connections
+relative to their weights, that is, connections divided by weight.</p></li><li><p><code>lblc</code> (Locality based Least Connection): Traffic for the same IP address is sent to the
+same backing server if the server is not overloaded and available; otherwise the traffic
+is sent to servers with fewer connections, and keep it for future assignment.</p></li><li><p><code>lblcr</code> (Locality Based Least Connection with Replication): Traffic for the same IP
+address is sent to the server with least connections. If all the backing servers are
+overloaded, it picks up one with fewer connections and adds it to the target set.
+If the target set has not changed for the specified time, the server with the highest load
+is removed from the set, in order to avoid a high degree of replication.</p></li><li><p><code>sh</code> (Source Hashing): Traffic is sent to a backing server by looking up a statically
+assigned hash table based on the source IP addresses.</p></li><li><p><code>dh</code> (Destination Hashing): Traffic is sent to a backing server by looking up a
+statically assigned hash table based on their destination addresses.</p></li><li><p><code>sed</code> (Shortest Expected Delay): Traffic forwarded to a backing server with the shortest
+expected delay. The expected delay is <code>(C + 1) / U</code> if sent to a server, where <code>C</code> is
+the number of connections on the server and <code>U</code> is the fixed service rate (weight) of
+the server.</p></li><li><p><code>nq</code> (Never Queue): Traffic is sent to an idle server if there is one, instead of
+waiting for a fast one; if all servers are busy, the algorithm falls back to the <code>sed</code>
+behavior.</p></li><li><p><code>mh</code> (Maglev Hashing): Assigns incoming jobs based on
+<a href="https://static.googleusercontent.com/media/research.google.com/en//pubs/archive/44824.pdf">Google's Maglev hashing algorithm</a>,
+This scheduler has two flags: <code>mh-fallback</code>, which enables fallback to a different
+server if the selected server is unavailable, and <code>mh-port</code>, which adds the source port number to
+the hash computation. When using <code>mh</code>, kube-proxy always sets the <code>mh-port</code> flag and does not
+enable the <code>mh-fallback</code> flag.
+In proxy-mode=ipvs <code>mh</code> will work as source-hashing (<code>sh</code>), but with ports.</p></li></ul><p>These scheduling algorithms are configured through the
+<a href="/docs/reference/config-api/kube-proxy-config.v1alpha1/#kubeproxy-config-k8s-io-v1alpha1-KubeProxyIPVSConfiguration"><code>ipvs.scheduler</code></a>
+field in the kube-proxy configuration.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>To run kube-proxy in IPVS mode, you must make IPVS available on
+the node before starting kube-proxy.</p><p>When kube-proxy starts in IPVS proxy mode, it verifies whether IPVS
+kernel modules are available. If the IPVS kernel modules are not detected, then kube-proxy
+exits with an error.</p></div><figure class="diagram-medium"><img src="/images/docs/services-ipvs-overview.svg"/><figcaption><h4>Virtual IP address mechanism for Services, using IPVS mode</h4></figcaption></figure><h3 id="proxy-mode-nftables"><code>nftables</code> proxy mode</h3><div class="feature-state-notice feature-stable" title="Feature Gate: NFTablesProxyMode"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p><em>This proxy mode is only available on Linux nodes, and requires kernel
+5.13 or later.</em></p><p>In this mode, kube-proxy configures packet forwarding rules using the
+nftables API of the kernel netfilter subsystem. For each endpoint, it
+installs nftables rules which, by default, select a backend Pod at
+random.</p><p>The nftables API is the successor to the iptables API and is designed
+to provide better performance and scalability than iptables. The
+<code>nftables</code> proxy mode is able to process changes to service endpoints
+faster and more efficiently than the <code>iptables</code> mode, and is also able
+to more efficiently process packets in the kernel (though this only
+becomes noticeable in clusters with tens of thousands of services).</p><p>As of Kubernetes 1.34, the <code>nftables</code> mode is
+still relatively new, and may not be compatible with all network
+plugins; consult the documentation for your network plugin.</p><h4 id="migrating-from-iptables-mode-to-nftables">Migrating from <code>iptables</code> mode to <code>nftables</code></h4><p>Users who want to switch from the default <code>iptables</code> mode to the
+<code>nftables</code> mode should be aware that some features work slightly
+differently the <code>nftables</code> mode:</p><ul><li><p><strong>NodePort interfaces</strong>: In <code>iptables</code> mode, by default,
+<a href="/docs/concepts/services-networking/service/#type-nodeport">NodePort services</a>
+are reachable on all local IP addresses. This is usually not what
+users want, so the <code>nftables</code> mode defaults to
+<code>--nodeport-addresses primary</code>, meaning Services using <code>type: NodePort</code> are only
+reachable on the node's primary IPv4 and/or IPv6 addresses. You can
+override this by specifying an explicit value for that option:
+e.g., <code>--nodeport-addresses 0.0.0.0/0</code> to listen on all (local)
+IPv4 IPs.</p></li><li><p><code>type: NodePort</code> <strong>Services on <code>127.0.0.1</code></strong>: In <code>iptables</code> mode, if the
+<code>--nodeport-addresses</code> range includes <code>127.0.0.1</code> (and the option
+<code>--iptables-localhost-nodeports false</code> option is not passed), then
+Services of <code>type: NodePort</code> are reachable even on "localhost" (<code>127.0.0.1</code>).
+In <code>nftables</code> mode (and <code>ipvs</code> mode), this will not work. If you
+are not sure if you are depending on this functionality, you can
+check kube-proxy's
+<code>iptables_localhost_nodeports_accepted_packets_total</code> metric; if it
+is non-0, that means that some client has connected to a <code>type: NodePort</code>
+Service via localhost/loopback.</p></li><li><p><strong>NodePort interaction with firewalls</strong>: The <code>iptables</code> mode of
+kube-proxy tries to be compatible with overly-aggressive firewalls;
+for each <code>type: NodePort</code> service, it will add rules to accept inbound
+traffic on that port, in case that traffic would otherwise be
+blocked by a firewall. This approach will not work with firewalls
+based on nftables, so kube-proxy's <code>nftables</code> mode does not do
+anything here; if you have a local firewall, you must ensure that
+it is properly configured to allow Kubernetes traffic through
+(e.g., by allowing inbound traffic on the entire NodePort range).</p></li><li><p><strong>Conntrack bug workarounds</strong>: Linux kernels prior to 6.1 have a
+bug that can result in long-lived TCP connections to service IPs
+being closed with the error "Connection reset by peer". The
+<code>iptables</code> mode of kube-proxy installs a workaround for this bug,
+but this workaround was later found to cause other problems in some
+clusters. The <code>nftables</code> mode does not install any workaround by
+default, but you can check kube-proxy's
+<code>iptables_ct_state_invalid_dropped_packets_total</code> metric to see if
+your cluster is depending on the workaround, and if so, you can run
+kube-proxy with the option <code>--conntrack-tcp-be-liberal</code> to work
+around the problem in <code>nftables</code> mode.</p></li></ul><h3 id="proxy-mode-kernelspace"><code>kernelspace</code> proxy mode</h3><p><em>This proxy mode is only available on Windows nodes.</em></p><p>The kube-proxy configures packet filtering rules in the Windows <em>Virtual Filtering Platform</em> (VFP),
+an extension to Windows vSwitch. These rules process encapsulated packets within the node-level
+virtual networks, and rewrite packets so that the destination IP address (and layer 2 information)
+is correct for getting the packet routed to the correct destination.
+The Windows VFP is analogous to tools such as Linux <code>nftables</code> or <code>iptables</code>. The Windows VFP extends
+the <em>Hyper-V Switch</em>, which was initially implemented to support virtual machine networking.</p><p>When a Pod on a node sends traffic to a virtual IP address, and the kube-proxy selects a Pod on
+a different node as the load balancing target, the <code>kernelspace</code> proxy mode rewrites that packet
+to be destined to the target backend Pod. The Windows <em>Host Networking Service</em> (HNS) ensures that
+packet rewriting rules are configured so that the return traffic appears to come from the virtual
+IP address and not the specific backend Pod.</p><h4 id="windows-direct-server-return">Direct server return for <code>kernelspace</code> mode</h4><div class="feature-state-notice feature-stable" title="Feature Gate: WinDSR"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [stable]</code> (enabled by default: true)</div><p>As an alternative to the basic operation, a node that hosts the backend Pod for a Service can
+apply the packet rewriting directly, rather than placing this burden on the node where the client
+Pod is running. This is called <em>direct server return</em>.</p><p>To use this, you must run kube-proxy with the <code>--enable-dsr</code> command line argument <strong>and</strong>
+enable the <code>WinDSR</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>.</p><p>Direct server return also optimizes the case for Pod return traffic even when both Pods
+are running on the same node.</p><h2 id="session-affinity">Session affinity</h2><p>In these proxy models, the traffic bound for the Service's IP:Port is
+proxied to an appropriate backend without the clients knowing anything
+about Kubernetes or Services or Pods.</p><p>If you want to make sure that connections from a particular client
+are passed to the same Pod each time, you can select the session affinity based
+on the client's IP addresses by setting <code>.spec.sessionAffinity</code> to <code>ClientIP</code>
+for a Service (the default is <code>None</code>).</p><h3 id="session-stickiness-timeout">Session stickiness timeout</h3><p>You can also set the maximum session sticky time by setting
+<code>.spec.sessionAffinityConfig.clientIP.timeoutSeconds</code> appropriately for a Service.
+(the default value is 10800, which works out to be 3 hours).</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>On Windows, setting the maximum session sticky time for Services is not supported.</div><h2 id="ip-address-assignment-to-services">IP address assignment to Services</h2><p>Unlike Pod IP addresses, which actually route to a fixed destination,
+Service IPs are not actually answered by a single host. Instead, kube-proxy
+uses packet processing logic (such as Linux iptables) to define <em>virtual</em> IP
+addresses which are transparently redirected as needed.</p><p>When clients connect to the VIP, their traffic is automatically transported to an
+appropriate endpoint. The environment variables and DNS for Services are actually
+populated in terms of the Service's virtual IP address (and port).</p><h3 id="avoiding-collisions">Avoiding collisions</h3><p>One of the primary philosophies of Kubernetes is that you should not be
+exposed to situations that could cause your actions to fail through no fault
+of your own. For the design of the Service resource, this means not making
+you choose your own IP address if that choice might collide with
+someone else's choice. That is an isolation failure.</p><p>In order to allow you to choose an IP address for your Services, we must
+ensure that no two Services can collide. Kubernetes does that by allocating each
+Service its own IP address from within the <code>service-cluster-ip-range</code>
+CIDR range that is configured for the <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API Server">API Server</a>.</p><h3 id="ip-address-allocation-tracking">IP address allocation tracking</h3><p>To ensure each Service receives a unique IP address, an internal allocator atomically
+updates a global allocation map in <a class="glossary-tooltip" title="Consistent and highly-available key value store used as backing store of Kubernetes for all cluster data." data-toggle="tooltip" data-placement="top" href="/docs/tasks/administer-cluster/configure-upgrade-etcd/" target="_blank" aria-label="etcd">etcd</a>
+prior to creating each Service. The map object must exist in the registry for
+Services to get IP address assignments, otherwise creations will
+fail with a message indicating an IP address could not be allocated.</p><p>In the control plane, a background controller is responsible for creating that
+map (needed to support migrating from older versions of Kubernetes that used
+in-memory locking). Kubernetes also uses controllers to check for invalid
+assignments (for example: due to administrator intervention) and for cleaning up allocated
+IP addresses that are no longer used by any Services.</p><h4 id="ip-address-objects">IP address allocation tracking using the Kubernetes API</h4><div class="feature-state-notice feature-stable" title="Feature Gate: MultiCIDRServiceAllocator"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p>The control plane replaces the existing etcd allocator with a revised implementation
+that uses IPAddress and ServiceCIDR objects instead of an internal global allocation map.
+Each cluster IP address associated to a Service then references an IPAddress object.</p><p>Enabling the feature gate also replaces a background controller with an alternative
+that handles the IPAddress objects and supports migration from the old allocator model.
+Kubernetes 1.34 does not support migrating from IPAddress
+objects to the internal allocation map.</p><p>One of the main benefits of the revised allocator is that it removes the size limitations
+for the IP address range that can be used for the cluster IP address of Services.
+With <code>MultiCIDRServiceAllocator</code> enabled, there are no limitations for IPv4, and for IPv6
+you can use IP address netmasks that are a /64 or smaller (as opposed to /108 with the
+legacy implementation).</p><p>Making IP address allocations available via the API means that you as a cluster administrator
+can allow users to inspect the IP addresses assigned to their Services.
+Kubernetes extensions, such as the <a href="/docs/concepts/services-networking/gateway/">Gateway API</a>,
+can use the IPAddress API to extend Kubernetes' inherent networking capabilities.</p><p>Here is a brief example of a user querying for IP addresses:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get services
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         TYPE        CLUSTER-IP        EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   2001:db8:1:2::1   &lt;none&gt;        443/TCP   3d1h
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get ipaddresses
+</span></span></code></pre></div><pre tabindex="0"><code>NAME              PARENTREF
+2001:db8:1:2::1   services/default/kubernetes
+2001:db8:1:2::a   services/kube-system/kube-dns
+</code></pre><p>Kubernetes also allow users to dynamically define the available IP ranges for Services using
+ServiceCIDR objects. During bootstrap, a default ServiceCIDR object named <code>kubernetes</code> is created
+from the value of the <code>--service-cluster-ip-range</code> command line argument to kube-apiserver:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get servicecidrs
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         CIDRS         AGE
+kubernetes   10.96.0.0/28  17m
+</code></pre><p>Users can create or delete new ServiceCIDR objects to manage the available IP ranges for Services:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cat <span style="color:#b44">&lt;&lt;'EOF' | kubectl apply -f -
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: networking.k8s.io/v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: ServiceCIDR
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: newservicecidr
+</span></span></span><span style="display:flex"><span><span style="color:#b44">spec:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  cidrs:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  - 10.96.0.0/24
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><pre tabindex="0"><code>servicecidr.networking.k8s.io/newcidr1 created
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get servicecidrs
+</span></span></code></pre></div><pre tabindex="0"><code>NAME             CIDRS         AGE
+kubernetes       10.96.0.0/28  17m
+newservicecidr   10.96.0.0/24  7m
+</code></pre><p>Distributions or administrators of Kubernetes clusters may want to control that
+new Service CIDRs added to the cluster does not overlap with other networks on
+the cluster, that only belong to a specific range of IPs or just simple retain
+the existing behavior of only having one ServiceCIDR per cluster. An example of
+a Validation Admission Policy to achieve this is:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicy<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs-default"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">failurePolicy</span>:<span style="color:#bbb"> </span>Fail<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConstraints</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resourceRules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"networking.k8s.io"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">apiVersions</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"v1"</span>,<span style="color:#b44">"v1beta1"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">operations</span>:<span style="color:#bbb">  </span>[<span style="color:#b44">"CREATE"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"UPDATE"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">   </span>[<span style="color:#b44">"servicecidrs"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchConditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">'exclude-default-servicecidr'</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.metadata.name != 'kubernetes'"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">variables</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>allowed<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"['10.96.0.0/16','2001:db8::/64']"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">expression</span>:<span style="color:#bbb"> </span><span style="color:#b44">"object.spec.cidrs.all(i , variables.allowed.exists(j , cidr(j).containsCIDR(i)))"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>admissionregistration.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ValidatingAdmissionPolicyBinding<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs-binding"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">policyName</span>:<span style="color:#bbb"> </span><span style="color:#b44">"servicecidrs-default"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">validationActions</span>:<span style="color:#bbb"> </span>[Deny,Audit]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h3 id="service-ip-static-sub-range">IP address ranges for Service virtual IP addresses</h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [stable]</code></div><p>Kubernetes divides the <code>ClusterIP</code> range into two bands, based on
+the size of the configured <code>service-cluster-ip-range</code> by using the following formula
+<code>min(max(16, cidrSize / 16), 256)</code>. That formula means the result is <em>never less than 16 or
+more than 256, with a graduated step function between them</em>.</p><p>Kubernetes prefers to allocate dynamic IP addresses to Services by choosing from the upper band,
+which means that if you want to assign a specific IP address to a <code>type: ClusterIP</code>
+Service, you should manually assign an IP address from the <strong>lower</strong> band. That approach
+reduces the risk of a conflict over allocation.</p><h2 id="traffic-policies">Traffic policies</h2><p>You can set the <code>.spec.internalTrafficPolicy</code> and <code>.spec.externalTrafficPolicy</code> fields
+to control how Kubernetes routes traffic to healthy (“ready”) backends.</p><h3 id="internal-traffic-policy">Internal traffic policy</h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [stable]</code></div><p>You can set the <code>.spec.internalTrafficPolicy</code> field to control how traffic from
+internal sources is routed. Valid values are <code>Cluster</code> and <code>Local</code>. Set the field to
+<code>Cluster</code> to route internal traffic to all ready endpoints and <code>Local</code> to only route
+to ready node-local endpoints. If the traffic policy is <code>Local</code> and there are no
+node-local endpoints, traffic is dropped by kube-proxy.</p><h3 id="external-traffic-policy">External traffic policy</h3><p>You can set the <code>.spec.externalTrafficPolicy</code> field to control how traffic from
+external sources is routed. Valid values are <code>Cluster</code> and <code>Local</code>. Set the field
+to <code>Cluster</code> to route external traffic to all ready endpoints and <code>Local</code> to only
+route to ready node-local endpoints. If the traffic policy is <code>Local</code> and there
+are no node-local endpoints, the kube-proxy does not forward any traffic for the
+relevant Service.</p><p>If <code>Cluster</code> is specified, all nodes are eligible load balancing targets <em>as long as</em>
+the node is not being deleted and kube-proxy is healthy. In this mode: load balancer
+health checks are configured to target the service proxy's readiness port and path.
+In the case of kube-proxy this evaluates to: <code>${NODE_IP}:10256/healthz</code>. kube-proxy
+will return either an HTTP code 200 or 503. kube-proxy's load balancer health check
+endpoint returns 200 if:</p><ol><li><p>kube-proxy is healthy, meaning:</p><p>it's able to progress programming the network and isn't timing out while doing
+so (the timeout is defined to be: <strong>2 × <code>iptables.syncPeriod</code></strong>); and</p></li><li><p>the node is not being deleted (there is no deletion timestamp set for the Node).</p></li></ol><p>kube-proxy returns 503 and marks the node as not
+eligible when it's being deleted because it supports connection
+draining for terminating nodes. A couple of important things occur from the point
+of view of a Kubernetes-managed load balancer when a node <em>is being</em> / <em>is</em> deleted.</p><p>While deleting:</p><ul><li>kube-proxy will start failing its readiness probe and essentially mark the
+node as not eligible for load balancer traffic. The load balancer health
+check failing causes load balancers which support connection draining to
+allow existing connections to terminate, and block new connections from
+establishing.</li></ul><p>When deleted:</p><ul><li>The service controller in the Kubernetes cloud controller manager removes the
+node from the referenced set of eligible targets. Removing any instance from
+the load balancer's set of backend targets immediately terminates all
+connections. This is also the reason kube-proxy first fails the health check
+while the node is deleting.</li></ul><p>It's important to note for Kubernetes vendors that if any vendor configures the
+kube-proxy readiness probe as a liveness probe: that kube-proxy will start
+restarting continuously when a node is deleting until it has been fully deleted.
+kube-proxy exposes a <code>/livez</code> path which, as opposed to the <code>/healthz</code> one, does
+<strong>not</strong> consider the Node's deleting state and only its progress programming the
+network. <code>/livez</code> is therefore the recommended path for anyone looking to define
+a livenessProbe for kube-proxy.</p><p>Users deploying kube-proxy can inspect both the readiness / liveness state by
+evaluating the metrics: <code>proxy_livez_total</code> / <code>proxy_healthz_total</code>. Both
+metrics publish two series, one with the 200 label and one with the 503 one.</p><p>For <code>Local</code> Services: kube-proxy will return 200 if</p><ol><li>kube-proxy is healthy/ready, and</li><li>has a local endpoint on the node in question.</li></ol><p>Node deletion does <strong>not</strong> have an impact on kube-proxy's return
+code for what concerns load balancer health checks. The reason for this is:
+deleting nodes could end up causing an ingress outage should all endpoints
+simultaneously be running on said nodes.</p><p>The Kubernetes project recommends that cloud provider integration code
+configures load balancer health checks that target the service proxy's healthz
+port. If you are using or implementing your own virtual IP implementation,
+that people can use instead of kube-proxy, you should set up a similar health
+checking port with logic that matches the kube-proxy implementation.</p><h3 id="traffic-to-terminating-endpoints">Traffic to terminating endpoints</h3><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.28 [stable]</code></div><p>If the <code>ProxyTerminatingEndpoints</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>
+is enabled in kube-proxy and the traffic policy is <code>Local</code>, that node's
+kube-proxy uses a more complicated algorithm to select endpoints for a Service.
+With the feature enabled, kube-proxy checks if the node
+has local endpoints and whether or not all the local endpoints are marked as terminating.
+If there are local endpoints and <strong>all</strong> of them are terminating, then kube-proxy
+will forward traffic to those terminating endpoints. Otherwise, kube-proxy will always
+prefer forwarding traffic to endpoints that are not terminating.</p><p>This forwarding behavior for terminating endpoints exists to allow <code>NodePort</code> and <code>LoadBalancer</code>
+Services to gracefully drain connections when using <code>externalTrafficPolicy: Local</code>.</p><p>As a deployment goes through a rolling update, nodes backing a load balancer may transition from
+N to 0 replicas of that deployment. In some cases, external load balancers can send traffic to
+a node with 0 replicas in between health check probes. Routing traffic to terminating endpoints
+ensures that Nodes that are scaling down Pods can gracefully receive and drain traffic to
+those terminating Pods. By the time the Pod completes termination, the external load balancer
+should have seen the node's health check failing and fully removed the node from the backend
+pool.</p><h2 id="traffic-distribution">Traffic Distribution</h2><div class="feature-state-notice feature-stable" title="Feature Gate: ServiceTrafficDistribution"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p>The <code>spec.trafficDistribution</code> field within a Kubernetes Service allows you to
+express preferences for how traffic should be routed to Service endpoints.</p><dl><dt><code>PreferClose</code></dt><dd>This prioritizes sending traffic to endpoints in the same zone as the client.
+The EndpointSlice controller updates EndpointSlices with <code>hints</code> to
+communicate this preference, which kube-proxy then uses for routing decisions.
+If a client's zone does not have any available endpoints, traffic will be
+routed cluster-wide for that client.</dd></dl><div class="feature-state-notice feature-beta" title="Feature Gate: PreferSameTrafficDistribution"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [beta]</code> (enabled by default: true)</div><p>In Kubernetes 1.34, two additional values are
+available (unless the <code>PreferSameTrafficDistribution</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature
+gate</a> is
+disabled):</p><dl><dt><code>PreferSameZone</code></dt><dd>This means the same thing as <code>PreferClose</code>, but is more explicit. (Originally,
+the intention was that <code>PreferClose</code> might later include functionality other
+than just "prefer same zone", but this is no longer planned. In the future,
+<code>PreferSameZone</code> will be the recommended value to use for this functionality,
+and <code>PreferClose</code> will be considered a deprecated alias for it.)</dd><dt><code>PreferSameNode</code></dt><dd>This prioritizes sending traffic to endpoints on the same node as the client.
+As with <code>PreferClose</code>/<code>PreferSameZone</code>, the EndpointSlice controller updates
+EndpointSlices with <code>hints</code> indicating that a slice should be used for a
+particular node. If a client's node does not have any available endpoints,
+then the service proxy will fall back to "same zone" behavior, or cluster-wide
+if there are no same-zone endpoints either.</dd></dl><p>In the absence of any value for <code>trafficDistribution</code>, the default strategy is
+to distribute traffic evenly to all endpoints in the cluster.</p><h3 id="comparison-with-service-kubernetes-io-topology-mode-auto">Comparison with <code>service.kubernetes.io/topology-mode: Auto</code></h3><p>The <code>trafficDistribution</code> field with <code>PreferClose</code>/<code>PreferSameZone</code>, and the older "Topology-Aware
+Routing" feature using the <code>service.kubernetes.io/topology-mode: Auto</code>
+annotation both aim to prioritize same-zone traffic. However, there is a key
+difference in their approaches:</p><ul><li><p><code>service.kubernetes.io/topology-mode: Auto</code> attempts to distribute traffic
+proportionally across zones based on allocatable CPU resources. This heuristic
+includes safeguards (such as the <a href="/docs/concepts/services-networking/topology-aware-routing/#three-or-more-endpoints-per-zone">fallback
+behavior</a>
+for small numbers of endpoints), sacrificing some predictability in favor of
+potentially better load balancing.</p></li><li><p><code>trafficDistribution: PreferClose</code> aims to be simpler and more predictable:
+"If there are endpoints in the zone, they will receive all traffic for that
+zone, if there are no endpoints in a zone, the traffic will be distributed to
+other zones". This approach offers more predictability, but it means that you
+are responsible for <a href="#considerations-for-using-traffic-distribution-control">avoiding endpoint
+overload</a>.</p></li></ul><p>If the <code>service.kubernetes.io/topology-mode</code> annotation is set to <code>Auto</code>, it
+will take precedence over <code>trafficDistribution</code>. The annotation may be deprecated
+in the future in favor of the <code>trafficDistribution</code> field.</p><h3 id="interaction-with-traffic-policies">Interaction with Traffic Policies</h3><p>When compared to the <code>trafficDistribution</code> field, the traffic policy fields
+(<code>externalTrafficPolicy</code> and <code>internalTrafficPolicy</code>) are meant to offer a
+stricter traffic locality requirements. Here's how <code>trafficDistribution</code>
+interacts with them:</p><ul><li><p>Precedence of Traffic Policies: For a given Service, if a traffic policy
+(<code>externalTrafficPolicy</code> or <code>internalTrafficPolicy</code>) is set to <code>Local</code>, it
+takes precedence over <code>trafficDistribution</code> for the corresponding
+traffic type (external or internal, respectively).</p></li><li><p><code>trafficDistribution</code> Influence: For a given Service, if a traffic policy
+(<code>externalTrafficPolicy</code> or <code>internalTrafficPolicy</code>) is set to <code>Cluster</code> (the
+default), or if the fields are not set, then <code>trafficDistribution</code>
+guides the routing behavior for the corresponding traffic type
+(external or internal, respectively). This means that an attempt will be made
+to route traffic to an endpoint that is in the same zone as the client.</p></li></ul><h3 id="considerations-for-using-traffic-distribution-control">Considerations for using traffic distribution control</h3><p>A Service using <code>trafficDistribution</code> will attempt to route traffic to (healthy)
+endpoints within the appropriate topology, even if this means that some
+endpoints receive much more traffic than other endpoints. If you do not have a
+sufficient number of endpoints within the same topology ("same zone", "same
+node", etc.) as the clients, then endpoints may become overloaded. This is
+especially likely if incoming traffic is not proportionally distributed across
+the topology. To mitigate this, consider the following strategies:</p><ul><li><p><a href="/docs/concepts/scheduling-eviction/topology-spread-constraints/">Pod Topology Spread Constraints</a>:
+Use Pod Topology Spread Constraints to distribute your pods evenly
+across zones or nodes.</p></li><li><p>Zone-specific Deployments: If you are using "same zone" traffic
+distribution, but expect to see different traffic patterns in
+different zones, you can create a separate Deployment for each zone.
+This approach allows the separate workloads to scale independently.
+There are also workload management addons available from the
+ecosystem, outside the Kubernetes project itself, that can help
+here.</p></li></ul><h2 id="what-s-next">What's next</h2><p>To learn more about Services,
+read <a href="/docs/tutorials/services/connect-applications-service/">Connecting Applications with Services</a>.</p><p>You can also:</p><ul><li>Read about <a href="/docs/concepts/services-networking/service/">Services</a> as a concept</li><li>Read about <a href="/docs/concepts/services-networking/ingress/">Ingresses</a> as a concept</li><li>Read the <a href="/docs/reference/kubernetes-api/service-resources/service-v1/">API reference</a> for the Service API</li></ul></div>
+<hr>
+<div class="td-content"><h1 data-pagefind-weight="10">Articles on dockershim Removal and on Using CRI-compatible Runtimes</h1><p>This is a list of articles and other pages that are either
+about the Kubernetes' deprecation and removal of <em>dockershim</em>,
+or about using CRI-compatible container runtimes,
+in connection with that removal.</p><h2 id="kubernetes-project">Kubernetes project</h2><ul><li><p>Kubernetes blog: <a href="/blog/2020/12/02/dockershim-faq/">Dockershim Removal FAQ</a> (originally published 2020/12/02)</p></li><li><p>Kubernetes blog: <a href="/blog/2022/02/17/dockershim-faq/">Updated: Dockershim Removal FAQ</a> (updated published 2022/02/17)</p></li><li><p>Kubernetes blog: <a href="/blog/2022/01/07/kubernetes-is-moving-on-from-dockershim/">Kubernetes is Moving on From Dockershim: Commitments and Next Steps</a> (published 2022/01/07)</p></li><li><p>Kubernetes blog: <a href="/blog/2021/11/12/are-you-ready-for-dockershim-removal/">Dockershim removal is coming. Are you ready?</a> (published 2021/11/12)</p></li><li><p>Kubernetes documentation: <a href="/docs/tasks/administer-cluster/migrating-from-dockershim/">Migrating from dockershim</a></p></li><li><p>Kubernetes documentation: <a href="/docs/setup/production-environment/container-runtimes/">Container Runtimes</a></p></li><li><p>Kubernetes enhancement proposal: <a href="https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/2221-remove-dockershim/README.md">KEP-2221: Removing dockershim from kubelet</a></p></li><li><p>Kubernetes enhancement proposal issue: <a href="https://github.com/kubernetes/enhancements/issues/2221">Removing dockershim from kubelet</a> (<em>k/enhancements#2221</em>)</p></li></ul><p>You can provide feedback via the GitHub issue <a href="https://github.com/kubernetes/kubernetes/issues/106917"><strong>Dockershim removal feedback &amp; issues</strong></a>. (<em>k/kubernetes/#106917</em>)</p><h2 id="third-party">External sources</h2><ul><li><p>Amazon Web Services EKS documentation: <a href="https://docs.aws.amazon.com/eks/latest/userguide/dockershim-deprecation.html">Amazon EKS is ending support for Dockershim</a></p></li><li><p>CNCF conference video: <a href="https://www.youtube.com/watch?v=uDOu6rK4yOk">Lessons Learned Migrating Kubernetes from Docker to containerd Runtime</a> (Ana Caylin, at KubeCon Europe 2019)</p></li><li><p>Docker.com blog: <a href="https://www.docker.com/blog/what-developers-need-to-know-about-docker-docker-engine-and-kubernetes-v1-20/">What developers need to know about Docker, Docker Engine, and Kubernetes v1.20</a> (published 2020/12/04)</p></li><li><p>"<em>Google Open Source</em>" channel on YouTube: <a href="https://youtu.be/fl7_4hjT52g">Learn Kubernetes with Google - Migrating from Dockershim to Containerd</a></p></li><li><p>Microsoft Apps on Azure blog: <a href="https://techcommunity.microsoft.com/t5/apps-on-azure-blog/dockershim-deprecation-and-aks/ba-p/3055902">Dockershim deprecation and AKS</a> (published 2022/01/21)</p></li><li><p>Mirantis blog: <a href="https://www.mirantis.com/blog/the-future-of-dockershim-is-cri-dockerd/">The Future of Dockershim is cri-dockerd</a> (published 2021/04/21)</p></li><li><p>Mirantis: <a href="https://mirantis.github.io/cri-dockerd/">Mirantis/cri-dockerd</a> Official Documentation</p></li><li><p>Tripwire: <a href="https://www.tripwire.com/state-of-security/security-data-protection/cloud/how-dockershim-forthcoming-deprecation-affects-your-kubernetes/">How Dockershim’s Forthcoming Deprecation Affects Your Kubernetes</a> (published 2021/07/01)</p></li></ul></div>

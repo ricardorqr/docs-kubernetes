@@ -1,0 +1,82 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Using a Service to Expose Your App</h1><h2 id="objectives">Objectives</h2><ul><li>Learn about a Service in Kubernetes.</li><li>Understand how labels and selectors relate to a Service.</li><li>Expose an application outside a Kubernetes cluster.</li></ul><h2 id="overview-of-kubernetes-services">Overview of Kubernetes Services</h2><p>Kubernetes <a href="/docs/concepts/workloads/pods/">Pods</a> are mortal. Pods have a
+<a href="/docs/concepts/workloads/pods/pod-lifecycle/">lifecycle</a>. When a worker node dies,
+the Pods running on the Node are also lost. A <a href="/docs/concepts/workloads/controllers/replicaset/">Replicaset</a>
+might then dynamically drive the cluster back to the desired state via the creation
+of new Pods to keep your application running. As another example, consider an image-processing
+backend with 3 replicas. Those replicas are exchangeable; the front-end system should
+not care about backend replicas or even if a Pod is lost and recreated. That said,
+each Pod in a Kubernetes cluster has a unique IP address, even Pods on the same Node,
+so there needs to be a way of automatically reconciling changes among Pods so that your
+applications continue to function.</p><div class="alert alert-primary" role="alert"><em>A Kubernetes Service is an abstraction layer which defines a logical set of Pods and
+enables external traffic exposure, load balancing and service discovery for those Pods.</em></div><p>A <a href="/docs/concepts/services-networking/service/">Service</a> in Kubernetes is an abstraction
+which defines a logical set of Pods and a policy by which to access them. Services
+enable a loose coupling between dependent Pods. A Service is defined using YAML or JSON,
+like all Kubernetes object manifests. The set of Pods targeted by a Service is usually
+determined by a <em>label selector</em> (see below for why you might want a Service without
+including a <code>selector</code> in the spec).</p><p>Although each Pod has a unique IP address, those IPs are not exposed outside the
+cluster without a Service. Services allow your applications to receive traffic.
+Services can be exposed in different ways by specifying a <code>type</code> in the <code>spec</code> of the Service:</p><ul><li><p><em>ClusterIP</em> (default) - Exposes the Service on an internal IP in the cluster. This
+type makes the Service only reachable from within the cluster.</p></li><li><p><em>NodePort</em> - Exposes the Service on the same port of each selected Node in the cluster using NAT.
+Makes a Service accessible from outside the cluster using <code>NodeIP:NodePort</code>. Superset of ClusterIP.</p></li><li><p><em>LoadBalancer</em> - Creates an external load balancer in the current cloud (if supported)
+and assigns a fixed, external IP to the Service. Superset of NodePort.</p></li><li><p><em>ExternalName</em> - Maps the Service to the contents of the <code>externalName</code> field
+(e.g. <code>foo.bar.example.com</code>), by returning a <code>CNAME</code> record with its value.
+No proxying of any kind is set up. This type requires v1.7 or higher of <code>kube-dns</code>,
+or CoreDNS version 0.0.8 or higher.</p></li></ul><p>More information about the different types of Services can be found in the
+<a href="/docs/tutorials/services/source-ip/">Using Source IP</a> tutorial. Also see
+<a href="/docs/tutorials/services/connect-applications-service/">Connecting Applications with Services</a>.</p><p>Additionally, note that there are some use cases with Services that involve not defining
+a <code>selector</code> in the spec. A Service created without <code>selector</code> will also not create
+the corresponding Endpoints object. This allows users to manually map a Service to
+specific endpoints. Another possibility why there may be no selector is you are strictly
+using <code>type: ExternalName</code>.</p><h2 id="services-and-labels">Services and Labels</h2><p>A Service routes traffic across a set of Pods. Services are the abstraction that allows
+pods to die and replicate in Kubernetes without impacting your application. Discovery
+and routing among dependent Pods (such as the frontend and backend components in an application)
+are handled by Kubernetes Services.</p><p>Services match a set of Pods using
+<a href="/docs/concepts/overview/working-with-objects/labels/">labels and selectors</a>, a grouping
+primitive that allows logical operation on objects in Kubernetes. Labels are key/value
+pairs attached to objects and can be used in any number of ways:</p><ul><li>Designate objects for development, test, and production</li><li>Embed version tags</li><li>Classify an object using tags</li></ul><figure class="diagram-medium"><img src="/docs/tutorials/kubernetes-basics/public/images/module_04_labels.svg"/></figure><p>Labels can be attached to objects at creation time or later on. They can be modified
+at any time. Let's expose our application now using a Service and apply some labels.</p><h3 id="step-1-creating-a-new-service">Step 1: Creating a new Service</h3><p>Let’s verify that our application is running. We’ll use the <code>kubectl get</code> command
+and look for existing Pods:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><p>If no Pods are running then it means the objects from the previous tutorials were
+cleaned up. In this case, go back and recreate the deployment from the
+<a href="/docs/tutorials/kubernetes-basics/deploy-app/deploy-intro/#deploy-an-app">Using kubectl to create a Deployment</a>
+tutorial. Please wait a couple of seconds and list the Pods again. You can continue
+once you see the one Pod running.</p><p>Next, let’s list the current Services from our cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get services
+</span></span></code></pre></div><p>To expose the deployment to external traffic, we'll use the kubectl expose command with the --type=NodePort option:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl expose deployment/kubernetes-bootcamp --type<span style="color:#666">=</span><span style="color:#b44">"NodePort"</span> --port <span style="color:#666">8080</span>
+</span></span></code></pre></div><p>We have now a running Service called kubernetes-bootcamp. Here we see that the Service
+received a unique cluster-IP, an internal port and an external-IP (the IP of the Node).</p><p>To find out what port was opened externally (for the <code>type: NodePort</code> Service) we’ll
+run the <code>describe service</code> subcommand:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe services/kubernetes-bootcamp
+</span></span></code></pre></div><p>Create an environment variable called <code>NODE_PORT</code> that has the value of the Node
+port assigned:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">NODE_PORT</span><span style="color:#666">=</span><span style="color:#b44">"</span><span style="color:#a2f;font-weight:700">$(</span>kubectl get services/kubernetes-bootcamp -o go-template<span style="color:#666">=</span><span style="color:#b44">'{{(index .spec.ports 0).nodePort}}'</span><span style="color:#a2f;font-weight:700">)</span><span style="color:#b44">"</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">"NODE_PORT=</span><span style="color:#b8860b">$NODE_PORT</span><span style="color:#b44">"</span>
+</span></span></code></pre></div><p>Now we can test that the app is exposed outside of the cluster using <code>curl</code>, the
+IP address of the Node and the externally exposed port:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://<span style="color:#b44">"</span><span style="color:#a2f;font-weight:700">$(</span>minikube ip<span style="color:#a2f;font-weight:700">)</span><span style="color:#b44">:</span><span style="color:#b8860b">$NODE_PORT</span><span style="color:#b44">"</span>
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>If you're running minikube with Docker Desktop as the container driver, a minikube
+tunnel is needed. This is because containers inside Docker Desktop are isolated
+from your host computer.</p><p>In a separate terminal window, execute:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>minikube service kubernetes-bootcamp --url
+</span></span></code></pre></div><p>The output looks like this:</p><pre tabindex="0"><code>http://127.0.0.1:51082
+!  Because you are using a Docker driver on darwin, the terminal needs to be open to run it.
+</code></pre><p>Then use the given URL to access the app:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl 127.0.0.1:51082
+</span></span></code></pre></div></div><p>And we get a response from the server. The Service is exposed.</p><h3 id="step-2-using-labels">Step 2: Using labels</h3><p>The Deployment created automatically a label for our Pod. With the <code>describe deployment</code>
+subcommand you can see the name (the <em>key</em>) of that label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe deployment
+</span></span></code></pre></div><p>Let’s use this label to query our list of Pods. We’ll use the <code>kubectl get pods</code>
+command with <code>-l</code> as a parameter, followed by the label values:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>kubernetes-bootcamp
+</span></span></code></pre></div><p>You can do the same to list the existing Services:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get services -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>kubernetes-bootcamp
+</span></span></code></pre></div><p>Get the name of the Pod and store it in the POD_NAME environment variable:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">POD_NAME</span><span style="color:#666">=</span><span style="color:#b44">"</span><span style="color:#a2f;font-weight:700">$(</span>kubectl get pods -o go-template --template <span style="color:#b44">'{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}'</span><span style="color:#a2f;font-weight:700">)</span><span style="color:#b44">"</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">echo</span> <span style="color:#b44">"Name of the Pod: </span><span style="color:#b8860b">$POD_NAME</span><span style="color:#b44">"</span>
+</span></span></code></pre></div><p>To apply a new label we use the label subcommand followed by the object type,
+object name and the new label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl label pods <span style="color:#b44">"</span><span style="color:#b8860b">$POD_NAME</span><span style="color:#b44">"</span> <span style="color:#b8860b">version</span><span style="color:#666">=</span>v1
+</span></span></code></pre></div><p>This will apply a new label to our Pod (we pinned the application version to the Pod),
+and we can check it with the <code>describe pod</code> command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe pods <span style="color:#b44">"</span><span style="color:#b8860b">$POD_NAME</span><span style="color:#b44">"</span>
+</span></span></code></pre></div><p>We see here that the label is attached now to our Pod. And we can query now the
+list of pods using the new label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">version</span><span style="color:#666">=</span>v1
+</span></span></code></pre></div><p>And we see the Pod.</p><h3 id="step-3-deleting-a-service">Step 3: Deleting a service</h3><p>To delete Services you can use the <code>delete service</code> subcommand. Labels can be used
+also here:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete service -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>kubernetes-bootcamp
+</span></span></code></pre></div><p>Confirm that the Service is gone:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get services
+</span></span></code></pre></div><p>This confirms that our Service was removed. To confirm that route is not exposed
+anymore you can <code>curl</code> the previously exposed IP and port:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://<span style="color:#b44">"</span><span style="color:#a2f;font-weight:700">$(</span>minikube ip<span style="color:#a2f;font-weight:700">)</span><span style="color:#b44">:</span><span style="color:#b8860b">$NODE_PORT</span><span style="color:#b44">"</span>
+</span></span></code></pre></div><p>This proves that the application is not reachable anymore from outside of the cluster.
+You can confirm that the app is still running with a <code>curl</code> from inside the pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -ti <span style="color:#b8860b">$POD_NAME</span> -- curl http://localhost:8080
+</span></span></code></pre></div><p>We see here that the application is up. This is because the Deployment is managing
+the application. To shut down the application, you would need to delete the Deployment
+as well.</p><h2 id="what-s-next">What's next</h2><ul><li>Tutorial
+<a href="/docs/tutorials/kubernetes-basics/scale/scale-intro/">Running Multiple Instances of Your App</a>.</li><li>Learn more about <a href="/docs/concepts/services-networking/service/">Service</a>.</li></ul></div>

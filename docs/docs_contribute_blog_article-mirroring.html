@@ -1,0 +1,21 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Blog article mirroring</h1><p>There are two official Kubernetes blogs, and the CNCF has its own blog where you can cover Kubernetes too.
+For the main Kubernetes blog, we (the Kubernetes project) like to publish articles with different perspectives and special focuses, that have a link to Kubernetes.</p><p>Some articles appear on both blogs: there is a primary version of the article, and
+a <em>mirror article</em> on the other blog.</p><p>This page describes the criteria for mirroring, the motivation for mirroring, and
+explains what you should do to ensure that an article publishes to both blogs.</p><h1 id="before-you-begin">Before you begin</h1><p>Make sure you are familiar with the introduction sections of
+<a href="/docs/contribute/blog/">contributing to Kubernetes blogs</a>, not just to learn about
+the two official blogs and the differences between them, but also to get an overview
+of the process.</p><h2 id="why-we-mirror">Why we mirror</h2><p>Mirroring is nearly always from the contributor blog to the main blog. The project does this
+for articles that are about the contributor community, or a part of it, but are also relevant
+to the wider set of readers for Kubernetes' main blog.</p><p>As an author (or reviewer), consider the target audience and whether the blog post is appropriate for the <a href="/docs/contribute/blog/#main-blog">main blog</a>.
+For example: if the target audience are Kubernetes contributors only, then the
+<a href="/docs/contribute/blog/#contributor-blog">contributor blog</a>.
+may be more appropriate;
+if the blog post is about open source in general then it may be more suitable on another site outside the Kubernetes project.</p><p>This consideration about target audience applies to original and mirrored articles equally.</p><p>The Kubernetes project is willing to mirror any blog article that was published to <a href="https://kubernetes.dev/blog/">https://kubernetes.dev/blog/</a>
+(the contributor blog), provided that all of the following criteria are met:</p><ul><li><p>the mirrored article has the same publication date as the original (it should have the same publication time too,
+but you can also set a time stamp up to 12 hours later for special cases)</p></li><li><p>For PRs that add a mirrored article to the main blog <em>after</em> the original article has merged into the contributor blog, ensure that all of the following criteria are met:</p><ul><li>No articles were published to the main blog after the original article was published to the contributor blog.</li><li>There are no main blog articles scheduled for publication between the publication time of the original article and the publication time of your mirrored article.</li></ul><p>This is because the Kubernetes project doesn't want to add articles to people's feeds, such as RSS, except at the very end of their feed.</p></li><li><p>the original article doesn't contravene any strongly recommended review guidelines or community norms</p></li><li><p>the mirrored article will have <code>canonicalUrl</code> set correctly in its
+<a href="https://gohugo.io/content-management/front-matter/">front matter</a></p></li><li><p>the audience for the original article would find it relevant</p></li><li><p>the article content is not off-topic for the target blog where the mirror article would
+appear</p></li></ul><p>Mirroring from the main blog to the contributor blog is rare, but could feasibly happen.</p><h2 id="how-to-mirror">How to mirror</h2><p>You make a PR against the other Git repository (usually,
+<a href="https://github.com/kubernetes/website">https://github.com/kubernetes/website</a>) that adds
+the article. You do this <em>before</em> the articles merge.</p><p>As the article author, you should set the canonical URL for the mirrored article, to the URL of the original article
+(you can use a preview to predict the URL and fill this in ahead of actual publication). Use the <code>canonicalUrl</code>
+field in <a href="https://gohugo.io/content-management/front-matter/">front matter</a> for this.</p></div>

@@ -1,0 +1,182 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Node Resource Managers</h1><p>In order to support latency-critical and high-throughput workloads, Kubernetes offers a suite of
+Resource Managers. The managers aim to co-ordinate and optimise the alignment of node's resources for pods
+configured with a specific requirement for CPUs, devices, and memory (hugepages) resources.</p><h2 id="hardware-topology-alignment-policies">Hardware topology alignment policies</h2><p><em>Topology Manager</em> is a kubelet component that aims to coordinate the set of components that are
+responsible for these optimizations. The overall resource management process is governed using
+the policy you specify. To learn more, read
+<a href="/docs/tasks/administer-cluster/topology-manager/">Control Topology Management Policies on a Node</a>.</p><h2 id="policies-for-assigning-cpus-to-pods">Policies for assigning CPUs to Pods</h2><div class="feature-state-notice feature-stable" title="Feature Gate: CPUManager"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [stable]</code> (enabled by default: true)</div><p>Once a Pod is bound to a Node, the kubelet on that node may need to either multiplex the existing
+hardware (for example, sharing CPUs across multiple Pods) or allocate hardware by dedicating some
+resource (for example, assigning one of more CPUs for a Pod's exclusive use).</p><p>By default, the kubelet uses <a href="https://en.wikipedia.org/wiki/Completely_Fair_Scheduler">CFS quota</a>
+to enforce pod CPU limits.  When the node runs many CPU-bound pods, the workload can move to
+different CPU cores depending on whether the pod is throttled and which CPU cores are available
+at scheduling time. Many workloads are not sensitive to this migration and thus
+work fine without any intervention.</p><p>However, in workloads where CPU cache affinity and scheduling latency significantly affect
+workload performance, the kubelet allows alternative CPU
+management policies to determine some placement preferences on the node.
+This is implemented using the <em>CPU Manager</em> and its policy.
+There are two available policies:</p><ul><li><code>none</code>: the <code>none</code> policy explicitly enables the existing default CPU
+affinity scheme, providing no affinity beyond what the OS scheduler does
+automatically.  Limits on CPU usage for
+<a href="/docs/concepts/workloads/pods/pod-qos/">Guaranteed pods</a> and
+<a href="/docs/concepts/workloads/pods/pod-qos/">Burstable pods</a>
+are enforced using CFS quota.</li><li><code>static</code>: the <code>static</code> policy allows containers in <code>Guaranteed</code> pods with integer CPU
+<code>requests</code> access to exclusive CPUs on the node. This exclusivity is enforced
+using the <a href="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cpuset cgroup controller</a>.</li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>System services such as the container runtime and the kubelet itself can continue to run on
+these exclusive CPUs.  The exclusivity only extends to other pods.</div><p>CPU Manager doesn't support offlining and onlining of CPUs at runtime.</p><h3 id="static-policy">Static policy</h3><p>The static policy enables finer-grained CPU management and exclusive CPU assignment.
+This policy manages a shared pool of CPUs that initially contains all CPUs in the
+node. The amount of exclusively allocatable CPUs is equal to the total
+number of CPUs in the node minus any CPU reservations set by the kubelet configuration.
+CPUs reserved by these options are taken, in integer quantity, from the initial shared pool in ascending order by physical
+core ID.  This shared pool is the set of CPUs on which any containers in
+<code>BestEffort</code> and <code>Burstable</code> pods run. Containers in <code>Guaranteed</code> pods with fractional
+CPU <code>requests</code> also run on CPUs in the shared pool. Only containers that are
+part of a <code>Guaranteed</code> pod and have integer CPU <code>requests</code> are assigned
+exclusive CPUs.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The kubelet requires a CPU reservation greater than zero when the static policy is enabled.
+This is because a zero CPU reservation would allow the shared pool to become empty.</div><p>As <code>Guaranteed</code> pods whose containers fit the requirements for being statically
+assigned are scheduled to the node, CPUs are removed from the shared pool and
+placed in the cpuset for the container. CFS quota is not used to bound
+the CPU usage of these containers as their usage is bound by the scheduling domain
+itself. In others words, the number of CPUs in the container cpuset is equal to the integer
+CPU <code>limit</code> specified in the pod spec. This static assignment increases CPU
+affinity and decreases context switches due to throttling for the CPU-bound
+workload.</p><p>Consider the containers in the following pod specs:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span></code></pre></div><p>The pod above runs in the <code>BestEffort</code> QoS class because no resource <code>requests</code> or
+<code>limits</code> are specified. It runs in the shared pool.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"100Mi"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The pod above runs in the <code>Burstable</code> QoS class because resource <code>requests</code> do not
+equal <code>limits</code> and the <code>cpu</code> quantity is not specified. It runs in the shared
+pool.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"100Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The pod above runs in the <code>Burstable</code> QoS class because resource <code>requests</code> do not
+equal <code>limits</code>. It runs in the shared pool.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The pod above runs in the <code>Guaranteed</code> QoS class because <code>requests</code> are equal to <code>limits</code>.
+And the container's resource limit for the CPU resource is an integer greater than
+or equal to one. The <code>nginx</code> container is granted 2 exclusive CPUs.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.5"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1.5"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The pod above runs in the <code>Guaranteed</code> QoS class because <code>requests</code> are equal to <code>limits</code>.
+But the container's resource limit for the CPU resource is a fraction. It runs in
+the shared pool.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"200Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The pod above runs in the <code>Guaranteed</code> QoS class because only <code>limits</code> are specified
+and <code>requests</code> are set equal to <code>limits</code> when not explicitly specified. And the
+container's resource limit for the CPU resource is an integer greater than or
+equal to one. The <code>nginx</code> container is granted 2 exclusive CPUs.</p><h4 id="cpu-policy-static--options">Static policy options</h4><p>Here are the available policy options for the static CPU management policy,
+listed in alphabetical order:</p><dl><dt><code>align-by-socket</code> (alpha, hidden by default)</dt><dd>Align CPUs by physical package / socket boundary, rather than logical NUMA boundaries
+(available since Kubernetes v1.25)</dd><dt><code>distribute-cpus-across-cores</code> (alpha, hidden by default)</dt><dd>Allocate virtual cores, sometimes called hardware threads, across different physical cores
+(available since Kubernetes v1.31)</dd><dt><code>distribute-cpus-across-numa</code> (beta, visible by default)</dt><dd>Spread CPUs across different NUMA domains, aiming for an even balance between the selected domains
+(available since Kubernetes v1.23)</dd><dt><code>full-pcpus-only</code> (GA, visible by default)</dt><dd>Always allocate full physical cores (available since Kubernetes v1.22, GA since Kubernetes v1.33)</dd><dt><code>strict-cpu-reservation</code> (beta, visible by default)</dt><dd>Prevent all the pods regardless of their Quality of Service class to run on reserved CPUs
+(available since Kubernetes v1.32)</dd><dt><code>prefer-align-cpus-by-uncorecache</code> (beta, visible by default)</dt><dd>Align CPUs by uncore (Last-Level) cache boundary on a best-effort way
+(available since Kubernetes v1.32)</dd></dl><p>You can toggle groups of options on and off based upon their maturity level
+using the following feature gates:</p><ul><li><code>CPUManagerPolicyBetaOptions</code> (default enabled). Disable to hide beta-level options.</li><li><code>CPUManagerPolicyAlphaOptions</code> (default disabled). Enable to show alpha-level options.</li></ul><p>You will still have to enable each option using the <code>cpuManagerPolicyOptions</code> field in the
+kubelet configuration file.</p><p>For more detail about the individual options you can configure, read on.</p><h5 id="full-pcpus-only"><code>full-pcpus-only</code></h5><p>If the <code>full-pcpus-only</code> policy option is specified, the static policy will always allocate full physical cores.
+By default, without this option, the static policy allocates CPUs using a topology-aware best-fit allocation.
+On SMT enabled systems, the policy can allocate individual virtual cores, which correspond to hardware threads.
+This can lead to different containers sharing the same physical cores; this behaviour in turn contributes
+to the <a href="https://en.wikipedia.org/wiki/Cloud_computing_issues#Performance_interference_and_noisy_neighbors">noisy neighbours problem</a>.
+With the option enabled, the pod will be admitted by the kubelet only if the CPU request of all its containers
+can be fulfilled by allocating full physical cores.
+If the pod does not pass the admission, it will be put in Failed state with the message <code>SMTAlignmentError</code>.</p><h5 id="distribute-cpus-across-numa"><code>distribute-cpus-across-numa</code></h5><p>If the <code>distribute-cpus-across-numa</code>policy option is specified, the static
+policy will evenly distribute CPUs across NUMA nodes in cases where more than
+one NUMA node is required to satisfy the allocation.
+By default, the <code>CPUManager</code> will pack CPUs onto one NUMA node until it is
+filled, with any remaining CPUs simply spilling over to the next NUMA node.
+This can cause undesired bottlenecks in parallel code relying on barriers (and
+similar synchronization primitives), as this type of code tends to run only as
+fast as its slowest worker (which is slowed down by the fact that fewer CPUs
+are available on at least one NUMA node).
+By distributing CPUs evenly across NUMA nodes, application developers can more
+easily ensure that no single worker suffers from NUMA effects more than any
+other, improving the overall performance of these types of applications.</p><h5 id="align-by-socket"><code>align-by-socket</code></h5><p>If the <code>align-by-socket</code> policy option is specified, CPUs will be considered
+aligned at the socket boundary when deciding how to allocate CPUs to a
+container. By default, the <code>CPUManager</code> aligns CPU allocations at the NUMA
+boundary, which could result in performance degradation if CPUs need to be
+pulled from more than one NUMA node to satisfy the allocation. Although it
+tries to ensure that all CPUs are allocated from the <em>minimum</em> number of NUMA
+nodes, there is no guarantee that those NUMA nodes will be on the same socket.
+By directing the <code>CPUManager</code> to explicitly align CPUs at the socket boundary
+rather than the NUMA boundary, we are able to avoid such issues. Note, this
+policy option is not compatible with <code>TopologyManager</code> <code>single-numa-node</code>
+policy and does not apply to hardware where the number of sockets is greater
+than number of NUMA nodes.</p><h5 id="distribute-cpus-across-cores"><code>distribute-cpus-across-cores</code></h5><p>If the <code>distribute-cpus-across-cores</code> policy option is specified, the static policy
+will attempt to allocate virtual cores (hardware threads) across different physical cores.
+By default, the <code>CPUManager</code> tends to pack CPUs onto as few physical cores as possible,
+which can lead to contention among CPUs on the same physical core and result
+in performance bottlenecks. By enabling the <code>distribute-cpus-across-cores</code> policy,
+the static policy ensures that CPUs are distributed across as many physical cores
+as possible, reducing the contention on the same physical core and thereby
+improving overall performance. However, it is important to note that this strategy
+might be less effective when the system is heavily loaded. Under such conditions,
+the benefit of reducing contention diminishes. Conversely, default behavior
+can help in reducing inter-core communication overhead, potentially providing
+better performance under high load conditions.</p><h5 id="strict-cpu-reservation"><code>strict-cpu-reservation</code></h5><p>The <code>reservedSystemCPUs</code> parameter in <a href="/docs/reference/config-api/kubelet-config.v1beta1/">KubeletConfiguration</a>,
+or the deprecated kubelet command line option <code>--reserved-cpus</code>, defines an explicit CPU set for OS system daemons
+and kubernetes system daemons. More details of this parameter can be found on the
+<a href="/docs/tasks/administer-cluster/reserve-compute-resources/#explicitly-reserved-cpu-list">Explicitly Reserved CPU List</a> page.
+By default, this isolation is implemented only for guaranteed pods with integer CPU requests not for burstable and best-effort pods
+(and guaranteed pods with fractional CPU requests). Admission is only comparing the CPU requests against the allocatable CPUs.
+Since the CPU limit is higher than the request, the default behaviour allows burstable and best-effort pods to use up the capacity
+of <code>reservedSystemCPUs</code> and cause host OS services to starve in real life deployments.
+If the <code>strict-cpu-reservation</code> policy option is enabled, the static policy will not allow
+any workload to use the CPU cores specified in <code>reservedSystemCPUs</code>.</p><h5 id="prefer-align-cpus-by-uncorecache"><code>prefer-align-cpus-by-uncorecache</code></h5><p>If the <code>prefer-align-cpus-by-uncorecache</code> policy is specified, the static policy
+will allocate CPU resources for individual containers such that all CPUs assigned
+to a container share the same uncore cache block (also known as the Last-Level Cache
+or LLC). By default, the <code>CPUManager</code> will tightly pack CPU assignments which can
+result in containers being assigned CPUs from multiple uncore caches. This option
+enables the <code>CPUManager</code> to allocate CPUs in a way that maximizes the efficient use
+of the uncore cache. Allocation is performed on a best-effort basis, aiming to
+affine as many CPUs as possible within the same uncore cache. If the container's
+CPU requirement exceeds the CPU capacity of a single uncore cache, the <code>CPUManager</code>
+minimizes the number of uncore caches used in order to maintain optimal uncore
+cache alignment. Specific workloads can benefit in performance from the reduction
+of inter-cache latency and noisy neighbors at the cache level. If the <code>CPUManager</code>
+cannot align optimally while the node has sufficient resources, the container will
+still be admitted using the default packed behavior.</p><h2 id="memory-management-policies">Memory Management Policies</h2><div class="feature-state-notice feature-stable" title="Feature Gate: MemoryManager"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [stable]</code> (enabled by default: true)</div><p>The Kubernetes <em>Memory Manager</em> enables the feature of guaranteed memory (and hugepages)
+allocation for pods in the <code>Guaranteed</code> <a class="glossary-tooltip" title="QoS Class (Quality of Service Class) provides a way for Kubernetes to classify pods within the cluster into several classes and make decisions about scheduling and eviction." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/pod-qos/" target="_blank" aria-label="QoS class">QoS class</a>.</p><p>The Memory Manager employs hint generation protocol to yield the most suitable NUMA affinity for a pod.
+The Memory Manager feeds the central manager (<em>Topology Manager</em>) with these affinity hints.
+Based on both the hints and Topology Manager policy, the pod is rejected or admitted to the node.</p><p>Moreover, the Memory Manager ensures that the memory which a pod requests
+is allocated from a minimum number of NUMA nodes.</p><h2 id="other-resource-managers">Other resource managers</h2><p>The configuration of individual managers is elaborated in dedicated documents:</p><ul><li><a href="/docs/concepts/extend-kubernetes/compute-storage-net/device-plugins/#device-plugin-integration-with-the-topology-manager">Device Manager</a></li></ul></div>

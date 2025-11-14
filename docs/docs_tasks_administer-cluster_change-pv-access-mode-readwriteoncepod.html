@@ -1,0 +1,96 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Change the Access Mode of a PersistentVolume to ReadWriteOncePod</h1><p>This page shows how to change the access mode on an existing PersistentVolume to
+use <code>ReadWriteOncePod</code>.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.22.<p>To check the version, enter <code>kubectl version</code>.</p></p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>ReadWriteOncePod</code> access mode graduated to stable in the Kubernetes v1.29
+release. If you are running a version of Kubernetes older than v1.29, you might
+need to enable a feature gate. Check the documentation for your version of
+Kubernetes.</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>The <code>ReadWriteOncePod</code> access mode is only supported for
+<a class="glossary-tooltip" title="The Container Storage Interface (CSI) defines a standard interface to expose storage systems to containers." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/volumes/#csi" target="_blank" aria-label="CSI">CSI</a> volumes.
+To use this volume access mode you will need to update the following
+<a href="https://kubernetes-csi.github.io/docs/sidecar-containers.html">CSI sidecars</a>
+to these versions or greater:</p><ul><li><a href="https://github.com/kubernetes-csi/external-provisioner/releases/tag/v3.0.0">csi-provisioner:v3.0.0+</a></li><li><a href="https://github.com/kubernetes-csi/external-attacher/releases/tag/v3.3.0">csi-attacher:v3.3.0+</a></li><li><a href="https://github.com/kubernetes-csi/external-resizer/releases/tag/v1.3.0">csi-resizer:v1.3.0+</a></li></ul></div><h2 id="why-should-i-use-readwriteoncepod">Why should I use <code>ReadWriteOncePod</code>?</h2><p>Prior to Kubernetes v1.22, the <code>ReadWriteOnce</code> access mode was commonly used to
+restrict PersistentVolume access for workloads that required single-writer
+access to storage. However, this access mode had a limitation: it restricted
+volume access to a single <em>node</em>, allowing multiple pods on the same node to
+read from and write to the same volume simultaneously. This could pose a risk
+for applications that demand strict single-writer access for data safety.</p><p>If ensuring single-writer access is critical for your workloads, consider
+migrating your volumes to <code>ReadWriteOncePod</code>.</p><h2 id="migrating-existing-persistentvolumes">Migrating existing PersistentVolumes</h2><p>If you have existing PersistentVolumes, they can be migrated to use
+<code>ReadWriteOncePod</code>. Only migrations from <code>ReadWriteOnce</code> to <code>ReadWriteOncePod</code>
+are supported.</p><p>In this example, there is already a <code>ReadWriteOnce</code> "cat-pictures-pvc"
+PersistentVolumeClaim that is bound to a "cat-pictures-pv" PersistentVolume,
+and a "cat-pictures-writer" Deployment that uses this PersistentVolumeClaim.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>If your storage plugin supports
+<a href="/docs/concepts/storage/dynamic-provisioning/">Dynamic provisioning</a>,
+the "cat-picutres-pv" will be created for you, but its name may differ. To get
+your PersistentVolume's name run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pvc cat-pictures-pvc -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.spec.volumeName}'</span>
+</span></span></code></pre></div></div><p>And you can view the PVC before you make changes. Either view the manifest
+locally, or run <code>kubectl get pvc &lt;name-of-pvc&gt; -o yaml</code>. The output is similar
+to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#080;font-style:italic"># cat-pictures-pvc.yaml</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>PersistentVolumeClaim<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cat-pictures-pvc<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">accessModes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- ReadWriteOnce<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">storage</span>:<span style="color:#bbb"> </span>1Gi<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Here's an example Deployment that relies on that PersistentVolumeClaim:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#080;font-style:italic"># cat-pictures-writer-deployment.yaml</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cat-pictures-writer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">replicas</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>cat-pictures-writer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>cat-pictures-writer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx:1.14.2<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cat-pictures<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/mnt<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cat-pictures<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">persistentVolumeClaim</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">claimName</span>:<span style="color:#bbb"> </span>cat-pictures-pvc<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">readOnly</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>As a first step, you need to edit your PersistentVolume's
+<code>spec.persistentVolumeReclaimPolicy</code> and set it to <code>Retain</code>. This ensures your
+PersistentVolume will not be deleted when you delete the corresponding
+PersistentVolumeClaim:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl patch pv cat-pictures-pv -p <span style="color:#b44">'{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'</span>
+</span></span></code></pre></div><p>Next you need to stop any workloads that are using the PersistentVolumeClaim
+bound to the PersistentVolume you want to migrate, and then delete the
+PersistentVolumeClaim. Avoid making any other changes to the
+PersistentVolumeClaim, such as volume resizes, until after the migration is
+complete.</p><p>Once that is done, you need to clear your PersistentVolume's <code>spec.claimRef.uid</code>
+to ensure PersistentVolumeClaims can bind to it upon recreation:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl scale --replicas<span style="color:#666">=</span><span style="color:#666">0</span> deployment cat-pictures-writer
+</span></span><span style="display:flex"><span>kubectl delete pvc cat-pictures-pvc
+</span></span><span style="display:flex"><span>kubectl patch pv cat-pictures-pv -p <span style="color:#b44">'{"spec":{"claimRef":{"uid":""}}}'</span>
+</span></span></code></pre></div><p>After that, replace the PersistentVolume's list of valid access modes to be
+(only) <code>ReadWriteOncePod</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl patch pv cat-pictures-pv -p <span style="color:#b44">'{"spec":{"accessModes":["ReadWriteOncePod"]}}'</span>
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>ReadWriteOncePod</code> access mode cannot be combined with other access modes.
+Make sure <code>ReadWriteOncePod</code> is the only access mode on the PersistentVolume
+when updating, otherwise the request will fail.</div><p>Next you need to modify your PersistentVolumeClaim to set <code>ReadWriteOncePod</code> as
+the only access mode. You should also set the PersistentVolumeClaim's
+<code>spec.volumeName</code> to the name of your PersistentVolume to ensure it binds to
+this specific PersistentVolume.</p><p>Once this is done, you can recreate your PersistentVolumeClaim and start up your
+workloads:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># IMPORTANT: Make sure to edit your PVC in cat-pictures-pvc.yaml before applying. You need to:</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># - Set ReadWriteOncePod as the only access mode</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># - Set spec.volumeName to "cat-pictures-pv"</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl apply -f cat-pictures-pvc.yaml
+</span></span><span style="display:flex"><span>kubectl apply -f cat-pictures-writer-deployment.yaml
+</span></span></code></pre></div><p>Lastly you may edit your PersistentVolume's <code>spec.persistentVolumeReclaimPolicy</code>
+and set to it back to <code>Delete</code> if you previously changed it.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl patch pv cat-pictures-pv -p <span style="color:#b44">'{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'</span>
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/concepts/storage/persistent-volumes/">PersistentVolumes</a>.</li><li>Learn more about <a href="/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims">PersistentVolumeClaims</a>.</li><li>Learn more about <a href="/docs/tasks/configure-pod-container/configure-persistent-volume-storage/">Configuring a Pod to Use a PersistentVolume for Storage</a></li></ul></div>

@@ -1,0 +1,127 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Sidecar Containers</h1><div class="feature-state-notice feature-stable" title="Feature Gate: SidecarContainers"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [stable]</code> (enabled by default: true)</div><p>Sidecar containers are the secondary containers that run along with the main
+application container within the same <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a>.
+These containers are used to enhance or to extend the functionality of the primary <em>app
+container</em> by providing additional services, or functionality such as logging, monitoring,
+security, or data synchronization, without directly altering the primary application code.</p><p>Typically, you only have one app container in a Pod. For example, if you have a web
+application that requires a local webserver, the local webserver is a sidecar and the
+web application itself is the app container.</p><h2 id="pod-sidecar-containers">Sidecar containers in Kubernetes</h2><p>Kubernetes implements sidecar containers as a special case of
+<a href="/docs/concepts/workloads/pods/init-containers/">init containers</a>; sidecar containers remain
+running after Pod startup. This document uses the term <em>regular init containers</em> to clearly
+refer to containers that only run during Pod startup.</p><p>Provided that your cluster has the <code>SidecarContainers</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a> enabled
+(the feature is active by default since Kubernetes v1.29), you can specify a <code>restartPolicy</code>
+for containers listed in a Pod's <code>initContainers</code> field.
+These restartable <em>sidecar</em> containers are independent from other init containers and from
+the main application container(s) within the same pod.
+These can be started, stopped, or restarted without affecting the main application container
+and other init containers.</p><p>You can also run a Pod with multiple containers that are not marked as init or sidecar
+containers. This is appropriate if the containers within the Pod are required for the
+Pod to work overall, but you don't need to control which containers start or stop first.
+You could also do this if you need to support older versions of Kubernetes that don't
+support a container-level <code>restartPolicy</code> field.</p><h3 id="sidecar-example">Example application</h3><p>Here's an example of a Deployment with two containers, one of which is a sidecar:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/application/deployment-sidecar.yaml" download="application/deployment-sidecar.yaml"><code>application/deployment-sidecar.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;application-deployment-sidecar-yaml&quot;)" title="Copy application/deployment-sidecar.yaml to clipboard"/></div><div class="includecode" id="application-deployment-sidecar-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myapp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>myapp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">replicas</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>myapp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>myapp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myapp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>alpine:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">'sh'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'-c'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'while true; do echo "logging" &gt;&gt; /opt/logs.txt; sleep 1; done'</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/opt<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">initContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>logshipper<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>alpine:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Always<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">'sh'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'-c'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'tail -F /opt/logs.txt'</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/opt<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb"> </span>{}</span></span></code></pre></div></div></div><h2 id="sidecar-containers-and-pod-lifecycle">Sidecar containers and Pod lifecycle</h2><p>If an init container is created with its <code>restartPolicy</code> set to <code>Always</code>, it will
+start and remain running during the entire life of the Pod. This can be helpful for
+running supporting services separated from the main application containers.</p><p>If a <code>readinessProbe</code> is specified for this init container, its result will be used
+to determine the <code>ready</code> state of the Pod.</p><p>Since these containers are defined as init containers, they benefit from the same
+ordering and sequential guarantees as regular init containers, allowing you to mix
+sidecar containers with regular init containers for complex Pod initialization flows.</p><p>Compared to regular init containers, sidecars defined within <code>initContainers</code> continue to
+run after they have started. This is important when there is more than one entry inside
+<code>.spec.initContainers</code> for a Pod. After a sidecar-style init container is running (the kubelet
+has set the <code>started</code> status for that init container to true), the kubelet then starts the
+next init container from the ordered <code>.spec.initContainers</code> list.
+That status either becomes true because there is a process running in the
+container and no startup probe defined, or as a result of its <code>startupProbe</code> succeeding.</p><p>Upon Pod <a href="/docs/concepts/workloads/pods/pod-lifecycle/#termination-with-sidecars">termination</a>,
+the kubelet postpones terminating sidecar containers until the main application container has fully stopped.
+The sidecar containers are then shut down in the opposite order of their appearance in the Pod specification.
+This approach ensures that the sidecars remain operational, supporting other containers within the Pod,
+until their service is no longer required.</p><h3 id="jobs-with-sidecar-containers">Jobs with sidecar containers</h3><p>If you define a Job that uses sidecar using Kubernetes-style init containers,
+the sidecar container in each Pod does not prevent the Job from completing after the
+main container has finished.</p><p>Here's an example of a Job with two containers, one of which is a sidecar:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/application/job/job-sidecar.yaml" download="application/job/job-sidecar.yaml"><code>application/job/job-sidecar.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;application-job-job-sidecar-yaml&quot;)" title="Copy application/job/job-sidecar.yaml to clipboard"/></div><div class="includecode" id="application-job-job-sidecar-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>batch/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Job<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myjob<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myjob<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>alpine:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">'sh'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'-c'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'echo "logging" &gt; /opt/logs.txt'</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/opt<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">initContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>logshipper<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>alpine:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Always<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">'sh'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'-c'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'tail -F /opt/logs.txt'</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/opt<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb"> </span>{}</span></span></code></pre></div></div></div><h2 id="differences-from-application-containers">Differences from application containers</h2><p>Sidecar containers run alongside <em>app containers</em> in the same pod. However, they do not
+execute the primary application logic; instead, they provide supporting functionality to
+the main application.</p><p>Sidecar containers have their own independent lifecycles. They can be started, stopped,
+and restarted independently of app containers. This means you can update, scale, or
+maintain sidecar containers without affecting the primary application.</p><p>Sidecar containers share the same network and storage namespaces with the primary
+container. This co-location allows them to interact closely and share resources.</p><p>From a Kubernetes perspective, the sidecar container's graceful termination is less important.
+When other containers take all allotted graceful termination time, the sidecar containers
+will receive the <code>SIGTERM</code> signal, followed by the <code>SIGKILL</code> signal, before they have time to terminate gracefully.
+So exit codes different from <code>0</code> (<code>0</code> indicates successful exit), for sidecar containers are normal
+on Pod termination and should be generally ignored by the external tooling.</p><h2 id="differences-from-init-containers">Differences from init containers</h2><p>Sidecar containers work alongside the main container, extending its functionality and
+providing additional services.</p><p>Sidecar containers run concurrently with the main application container. They are active
+throughout the lifecycle of the pod and can be started and stopped independently of the
+main container. Unlike <a href="/docs/concepts/workloads/pods/init-containers/">init containers</a>,
+sidecar containers support <a href="/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe">probes</a> to control their lifecycle.</p><p>Sidecar containers can interact directly with the main application containers, because
+like init containers they always share the same network, and can optionally also share
+volumes (filesystems).</p><p>Init containers stop before the main containers start up, so init containers cannot
+exchange messages with the app container in a Pod. Any data passing is one-way
+(for example, an init container can put information inside an <code>emptyDir</code> volume).</p><p>Changing the image of a sidecar container will not cause the Pod to restart, but will
+trigger a container restart.</p><h2 id="resource-sharing-within-containers">Resource sharing within containers</h2><p>Given the order of execution for init, sidecar and app containers, the following rules
+for resource usage apply:</p><ul><li>The highest of any particular resource request or limit defined on all init
+containers is the <em>effective init request/limit</em>. If any resource has no
+resource limit specified this is considered as the highest limit.</li><li>The Pod's <em>effective request/limit</em> for a resource is the sum of
+<a href="/docs/concepts/scheduling-eviction/pod-overhead/">pod overhead</a> and the higher of:<ul><li>the sum of all non-init containers(app and sidecar containers) request/limit for a
+resource</li><li>the effective init request/limit for a resource</li></ul></li><li>Scheduling is done based on effective requests/limits, which means
+init containers can reserve resources for initialization that are not used
+during the life of the Pod.</li><li>The QoS (quality of service) tier of the Pod's <em>effective QoS tier</em> is the
+QoS tier for all init, sidecar and app containers alike.</li></ul><p>Quota and limits are applied based on the effective Pod request and
+limit.</p><h3 id="cgroups">Sidecar containers and Linux cgroups</h3><p>On Linux, resource allocations for Pod level control groups (cgroups) are based on the effective Pod
+request and limit, the same as the scheduler.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn how to <a href="/docs/tutorials/configuration/pod-sidecar-containers/">Adopt Sidecar Containers</a></li><li>Read a blog post on <a href="/blog/2023/08/25/native-sidecar-containers/">native sidecar containers</a>.</li><li>Read about <a href="/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container">creating a Pod that has an init container</a>.</li><li>Learn about the <a href="/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe">types of probes</a>: liveness, readiness, startup probe.</li><li>Learn about <a href="/docs/concepts/scheduling-eviction/pod-overhead/">pod overhead</a>.</li></ul></div>

@@ -1,0 +1,178 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Manage TLS Certificates in a Cluster</h1><p>Kubernetes provides a <code>certificates.k8s.io</code> API, which lets you provision TLS
+certificates signed by a Certificate Authority (CA) that you control. These CA
+and certificates can be used by your workloads to establish trust.</p><p><code>certificates.k8s.io</code> API uses a protocol that is similar to the <a href="https://github.com/ietf-wg-acme/acme/">ACME
+draft</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Certificates created using the <code>certificates.k8s.io</code> API are signed by a
+<a href="#configuring-your-cluster-to-provide-signing">dedicated CA</a>. It is possible to configure your cluster to use the cluster root
+CA for this purpose, but you should never rely on this. Do not assume that
+these certificates will validate against the cluster root CA.</div><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>You need the <code>cfssl</code> tool. You can download <code>cfssl</code> from
+<a href="https://github.com/cloudflare/cfssl/releases">https://github.com/cloudflare/cfssl/releases</a>.</p><p>Some steps in this page use the <code>jq</code> tool. If you don't have <code>jq</code>, you can
+install it via your operating system's software sources, or fetch it from
+<a href="https://jqlang.github.io/jq/">https://jqlang.github.io/jq/</a>.</p><h2 id="trusting-tls-in-a-cluster">Trusting TLS in a cluster</h2><p>Trusting the <a href="#configuring-your-cluster-to-provide-signing">custom CA</a> from an application running as a pod usually requires
+some extra application configuration. You will need to add the CA certificate
+bundle to the list of CA certificates that the TLS client or server trusts. For
+example, you would do this with a golang TLS config by parsing the certificate
+chain and adding the parsed certificates to the <code>RootCAs</code> field in the
+<a href="https://pkg.go.dev/crypto/tls#Config"><code>tls.Config</code></a> struct.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>Even though the custom CA certificate may be included in the filesystem (in the
+ConfigMap <code>kube-root-ca.crt</code>),
+you should not use that certificate authority for any purpose other than to verify internal
+Kubernetes endpoints. An example of an internal Kubernetes endpoint is the
+Service named <code>kubernetes</code> in the default namespace.</p><p>If you want to use a custom certificate authority for your workloads, you should generate
+that CA separately, and distribute its CA certificate using a
+<a href="/docs/tasks/configure-pod-container/configure-pod-configmap/">ConfigMap</a> that your pods
+have access to read.</p></div><h2 id="requesting-a-certificate">Requesting a certificate</h2><p>The following section demonstrates how to create a TLS certificate for a
+Kubernetes service accessed through DNS.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This tutorial uses CFSSL: Cloudflare's PKI and TLS toolkit <a href="https://blog.cloudflare.com/introducing-cfssl/">click here</a> to know more.</div><h2 id="create-a-certificate-signing-request">Create a certificate signing request</h2><p>Generate a private key and certificate signing request (or CSR) by running
+the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cat <span style="color:#b44">&lt;&lt;EOF | cfssl genkey - | cfssljson -bare server
+</span></span></span><span style="display:flex"><span><span style="color:#b44">{
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  "hosts": [
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "my-svc.my-namespace.svc.cluster.local",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "my-pod.my-namespace.pod.cluster.local",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "192.0.2.24",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "10.0.34.2"
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  ],
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  "CN": "my-pod.my-namespace.pod.cluster.local",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  "key": {
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "algo": "ecdsa",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "size": 256
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  }
+</span></span></span><span style="display:flex"><span><span style="color:#b44">}
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>Where <code>192.0.2.24</code> is the service's cluster IP,
+<code>my-svc.my-namespace.svc.cluster.local</code> is the service's DNS name,
+<code>10.0.34.2</code> is the pod's IP and <code>my-pod.my-namespace.pod.cluster.local</code>
+is the pod's DNS name. You should see the output similar to:</p><pre tabindex="0"><code>2022/02/01 11:45:32 [INFO] generate received request
+2022/02/01 11:45:32 [INFO] received CSR
+2022/02/01 11:45:32 [INFO] generating key: ecdsa-256
+2022/02/01 11:45:32 [INFO] encoded CSR
+</code></pre><p>This command generates two files; it generates <code>server.csr</code> containing the PEM
+encoded <a href="https://tools.ietf.org/html/rfc2986">PKCS#10</a> certification request,
+and <code>server-key.pem</code> containing the PEM encoded key to the certificate that
+is still to be created.</p><h2 id="create-a-certificatesigningrequest-object-to-send-to-the-kubernetes-api">Create a CertificateSigningRequest object to send to the Kubernetes API</h2><p>Generate a CSR manifest (in YAML), and send it to the API server. You can do that by
+running the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cat <span style="color:#b44">&lt;&lt;EOF | kubectl apply -f -
+</span></span></span><span style="display:flex"><span><span style="color:#b44">apiVersion: certificates.k8s.io/v1
+</span></span></span><span style="display:flex"><span><span style="color:#b44">kind: CertificateSigningRequest
+</span></span></span><span style="display:flex"><span><span style="color:#b44">metadata:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  name: my-svc.my-namespace
+</span></span></span><span style="display:flex"><span><span style="color:#b44">spec:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  request: $(cat server.csr | base64 | tr -d '\n')
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  signerName: example.com/serving
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  usages:
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  - digital signature
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  - key encipherment
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  - server auth
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>Notice that the <code>server.csr</code> file created in step 1 is base64 encoded
+and stashed in the <code>.spec.request</code> field. You are also requesting a
+certificate with the "digital signature", "key encipherment", and "server
+auth" key usages, signed by an example <code>example.com/serving</code> signer.
+A specific <code>signerName</code> must be requested.
+View documentation for <a href="/docs/reference/access-authn-authz/certificate-signing-requests/#signers">supported signer names</a>
+for more information.</p><p>The CSR should now be visible from the API in a Pending state. You can see
+it by running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe csr my-svc.my-namespace
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">Name:                   my-svc.my-namespace
+Labels:                 &lt;none&gt;
+Annotations:            &lt;none&gt;
+CreationTimestamp:      Tue, 01 Feb 2022 11:49:15 -0500
+Requesting User:        yourname@example.com
+Signer:                 example.com/serving
+Status:                 Pending
+Subject:
+        Common Name:    my-pod.my-namespace.pod.cluster.local
+        Serial Number:
+Subject Alternative Names:
+        DNS Names:      my-pod.my-namespace.pod.cluster.local
+                        my-svc.my-namespace.svc.cluster.local
+        IP Addresses:   192.0.2.24
+                        10.0.34.2
+Events: &lt;none&gt;
+</code></pre><h2 id="get-the-certificate-signing-request-approved">Get the CertificateSigningRequest approved</h2><p>Approving the <a href="/docs/reference/access-authn-authz/certificate-signing-requests/">certificate signing request</a>
+is either done by an automated approval process or on a one off basis by a cluster
+administrator. If you're authorized to approve a certificate request, you can do that
+manually using <code>kubectl</code>; for example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl certificate approve my-svc.my-namespace
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">certificatesigningrequest.certificates.k8s.io/my-svc.my-namespace approved
+</code></pre><p>You should now see the following:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get csr
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">NAME                  AGE   SIGNERNAME            REQUESTOR              REQUESTEDDURATION   CONDITION
+my-svc.my-namespace   10m   example.com/serving   yourname@example.com   &lt;none&gt;              Approved
+</code></pre><p>This means the certificate request has been approved and is waiting for the
+requested signer to sign it.</p><h2 id="sign-the-certificate-signing-request">Sign the CertificateSigningRequest</h2><p>Next, you'll play the part of a certificate signer, issue the certificate, and upload it to the API.</p><p>A signer would typically watch the CertificateSigningRequest API for objects with its <code>signerName</code>,
+check that they have been approved, sign certificates for those requests,
+and update the API object status with the issued certificate.</p><h3 id="create-a-certificate-authority">Create a Certificate Authority</h3><p>You need an authority to provide the digital signature on the new certificate.</p><p>First, create a signing certificate by running the following:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>cat <span style="color:#b44">&lt;&lt;EOF | cfssl gencert -initca - | cfssljson -bare ca
+</span></span></span><span style="display:flex"><span><span style="color:#b44">{
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  "CN": "My Example Signer",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  "key": {
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "algo": "rsa",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">    "size": 2048
+</span></span></span><span style="display:flex"><span><span style="color:#b44">  }
+</span></span></span><span style="display:flex"><span><span style="color:#b44">}
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>You should see output similar to:</p><pre tabindex="0"><code class="language-none" data-lang="none">2022/02/01 11:50:39 [INFO] generating a new CA key and certificate from CSR
+2022/02/01 11:50:39 [INFO] generate received request
+2022/02/01 11:50:39 [INFO] received CSR
+2022/02/01 11:50:39 [INFO] generating key: rsa-2048
+2022/02/01 11:50:39 [INFO] encoded CSR
+2022/02/01 11:50:39 [INFO] signed certificate with serial number 263983151013686720899716354349605500797834580472
+</code></pre><p>This produces a certificate authority key file (<code>ca-key.pem</code>) and certificate (<code>ca.pem</code>).</p><h3 id="issue-a-certificate">Issue a certificate</h3><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/tls/server-signing-config.json" download="tls/server-signing-config.json"><code>tls/server-signing-config.json</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;tls-server-signing-config-json&quot;)" title="Copy tls/server-signing-config.json to clipboard"/></div><div class="includecode" id="tls-server-signing-config-json"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"signing"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"default"</span>: {
+</span></span><span style="display:flex"><span>            <span style="color:green;font-weight:700">"usages"</span>: [
+</span></span><span style="display:flex"><span>                <span style="color:#b44">"digital signature"</span>,
+</span></span><span style="display:flex"><span>                <span style="color:#b44">"key encipherment"</span>,
+</span></span><span style="display:flex"><span>                <span style="color:#b44">"server auth"</span>
+</span></span><span style="display:flex"><span>            ],
+</span></span><span style="display:flex"><span>            <span style="color:green;font-weight:700">"expiry"</span>: <span style="color:#b44">"876000h"</span>,
+</span></span><span style="display:flex"><span>            <span style="color:green;font-weight:700">"ca_constraint"</span>: {
+</span></span><span style="display:flex"><span>                <span style="color:green;font-weight:700">"is_ca"</span>: <span style="color:#a2f;font-weight:700">false</span>
+</span></span><span style="display:flex"><span>            }
+</span></span><span style="display:flex"><span>        }
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>}</span></span></code></pre></div></div></div><p>Use a <code>server-signing-config.json</code> signing configuration and the certificate authority key file
+and certificate to sign the certificate request:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get csr my-svc.my-namespace -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.spec.request}'</span> | <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  base64 --decode | <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  cfssl sign -ca ca.pem -ca-key ca-key.pem -config server-signing-config.json - | <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  cfssljson -bare ca-signed-server
+</span></span></code></pre></div><p>You should see the output similar to:</p><pre tabindex="0"><code>2022/02/01 11:52:26 [INFO] signed certificate with serial number 576048928624926584381415936700914530534472870337
+</code></pre><p>This produces a signed serving certificate file, <code>ca-signed-server.pem</code>.</p><h3 id="upload-the-signed-certificate">Upload the signed certificate</h3><p>Finally, populate the signed certificate in the API object's status:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get csr my-svc.my-namespace -o json | <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  jq <span style="color:#b44">'.status.certificate = "'</span><span style="color:#a2f;font-weight:700">$(</span>base64 ca-signed-server.pem | tr -d <span style="color:#b44">'\n'</span><span style="color:#a2f;font-weight:700">)</span><span style="color:#b44">'"'</span> | <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  kubectl replace --raw /apis/certificates.k8s.io/v1/certificatesigningrequests/my-svc.my-namespace/status -f -
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This uses the command line tool <a href="https://jqlang.github.io/jq/"><code>jq</code></a> to populate the base64-encoded
+content in the <code>.status.certificate</code> field.
+If you do not have <code>jq</code>, you can also save the JSON output to a file, populate this field manually, and
+upload the resulting file.</div><p>Once the CSR is approved and the signed certificate is uploaded, run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get csr
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code class="language-none" data-lang="none">NAME                  AGE   SIGNERNAME            REQUESTOR              REQUESTEDDURATION   CONDITION
+my-svc.my-namespace   20m   example.com/serving   yourname@example.com   &lt;none&gt;              Approved,Issued
+</code></pre><h2 id="download-the-certificate-and-use-it">Download the certificate and use it</h2><p>Now, as the requesting user, you can download the issued certificate
+and save it to a <code>server.crt</code> file by running the following:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get csr my-svc.my-namespace -o <span style="color:#b8860b">jsonpath</span><span style="color:#666">=</span><span style="color:#b44">'{.status.certificate}'</span> <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>    | base64 --decode &gt; server.crt
+</span></span></code></pre></div><p>Now you can populate <code>server.crt</code> and <code>server-key.pem</code> in a
+<a class="glossary-tooltip" title="Stores sensitive information, such as passwords, OAuth tokens, and ssh keys." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/secret/" target="_blank" aria-label="Secret">Secret</a>
+that you could later mount into a Pod (for example, to use with a webserver
+that serves HTTPS).</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl create secret tls server --cert server.crt --key server-key.pem
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">secret/server created
+</code></pre><p>Finally, you can populate <code>ca.pem</code> into a <a class="glossary-tooltip" title="An API object used to store non-confidential data in key-value pairs. Can be consumed as environment variables, command-line arguments, or configuration files in a volume." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/configmap/" target="_blank" aria-label="ConfigMap">ConfigMap</a>
+and use it as the trust root to verify the serving certificate:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl create configmap example-serving-ca --from-file ca.crt<span style="color:#666">=</span>ca.pem
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">configmap/example-serving-ca created
+</code></pre><h2 id="approving-certificate-signing-requests">Approving CertificateSigningRequests</h2><p>A Kubernetes administrator (with appropriate permissions) can manually approve
+(or deny) CertificateSigningRequests by using the <code>kubectl certificate approve</code> and <code>kubectl certificate deny</code> commands. However if you intend
+to make heavy usage of this API, you might consider writing an automated
+certificates controller.</p><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4><p>The ability to approve CSRs decides who trusts whom within your environment. The
+ability to approve CSRs should not be granted broadly or lightly.</p><p>You should make sure that you confidently understand both the verification requirements
+that fall on the approver <strong>and</strong> the repercussions of issuing a specific certificate
+before you grant the <code>approve</code> permission.</p></div><p>Whether a machine or a human using kubectl as above, the role of the <em>approver</em> is
+to verify that the CSR satisfies two requirements:</p><ol><li>The subject of the CSR controls the private key used to sign the CSR. This
+addresses the threat of a third party masquerading as an authorized subject.
+In the above example, this step would be to verify that the pod controls the
+private key used to generate the CSR.</li><li>The subject of the CSR is authorized to act in the requested context. This
+addresses the threat of an undesired subject joining the cluster. In the
+above example, this step would be to verify that the pod is allowed to
+participate in the requested service.</li></ol><p>If and only if these two requirements are met, the approver should approve
+the CSR and otherwise should deny the CSR.</p><p>For more information on certificate approval and access control, read
+the <a href="/docs/reference/access-authn-authz/certificate-signing-requests/">Certificate Signing Requests</a>
+reference page.</p><h2 id="configuring-your-cluster-to-provide-signing">Configuring your cluster to provide signing</h2><p>This page assumes that a signer is set up to serve the certificates API. The
+Kubernetes controller manager provides a default implementation of a signer. To
+enable it, pass the <code>--cluster-signing-cert-file</code> and
+<code>--cluster-signing-key-file</code> parameters to the controller manager with paths to
+your Certificate Authority's keypair.</p></div>

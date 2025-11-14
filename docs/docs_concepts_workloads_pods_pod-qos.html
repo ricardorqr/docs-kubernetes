@@ -1,0 +1,56 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Pod Quality of Service Classes</h1><p>This page introduces <em>Quality of Service (QoS) classes</em> in Kubernetes, and explains
+how Kubernetes assigns a QoS class to each Pod as a consequence of the resource
+constraints that you specify for the containers in that Pod. Kubernetes relies on this
+classification to make decisions about which Pods to evict when there are not enough
+available resources on a Node.</p><h2 id="quality-of-service-classes">Quality of Service classes</h2><p>Kubernetes classifies the Pods that you run and allocates each Pod into a specific
+<em>quality of service (QoS) class</em>. Kubernetes uses that classification to influence how different
+pods are handled. Kubernetes does this classification based on the
+<a href="/docs/concepts/configuration/manage-resources-containers/">resource requests</a>
+of the <a class="glossary-tooltip" title="A lightweight and portable executable image that contains software and all of its dependencies." data-toggle="tooltip" data-placement="top" href="/docs/concepts/containers/" target="_blank" aria-label="Containers">Containers</a> in that Pod, along with
+how those requests relate to resource limits.
+This is known as <a class="glossary-tooltip" title="QoS Class (Quality of Service Class) provides a way for Kubernetes to classify pods within the cluster into several classes and make decisions about scheduling and eviction." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/pod-qos/" target="_blank" aria-label="Quality of Service">Quality of Service</a>
+(QoS) class. Kubernetes assigns every Pod a QoS class based on the resource requests
+and limits of its component Containers. QoS classes are used by Kubernetes to decide
+which Pods to evict from a Node experiencing
+<a href="/docs/concepts/scheduling-eviction/node-pressure-eviction/">Node Pressure</a>. The possible
+QoS classes are <code>Guaranteed</code>, <code>Burstable</code>, and <code>BestEffort</code>. When a Node runs out of resources,
+Kubernetes will first evict <code>BestEffort</code> Pods running on that Node, followed by <code>Burstable</code> and
+finally <code>Guaranteed</code> Pods. When this eviction is due to resource pressure, only Pods exceeding
+resource requests are candidates for eviction.</p><h3 id="guaranteed">Guaranteed</h3><p>Pods that are <code>Guaranteed</code> have the strictest resource limits and are least likely
+to face eviction. They are guaranteed not to be killed until they exceed their limits
+or there are no lower-priority Pods that can be preempted from the Node. They may
+not acquire resources beyond their specified limits. These Pods can also make
+use of exclusive CPUs using the
+<a href="/docs/tasks/administer-cluster/cpu-management-policies/#static-policy"><code>static</code></a> CPU management policy.</p><h4 id="criteria">Criteria</h4><p>For a Pod to be given a QoS class of <code>Guaranteed</code>:</p><ul><li>Every Container in the Pod must have a memory limit and a memory request.</li><li>For every Container in the Pod, the memory limit must equal the memory request.</li><li>Every Container in the Pod must have a CPU limit and a CPU request.</li><li>For every Container in the Pod, the CPU limit must equal the CPU request.</li></ul><h3 id="burstable">Burstable</h3><p>Pods that are <code>Burstable</code> have some lower-bound resource guarantees based on the request, but
+do not require a specific limit. If a limit is not specified, it defaults to a
+limit equivalent to the capacity of the Node, which allows the Pods to flexibly increase
+their resources if resources are available. In the event of Pod eviction due to Node
+resource pressure, these Pods are evicted only after all <code>BestEffort</code> Pods are evicted.
+Because a <code>Burstable</code> Pod can include a Container that has no resource limits or requests, a Pod
+that is <code>Burstable</code> can try to use any amount of node resources.</p><h4 id="criteria-1">Criteria</h4><p>A Pod is given a QoS class of <code>Burstable</code> if:</p><ul><li>The Pod does not meet the criteria for QoS class <code>Guaranteed</code>.</li><li>At least one Container in the Pod has a memory or CPU request or limit.</li></ul><h3 id="besteffort">BestEffort</h3><p>Pods in the <code>BestEffort</code> QoS class can use node resources that aren't specifically assigned
+to Pods in other QoS classes. For example, if you have a node with 16 CPU cores available to the
+kubelet, and you assign 4 CPU cores to a <code>Guaranteed</code> Pod, then a Pod in the <code>BestEffort</code>
+QoS class can try to use any amount of the remaining 12 CPU cores.</p><p>The kubelet prefers to evict <code>BestEffort</code> Pods if the node comes under resource pressure.</p><h4 id="criteria-2">Criteria</h4><p>A Pod has a QoS class of <code>BestEffort</code> if it doesn't meet the criteria for either <code>Guaranteed</code>
+or <code>Burstable</code>. In other words, a Pod is <code>BestEffort</code> only if none of the Containers in the Pod have a
+memory limit or a memory request, and none of the Containers in the Pod have a
+CPU limit or a CPU request.
+Containers in a Pod can request other resources (not CPU or memory) and still be classified as
+<code>BestEffort</code>.</p><h2 id="memory-qos-with-cgroup-v2">Memory QoS with cgroup v2</h2><div class="feature-state-notice feature-alpha" title="Feature Gate: MemoryQoS"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.22 [alpha]</code> (enabled by default: false)</div><p>Memory QoS uses the memory controller of cgroup v2 to guarantee memory resources in Kubernetes.
+Memory requests and limits of containers in pod are used to set specific interfaces <code>memory.min</code>
+and <code>memory.high</code> provided by the memory controller. When <code>memory.min</code> is set to memory requests,
+memory resources are reserved and never reclaimed by the kernel; this is how Memory QoS ensures
+memory availability for Kubernetes pods. And if memory limits are set in the container,
+this means that the system needs to limit container memory usage; Memory QoS uses <code>memory.high</code>
+to throttle workload approaching its memory limit, ensuring that the system is not overwhelmed
+by instantaneous memory allocation.</p><p>Memory QoS relies on QoS class to determine which settings to apply; however, these are different
+mechanisms that both provide controls over quality of service.</p><h2 id="class-independent-behavior">Some behavior is independent of QoS class</h2><p>Certain behavior is independent of the QoS class assigned by Kubernetes. For example:</p><ul><li><p>Any Container exceeding a resource limit will be killed and restarted by the kubelet without
+affecting other Containers in that Pod.</p></li><li><p>If a Container exceeds its resource request and the node it runs on faces
+resource pressure, the Pod it is in becomes a candidate for <a href="/docs/concepts/scheduling-eviction/node-pressure-eviction/">eviction</a>.
+If this occurs, all Containers in the Pod will be terminated. Kubernetes may create a
+replacement Pod, usually on a different node.</p></li><li><p>The resource request of a Pod is equal to the sum of the resource requests of
+its component Containers, and the resource limit of a Pod is equal to the sum of
+the resource limits of its component Containers.</p></li><li><p>The kube-scheduler does not consider QoS class when selecting which Pods to
+<a href="/docs/concepts/scheduling-eviction/pod-priority-preemption/#preemption">preempt</a>.
+Preemption can occur when a cluster does not have enough resources to run all the Pods
+you defined.</p></li></ul><h2 id="what-s-next">What's next</h2><ul><li>Learn about <a href="/docs/concepts/configuration/manage-resources-containers/">resource management for Pods and Containers</a>.</li><li>Learn about <a href="/docs/concepts/scheduling-eviction/node-pressure-eviction/">Node-pressure eviction</a>.</li><li>Learn about <a href="/docs/concepts/scheduling-eviction/pod-priority-preemption/">Pod priority and preemption</a>.</li><li>Learn about <a href="/docs/concepts/workloads/pods/disruptions/">Pod disruptions</a>.</li><li>Learn how to <a href="/docs/tasks/configure-pod-container/assign-memory-resource/">assign memory resources to containers and pods</a>.</li><li>Learn how to <a href="/docs/tasks/configure-pod-container/assign-cpu-resource/">assign CPU resources to containers and pods</a>.</li><li>Learn how to <a href="/docs/tasks/configure-pod-container/quality-service-pod/">configure Quality of Service for Pods</a>.</li></ul></div>

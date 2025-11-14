@@ -1,0 +1,90 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Cloud Native Security and Kubernetes</h1><div class="lead">Concepts for keeping your cloud-native workload secure.</div><p>Kubernetes is based on a cloud-native architecture, and draws on advice from the
+<a class="glossary-tooltip" title="Cloud Native Computing Foundation" data-toggle="tooltip" data-placement="top" href="https://cncf.io/" target="_blank" aria-label="CNCF">CNCF</a> about good practice for
+cloud native information security.</p><p>Read on through this page for an overview of how Kubernetes is designed to
+help you deploy a secure cloud native platform.</p><h2 id="cloud-native-information-security">Cloud native information security</h2><p>The CNCF <a href="https://github.com/cncf/tag-security/blob/main/community/resources/security-whitepaper/v2/CNCF_cloud-native-security-whitepaper-May2022-v2.pdf">white paper</a>
+on cloud native security defines security controls and practices that are
+appropriate to different <em>lifecycle phases</em>.</p><h2 id="lifecycle-phase-develop"><em>Develop</em> lifecycle phase</h2><ul><li>Ensure the integrity of development environments.</li><li>Design applications following good practice for information security,
+appropriate for your context.</li><li>Consider end user security as part of solution design.</li></ul><p>To achieve this, you can:</p><ol><li>Adopt an architecture, such as <a href="https://glossary.cncf.io/zero-trust-architecture/">zero trust</a>,
+that minimizes attack surfaces, even for internal threats.</li><li>Define a code review process that considers security concerns.</li><li>Build a <em>threat model</em> of your system or application that identifies
+trust boundaries. Use that to model to identify risks and to help find
+ways to treat those risks.</li><li>Incorporate advanced security automation, such as <em>fuzzing</em> and
+<a href="https://glossary.cncf.io/security-chaos-engineering/">security chaos engineering</a>,
+where it's justified.</li></ol><h2 id="lifecycle-phase-distribute"><em>Distribute</em> lifecycle phase</h2><ul><li>Ensure the security of the supply chain for container images you execute.</li><li>Ensure the security of the supply chain for the cluster and other components
+that execute your application. An example of another component might be an
+external database that your cloud-native application uses for persistence.</li></ul><p>To achieve this, you can:</p><ol><li>Scan container images and other artifacts for known vulnerabilities.</li><li>Ensure that software distribution uses encryption in transit, with
+a chain of trust for the software source.</li><li>Adopt and follow processes to update dependencies when updates are
+available, especially in response to security announcements.</li><li>Use validation mechanisms such as digital certificates for supply
+chain assurance.</li><li>Subscribe to feeds and other mechanisms to alert you to security
+risks.</li><li>Restrict access to artifacts. Place container images in a
+<a href="/docs/concepts/containers/images/#using-a-private-registry">private registry</a>
+that only allows authorized clients to pull images.</li></ol><h2 id="lifecycle-phase-deploy"><em>Deploy</em> lifecycle phase</h2><p>Ensure appropriate restrictions on what can be deployed, who can deploy it,
+and where it can be deployed to.
+You can enforce measures from the <em>distribute</em> phase, such as verifying the
+cryptographic identity of container image artifacts.</p><p>You can deploy different applications and cluster components into different
+<a class="glossary-tooltip" title="An abstraction used by Kubernetes to support isolation of groups of resources within a single cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/namespaces" target="_blank" aria-label="namespaces">namespaces</a>. Containers
+themselves, and namespaces, both provide isolation mechanisms that are
+relevant to information security.</p><p>When you deploy Kubernetes, you also set the foundation for your
+applications' runtime environment: a Kubernetes cluster (or
+multiple clusters).
+That IT infrastructure must provide the security guarantees that higher
+layers expect.</p><h2 id="lifecycle-phase-runtime"><em>Runtime</em> lifecycle phase</h2><p>The Runtime phase comprises three critical areas: <a href="#protection-runtime-access">access</a>,
+<a href="#protection-runtime-compute">compute</a>, and <a href="#protection-runtime-storage">storage</a>.</p><h3 id="protection-runtime-access">Runtime protection: access</h3><p>The Kubernetes API is what makes your cluster work. Protecting this API is key
+to providing effective cluster security.</p><p>Other pages in the Kubernetes documentation have more detail about how to set up
+specific aspects of access control. The <a href="/docs/concepts/security/security-checklist/">security checklist</a>
+has a set of suggested basic checks for your cluster.</p><p>Beyond that, securing your cluster means implementing effective
+<a href="/docs/concepts/security/controlling-access/#authentication">authentication</a> and
+<a href="/docs/concepts/security/controlling-access/#authorization">authorization</a> for API access. Use <a href="/docs/concepts/security/service-accounts/">ServiceAccounts</a> to
+provide and manage security identities for workloads and cluster
+components.</p><p>Kubernetes uses TLS to protect API traffic; make sure to deploy the cluster using
+TLS (including for traffic between nodes and the control plane), and protect the
+encryption keys. If you use Kubernetes' own API for
+<a href="/docs/reference/access-authn-authz/certificate-signing-requests/#certificate-signing-requests">CertificateSigningRequests</a>,
+pay special attention to restricting misuse there.</p><h3 id="protection-runtime-compute">Runtime protection: compute</h3><p><a class="glossary-tooltip" title="A lightweight and portable executable image that contains software and all of its dependencies." data-toggle="tooltip" data-placement="top" href="/docs/concepts/containers/" target="_blank" aria-label="Containers">Containers</a> provide two
+things: isolation between different applications, and a mechanism to combine
+those isolated applications to run on the same host computer. Those two
+aspects, isolation and aggregation, mean that runtime security involves
+identifying trade-offs and finding an appropriate balance.</p><p>Kubernetes relies on a <a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>
+to actually set up and run containers. The Kubernetes project does
+not recommend a specific container runtime and you should make sure that
+the runtime(s) that you choose meet your information security needs.</p><p>To protect your compute at runtime, you can:</p><ol><li><p>Enforce <a href="/docs/concepts/security/pod-security-standards/">Pod security standards</a>
+for applications, to help ensure they run with only the necessary privileges.</p></li><li><p>Run a specialized operating system on your nodes that is designed specifically
+for running containerized workloads. This is typically based on a read-only
+operating system (<em>immutable image</em>) that provides only the services
+essential for running containers.</p><p>Container-specific operating systems help to isolate system components and
+present a reduced attack surface in case of a container escape.</p></li><li><p>Define <a href="/docs/concepts/policy/resource-quotas/">ResourceQuotas</a> to
+fairly allocate shared resources, and use
+mechanisms such as <a href="/docs/concepts/policy/limit-range/">LimitRanges</a>
+to ensure that Pods specify their resource requirements.</p></li><li><p>Partition workloads across different nodes.
+Use <a href="/docs/concepts/scheduling-eviction/assign-pod-node/#node-isolation-restriction">node isolation</a>
+mechanisms, either from Kubernetes itself or from the ecosystem, to ensure that
+Pods with different trust contexts are run on separate sets of nodes.</p></li><li><p>Use a <a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>
+that provides security restrictions.</p></li><li><p>On Linux nodes, use a Linux security module such as <a href="/docs/tutorials/security/apparmor/">AppArmor</a>
+or <a href="/docs/tutorials/security/seccomp/">seccomp</a>.</p></li></ol><h3 id="protection-runtime-storage">Runtime protection: storage</h3><p>To protect storage for your cluster and the applications that run there, you can:</p><ol><li>Integrate your cluster with an external storage plugin that provides encryption at
+rest for volumes.</li><li>Enable <a href="/docs/tasks/administer-cluster/encrypt-data/">encryption at rest</a> for
+API objects.</li><li>Protect data durability using backups. Verify that you can restore these, whenever you need to.</li><li>Authenticate connections between cluster nodes and any network storage they rely
+upon.</li><li>Implement data encryption within your own application.</li></ol><p>For encryption keys, generating these within specialized hardware provides
+the best protection against disclosure risks. A <em>hardware security module</em>
+can let you perform cryptographic operations without allowing the security
+key to be copied elsewhere.</p><h3 id="networking-and-security">Networking and security</h3><p>You should also consider network security measures, such as
+<a href="/docs/concepts/services-networking/network-policies/">NetworkPolicy</a> or a
+<a href="https://glossary.cncf.io/service-mesh/">service mesh</a>.
+Some network plugins for Kubernetes provide encryption for your
+cluster network, using technologies such as a virtual
+private network (VPN) overlay.
+By design, Kubernetes lets you use your own networking plugin for your
+cluster (if you use managed Kubernetes, the person or organization
+managing your cluster may have chosen a network plugin for you).</p><p>The network plugin you choose and the way you integrate it can have a
+strong impact on the security of information in transit.</p><h3 id="observability-and-runtime-security">Observability and runtime security</h3><p>Kubernetes lets you extend your cluster with extra tooling. You can set up third
+party solutions to help you monitor or troubleshoot your applications and the
+clusters they are running. You also get some basic observability features built
+in to Kubernetes itself. Your code running in containers can generate logs,
+publish metrics or provide other observability data; at deploy time, you need to
+make sure your cluster provides an appropriate level of protection there.</p><p>If you set up a metrics dashboard or something similar, review the chain of components
+that populate data into that dashboard, as well as the dashboard itself. Make sure
+that the whole chain is designed with enough resilience and enough integrity protection
+that you can rely on it even during an incident where your cluster might be degraded.</p><p>Where appropriate, deploy security measures below the level of Kubernetes
+itself, such as cryptographically measured boot, or authenticated distribution
+of time (which helps ensure the fidelity of logs and audit records).</p><p>For a high assurance environment, deploy cryptographic protections to ensure that
+logs are both tamper-proof and confidential.</p><h2 id="what-s-next">What's next</h2><h3 id="further-reading-cloud-native">Cloud native security</h3><ul><li>CNCF <a href="https://github.com/cncf/tag-security/blob/main/community/resources/security-whitepaper/v2/CNCF_cloud-native-security-whitepaper-May2022-v2.pdf">white paper</a>
+on cloud native security.</li><li>CNCF <a href="https://github.com/cncf/tag-security/blob/f80844baaea22a358f5b20dca52cd6f72a32b066/supply-chain-security/supply-chain-security-paper/CNCF_SSCP_v1.pdf">white paper</a>
+on good practices for securing a software supply chain.</li><li><a href="https://archive.fosdem.org/2020/schedule/event/kubernetes/">Fixing the Kubernetes clusterf**k: Understanding security from the kernel up</a> (FOSDEM 2020)</li><li><a href="https://www.youtube.com/watch?v=wqsUfvRyYpw">Kubernetes Security Best Practices</a> (Kubernetes Forum Seoul 2019)</li><li><a href="https://www.youtube.com/watch?v=EzSkU3Oecuw">Towards Measured Boot Out of the Box</a> (Linux Security Summit 2016)</li></ul><h3 id="further-reading-k8s">Kubernetes and information security</h3><ul><li><a href="/docs/concepts/security/">Kubernetes security</a></li><li><a href="/docs/tasks/administer-cluster/securing-a-cluster/">Securing your cluster</a></li><li><a href="/docs/tasks/tls/managing-tls-in-a-cluster/">Data encryption in transit</a> for the control plane</li><li><a href="/docs/tasks/administer-cluster/encrypt-data/">Data encryption at rest</a></li><li><a href="/docs/concepts/configuration/secret/">Secrets in Kubernetes</a></li><li><a href="/docs/concepts/security/controlling-access/">Controlling Access to the Kubernetes API</a></li><li><a href="/docs/concepts/services-networking/network-policies/">Network policies</a> for Pods</li><li><a href="/docs/concepts/security/pod-security-standards/">Pod security standards</a></li><li><a href="/docs/concepts/containers/runtime-class/">RuntimeClasses</a></li></ul></div>

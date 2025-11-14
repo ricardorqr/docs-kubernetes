@@ -1,0 +1,83 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Exposing an External IP Address to Access an Application in a Cluster</h1><p>This page shows how to create a Kubernetes Service object that exposes an
+external IP address.</p><h2 id="before-you-begin">Before you begin</h2><ul><li>Install <a href="/docs/tasks/tools/">kubectl</a>.</li><li>Use a cloud provider like Google Kubernetes Engine or Amazon Web Services to
+create a Kubernetes cluster. This tutorial creates an
+<a href="/docs/tasks/access-application-cluster/create-external-load-balancer/">external load balancer</a>,
+which requires a cloud provider.</li><li>Configure <code>kubectl</code> to communicate with your Kubernetes API server. For instructions, see the
+documentation for your cloud provider.</li></ul><h2 id="objectives">Objectives</h2><ul><li>Run five instances of a Hello World application.</li><li>Create a Service object that exposes an external IP address.</li><li>Use the Service object to access the running application.</li></ul><h2 id="creating-a-service-for-an-application-running-in-five-pods">Creating a service for an application running in five pods</h2><ol><li><p>Run a Hello World application in your cluster:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/load-balancer-example.yaml" download="service/load-balancer-example.yaml"><code>service/load-balancer-example.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-load-balancer-example-yaml&quot;)" title="Copy service/load-balancer-example.yaml to clipboard"/></div><div class="includecode" id="service-load-balancer-example-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>load-balancer-example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hello-world<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">replicas</span>:<span style="color:#bbb"> </span><span style="color:#666">5</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>load-balancer-example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>load-balancer-example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>gcr.io/google-samples/hello-app:2.0<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hello-world<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">8080</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/service/load-balancer-example.yaml
+</span></span></code></pre></div><p>The preceding command creates a
+<a class="glossary-tooltip" title="Manages a replicated application on your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/deployment/" target="_blank" aria-label="Deployment">Deployment</a>
+and an associated
+<a class="glossary-tooltip" title="ReplicaSet ensures that a specified number of Pod replicas are running at one time" data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/controllers/replicaset/" target="_blank" aria-label="ReplicaSet">ReplicaSet</a>.
+The ReplicaSet has five
+<a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pods">Pods</a>
+each of which runs the Hello World application.</p></li><li><p>Display information about the Deployment:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get deployments hello-world
+</span></span><span style="display:flex"><span>kubectl describe deployments hello-world
+</span></span></code></pre></div></li><li><p>Display information about your ReplicaSet objects:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get replicasets
+</span></span><span style="display:flex"><span>kubectl describe replicasets
+</span></span></code></pre></div></li><li><p>Create a Service object that exposes the deployment:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl expose deployment hello-world --type<span style="color:#666">=</span>LoadBalancer --name<span style="color:#666">=</span>my-service
+</span></span></code></pre></div></li><li><p>Display information about the Service:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get services my-service
+</span></span></code></pre></div><p>The output is similar to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">NAME         TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)    AGE
+</span></span></span><span style="display:flex"><span><span style="color:#888">my-service   LoadBalancer   10.3.245.137   104.198.205.71   8080/TCP   54s
+</span></span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>type=LoadBalancer</code> service is backed by external cloud providers, which is not covered in this example. Please refer to <a href="/docs/concepts/services-networking/service/#loadbalancer">setting <code>type: LoadBalancer</code> for your Service</a> for the details.</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If the external IP address is shown as &lt;pending&gt;, wait for a minute and enter the same command again.</div></li><li><p>Display detailed information about the Service:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe services my-service
+</span></span></code></pre></div><p>The output is similar to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">Name:           my-service
+</span></span></span><span style="display:flex"><span><span style="color:#888">Namespace:      default
+</span></span></span><span style="display:flex"><span><span style="color:#888">Labels:         app.kubernetes.io/name=load-balancer-example
+</span></span></span><span style="display:flex"><span><span style="color:#888">Annotations:    &lt;none&gt;
+</span></span></span><span style="display:flex"><span><span style="color:#888">Selector:       app.kubernetes.io/name=load-balancer-example
+</span></span></span><span style="display:flex"><span><span style="color:#888">Type:           LoadBalancer
+</span></span></span><span style="display:flex"><span><span style="color:#888">IP:             10.3.245.137
+</span></span></span><span style="display:flex"><span><span style="color:#888">LoadBalancer Ingress:   104.198.205.71
+</span></span></span><span style="display:flex"><span><span style="color:#888">Port:           &lt;unset&gt; 8080/TCP
+</span></span></span><span style="display:flex"><span><span style="color:#888">NodePort:       &lt;unset&gt; 32377/TCP
+</span></span></span><span style="display:flex"><span><span style="color:#888">Endpoints:      10.0.0.6:8080,10.0.1.6:8080,10.0.1.7:8080 + 2 more...
+</span></span></span><span style="display:flex"><span><span style="color:#888">Session Affinity:   None
+</span></span></span><span style="display:flex"><span><span style="color:#888">Events:         &lt;none&gt;
+</span></span></span></code></pre></div><p>Make a note of the external IP address (<code>LoadBalancer Ingress</code>) exposed by
+your service. In this example, the external IP address is 104.198.205.71.
+Also note the value of <code>Port</code> and <code>NodePort</code>. In this example, the <code>Port</code>
+is 8080 and the <code>NodePort</code> is 32377.</p></li><li><p>In the preceding output, you can see that the service has several endpoints:
+10.0.0.6:8080,10.0.1.6:8080,10.0.1.7:8080 + 2 more. These are internal
+addresses of the pods that are running the Hello World application. To
+verify these are pod addresses, enter this command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods --output<span style="color:#666">=</span>wide
+</span></span></code></pre></div><p>The output is similar to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">NAME                         ...  IP         NODE
+</span></span></span><span style="display:flex"><span><span style="color:#888">hello-world-2895499144-1jaz9 ...  10.0.1.6   gke-cluster-1-default-pool-e0b8d269-1afc
+</span></span></span><span style="display:flex"><span><span style="color:#888">hello-world-2895499144-2e5uh ...  10.0.1.8   gke-cluster-1-default-pool-e0b8d269-1afc
+</span></span></span><span style="display:flex"><span><span style="color:#888">hello-world-2895499144-9m4h1 ...  10.0.0.6   gke-cluster-1-default-pool-e0b8d269-5v7a
+</span></span></span><span style="display:flex"><span><span style="color:#888">hello-world-2895499144-o4z13 ...  10.0.1.7   gke-cluster-1-default-pool-e0b8d269-1afc
+</span></span></span><span style="display:flex"><span><span style="color:#888">hello-world-2895499144-segjf ...  10.0.2.5   gke-cluster-1-default-pool-e0b8d269-cpuc
+</span></span></span></code></pre></div></li><li><p>Use the external IP address (<code>LoadBalancer Ingress</code>) to access the Hello
+World application:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://&lt;external-ip&gt;:&lt;port&gt;
+</span></span></code></pre></div><p>where <code>&lt;external-ip&gt;</code> is the external IP address (<code>LoadBalancer Ingress</code>)
+of your Service, and <code>&lt;port&gt;</code> is the value of <code>Port</code> in your Service
+description.
+If you are using minikube, typing <code>minikube service my-service</code> will
+automatically open the Hello World application in a browser.</p><p>The response to a successful request is a hello message:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">Hello, world!
+</span></span></span><span style="display:flex"><span><span style="color:#888">Version: 2.0.0
+</span></span></span><span style="display:flex"><span><span style="color:#888">Hostname: 0bd46b45f32f
+</span></span></span></code></pre></div></li></ol><h2 id="cleaning-up">Cleaning up</h2><p>To delete the Service, enter this command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete services my-service
+</span></span></code></pre></div><p>To delete the Deployment, the ReplicaSet, and the Pods that are running
+the Hello World application, enter this command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete deployment hello-world
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><p>Learn more about
+<a href="/docs/tutorials/services/connect-applications-service/">connecting applications with services</a>.</p></div>

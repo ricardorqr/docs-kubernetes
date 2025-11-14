@@ -1,0 +1,385 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Connecting Applications with Services</h1><h2 id="the-kubernetes-model-for-connecting-containers">The Kubernetes model for connecting containers</h2><p>Now that you have a continuously running, replicated application you can expose it on a network.</p><p>Kubernetes assumes that pods can communicate with other pods, regardless of which host they land on.
+Kubernetes gives every pod its own cluster-private IP address, so you do not need to explicitly
+create links between pods or map container ports to host ports. This means that containers within
+a Pod can all reach each other's ports on localhost, and all pods in a cluster can see each other
+without NAT. The rest of this document elaborates on how you can run reliable services on such a
+networking model.</p><p>This tutorial uses a simple nginx web server to demonstrate the concept.</p><h2 id="exposing-pods-to-the-cluster">Exposing pods to the cluster</h2><p>We did this in a previous example, but let's do it once again and focus on the networking perspective.
+Create an nginx Pod, and note that it has a container port specification:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/run-my-nginx.yaml" download="service/networking/run-my-nginx.yaml"><code>service/networking/run-my-nginx.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-run-my-nginx-yaml&quot;)" title="Copy service/networking/run-my-nginx.yaml to clipboard"/></div><div class="includecode" id="service-networking-run-my-nginx-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">replicas</span>:<span style="color:#bbb"> </span><span style="color:#666">2</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>This makes it accessible from any node in your cluster. Check the nodes the Pod is running on:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f ./run-my-nginx.yaml
+</span></span><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">run</span><span style="color:#666">=</span>my-nginx -o wide
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                        READY     STATUS    RESTARTS   AGE       IP            NODE
+my-nginx-3800858182-jr4a2   1/1       Running   0          13s       10.244.3.4    kubernetes-minion-905m
+my-nginx-3800858182-kna2y   1/1       Running   0          13s       10.244.2.5    kubernetes-minion-ljyd
+</code></pre><p>Check your pods' IPs:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">run</span><span style="color:#666">=</span>my-nginx -o custom-columns<span style="color:#666">=</span>POD_IP:.status.podIPs
+</span></span><span style="display:flex"><span>    POD_IP
+</span></span><span style="display:flex"><span>    <span style="color:#666">[</span>map<span style="color:#666">[</span>ip:10.244.3.4<span style="color:#666">]]</span>
+</span></span><span style="display:flex"><span>    <span style="color:#666">[</span>map<span style="color:#666">[</span>ip:10.244.2.5<span style="color:#666">]]</span>
+</span></span></code></pre></div><p>You should be able to ssh into any node in your cluster and use a tool such as <code>curl</code>
+to make queries against both IPs. Note that the containers are <em>not</em> using port 80 on
+the node, nor are there any special NAT rules to route traffic to the pod. This means
+you can run multiple nginx pods on the same node all using the same <code>containerPort</code>,
+and access them from any other pod or node in your cluster using the assigned IP
+address for the pod. If you want to arrange for a specific port on the host
+Node to be forwarded to backing Pods, you can - but the networking model should
+mean that you do not need to do so.</p><p>You can read more about the
+<a href="/docs/concepts/cluster-administration/networking/#the-kubernetes-network-model">Kubernetes Networking Model</a>
+if you're curious.</p><h2 id="creating-a-service">Creating a Service</h2><p>So we have pods running nginx in a flat, cluster wide, address space. In theory,
+you could talk to these pods directly, but what happens when a node dies? The pods
+die with it, and the ReplicaSet inside the Deployment will create new ones, with different IPs. This is
+the problem a Service solves.</p><p>A Kubernetes Service is an abstraction which defines a logical set of Pods running
+somewhere in your cluster, that all provide the same functionality. When created,
+each Service is assigned a unique IP address (also called clusterIP). This address
+is tied to the lifespan of the Service, and will not change while the Service is alive.
+Pods can be configured to talk to the Service, and know that communication to the
+Service will be automatically load-balanced out to some pod that is a member of the Service.</p><p>You can create a Service for your 2 nginx replicas with <code>kubectl expose</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl expose deployment/my-nginx
+</span></span></code></pre></div><pre tabindex="0"><code>service/my-nginx exposed
+</code></pre><p>This is equivalent to <code>kubectl apply -f</code> in the following yaml:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/nginx-svc.yaml" download="service/networking/nginx-svc.yaml"><code>service/networking/nginx-svc.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-nginx-svc-yaml&quot;)" title="Copy service/networking/nginx-svc.yaml to clipboard"/></div><div class="includecode" id="service-networking-nginx-svc-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>This specification will create a Service which targets TCP port 80 on any Pod
+with the <code>run: my-nginx</code> label, and expose it on an abstracted Service port
+(<code>targetPort</code>: is the port the container accepts traffic on, <code>port</code>: is the
+abstracted Service port, which can be any port other pods use to access the
+Service).
+View <a href="/docs/reference/generated/kubernetes-api/v1.34/#service-v1-core">Service</a>
+API object to see the list of supported fields in service definition.
+Check your Service:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc my-nginx
+</span></span></code></pre></div><pre tabindex="0"><code>NAME       TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+my-nginx   ClusterIP   10.0.162.149   &lt;none&gt;        80/TCP    21s
+</code></pre><p>As mentioned previously, a Service is backed by a group of Pods. These Pods are
+exposed through
+<a class="glossary-tooltip" title="EndpointSlices track the IP addresses of Pods for Services." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/endpoint-slices/" target="_blank" aria-label="EndpointSlices">EndpointSlices</a>.
+The Service's selector will be evaluated continuously and the results will be POSTed
+to an EndpointSlice that is connected to the Service using
+<a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="labels">labels</a>.
+When a Pod dies, it is automatically removed from the EndpointSlices that contain it
+as an endpoint. New Pods that match the Service's selector will automatically get added
+to an EndpointSlice for that Service.
+Check the endpoints, and note that the IPs are the same as the Pods created in
+the first step:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe svc my-nginx
+</span></span></code></pre></div><pre tabindex="0"><code>Name:                my-nginx
+Namespace:           default
+Labels:              run=my-nginx
+Annotations:         &lt;none&gt;
+Selector:            run=my-nginx
+Type:                ClusterIP
+IP Family Policy:    SingleStack
+IP Families:         IPv4
+IP:                  10.0.162.149
+IPs:                 10.0.162.149
+Port:                &lt;unset&gt; 80/TCP
+TargetPort:          80/TCP
+Endpoints:           10.244.2.5:80,10.244.3.4:80
+Session Affinity:    None
+Events:              &lt;none&gt;
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get endpointslices -l kubernetes.io/service-name<span style="color:#666">=</span>my-nginx
+</span></span></code></pre></div><pre tabindex="0"><code>NAME             ADDRESSTYPE   PORTS   ENDPOINTS               AGE
+my-nginx-7vzhx   IPv4          80      10.244.2.5,10.244.3.4   21s
+</code></pre><p>You should now be able to curl the nginx Service on <code>&lt;CLUSTER-IP&gt;:&lt;PORT&gt;</code> from
+any node in your cluster. Note that the Service IP is completely virtual, it
+never hits the wire. If you're curious about how this works you can read more
+about the <a href="/docs/reference/networking/virtual-ips/">service proxy</a>.</p><h2 id="accessing-the-service">Accessing the Service</h2><p>Kubernetes supports 2 primary modes of finding a Service - environment variables
+and DNS. The former works out of the box while the latter requires the
+<a href="https://releases.k8s.io/v1.34.0/cluster/addons/dns/coredns">CoreDNS cluster addon</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If the service environment variables are not desired (because possible clashing
+with expected program ones, too many variables to process, only using DNS, etc)
+you can disable this mode by setting the <code>enableServiceLinks</code> flag to <code>false</code> on
+the <a href="/docs/reference/generated/kubernetes-api/v1.34/#pod-v1-core">pod spec</a>.</div><h3 id="environment-variables">Environment Variables</h3><p>When a Pod runs on a Node, the kubelet adds a set of environment variables for
+each active Service. This introduces an ordering problem. To see why, inspect
+the environment of your running nginx Pods (your Pod name will be different):</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> my-nginx-3800858182-jr4a2 -- printenv | grep SERVICE
+</span></span></code></pre></div><pre tabindex="0"><code>KUBERNETES_SERVICE_HOST=10.0.0.1
+KUBERNETES_SERVICE_PORT=443
+KUBERNETES_SERVICE_PORT_HTTPS=443
+</code></pre><p>Note there's no mention of your Service. This is because you created the replicas
+before the Service. Another disadvantage of doing this is that the scheduler might
+put both Pods on the same machine, which will take your entire Service down if
+it dies. We can do this the right way by killing the 2 Pods and waiting for the
+Deployment to recreate them. This time the Service exists <em>before</em> the
+replicas. This will give you scheduler-level Service spreading of your Pods
+(provided all your nodes have equal capacity), as well as the right environment
+variables:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl scale deployment my-nginx --replicas<span style="color:#666">=</span>0; kubectl scale deployment my-nginx --replicas<span style="color:#666">=</span>2;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">run</span><span style="color:#666">=</span>my-nginx -o wide
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                        READY     STATUS    RESTARTS   AGE     IP            NODE
+my-nginx-3800858182-e9ihh   1/1       Running   0          5s      10.244.2.7    kubernetes-minion-ljyd
+my-nginx-3800858182-j4rm4   1/1       Running   0          5s      10.244.3.8    kubernetes-minion-905m
+</code></pre><p>You may notice that the pods have different names, since they are killed and recreated.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> my-nginx-3800858182-e9ihh -- printenv | grep SERVICE
+</span></span></code></pre></div><pre tabindex="0"><code>KUBERNETES_SERVICE_PORT=443
+MY_NGINX_SERVICE_HOST=10.0.162.149
+KUBERNETES_SERVICE_HOST=10.0.0.1
+MY_NGINX_SERVICE_PORT=80
+KUBERNETES_SERVICE_PORT_HTTPS=443
+</code></pre><h3 id="dns">DNS</h3><p>Kubernetes offers a DNS cluster addon Service that automatically assigns dns names
+to other Services. You can check if it's running on your cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get services kube-dns --namespace<span style="color:#666">=</span>kube-system
+</span></span></code></pre></div><pre tabindex="0"><code>NAME       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)         AGE
+kube-dns   ClusterIP   10.0.0.10    &lt;none&gt;        53/UDP,53/TCP   8m
+</code></pre><p>The rest of this section will assume you have a Service with a long lived IP
+(my-nginx), and a DNS server that has assigned a name to that IP. Here we use
+the CoreDNS cluster addon (application name <code>kube-dns</code>), so you can talk to the
+Service from any pod in your cluster using standard methods (e.g. <code>gethostbyname()</code>).
+If CoreDNS isn't running, you can enable it referring to the
+<a href="https://github.com/coredns/deployment/tree/master/kubernetes">CoreDNS README</a>
+or <a href="/docs/tasks/administer-cluster/coredns/#installing-coredns">Installing CoreDNS</a>.
+Let's run another curl application to test this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl run curl --image<span style="color:#666">=</span>radial/busyboxplus:curl -i --tty --rm
+</span></span></code></pre></div><pre tabindex="0"><code>Waiting for pod default/curl-131556218-9fnch to be running, status is Pending, pod ready: false
+Hit enter for command prompt
+</code></pre><p>Then, hit enter and run <code>nslookup my-nginx</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#666">[</span> root@curl-131556218-9fnch:/ <span style="color:#666">]</span>$ nslookup my-nginx
+</span></span><span style="display:flex"><span>Server:    10.0.0.10
+</span></span><span style="display:flex"><span>Address 1: 10.0.0.10
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>Name:      my-nginx
+</span></span><span style="display:flex"><span>Address 1: 10.0.162.149
+</span></span></code></pre></div><h2 id="securing-the-service">Securing the Service</h2><p>Till now we have only accessed the nginx server from within the cluster. Before
+exposing the Service to the internet, you want to make sure the communication
+channel is secure. For this, you will need:</p><ul><li>Self signed certificates for https (unless you already have an identity certificate)</li><li>An nginx server configured to use the certificates</li><li>A <a href="/docs/concepts/configuration/secret/">secret</a> that makes the certificates accessible to pods</li></ul><p>You can acquire all these from the
+<a href="https://github.com/kubernetes/examples/tree/master/_archived/https-nginx/">nginx https example</a>.
+This requires having go and make tools installed. If you don't want to install those,
+then follow the manual steps later. In short:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>make keys <span style="color:#b8860b">KEY</span><span style="color:#666">=</span>/tmp/nginx.key <span style="color:#b8860b">CERT</span><span style="color:#666">=</span>/tmp/nginx.crt
+</span></span><span style="display:flex"><span>kubectl create secret tls nginxsecret --key /tmp/nginx.key --cert /tmp/nginx.crt
+</span></span></code></pre></div><pre tabindex="0"><code>secret/nginxsecret created
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get secrets
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                  TYPE                                  DATA      AGE
+nginxsecret           kubernetes.io/tls                     2         1m
+</code></pre><p>And also the configmap:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl create configmap nginxconfigmap --from-file<span style="color:#666">=</span>default.conf
+</span></span></code></pre></div><p>You can find an example for <code>default.conf</code> in
+<a href="https://github.com/kubernetes/examples/tree/bc9ca4ca32bb28762ef216386934bef20f1f9930/staging/https-nginx/">the Kubernetes examples project repo</a>.</p><pre tabindex="0"><code>configmap/nginxconfigmap created
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get configmaps
+</span></span></code></pre></div><pre tabindex="0"><code>NAME             DATA   AGE
+nginxconfigmap   1      114s
+</code></pre><p>You can view the details of the <code>nginxconfigmap</code> ConfigMap using the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe configmap  nginxconfigmap
+</span></span></code></pre></div><p>The output is similar to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-console" data-lang="console"><span style="display:flex"><span><span style="color:#888">Name:         nginxconfigmap
+</span></span></span><span style="display:flex"><span><span style="color:#888">Namespace:    default
+</span></span></span><span style="display:flex"><span><span style="color:#888">Labels:       &lt;none&gt;
+</span></span></span><span style="display:flex"><span><span style="color:#888">Annotations:  &lt;none&gt;
+</span></span></span><span style="display:flex"><span><span style="color:#888"/><span>
+</span></span></span><span style="display:flex"><span><span/><span style="color:#888">Data
+</span></span></span><span style="display:flex"><span><span style="color:#888">====
+</span></span></span><span style="display:flex"><span><span style="color:#888">default.conf:
+</span></span></span><span style="display:flex"><span><span style="color:#888">----
+</span></span></span><span style="display:flex"><span><span style="color:#888">server {
+</span></span></span><span style="display:flex"><span><span style="color:#888">        listen 80 default_server;
+</span></span></span><span style="display:flex"><span><span style="color:#888">        listen [::]:80 default_server ipv6only=on;
+</span></span></span><span style="display:flex"><span><span style="color:#888"/><span>
+</span></span></span><span style="display:flex"><span><span/><span style="color:#888">        listen 443 ssl;
+</span></span></span><span style="display:flex"><span><span style="color:#888"/><span>
+</span></span></span><span style="display:flex"><span><span/><span style="color:#888">        root /usr/share/nginx/html;
+</span></span></span><span style="display:flex"><span><span style="color:#888">        index index.html;
+</span></span></span><span style="display:flex"><span><span style="color:#888"/><span>
+</span></span></span><span style="display:flex"><span><span/><span style="color:#888">        server_name localhost;
+</span></span></span><span style="display:flex"><span><span style="color:#888">        ssl_certificate /etc/nginx/ssl/tls.crt;
+</span></span></span><span style="display:flex"><span><span style="color:#888">        ssl_certificate_key /etc/nginx/ssl/tls.key;
+</span></span></span><span style="display:flex"><span><span style="color:#888"/><span>
+</span></span></span><span style="display:flex"><span><span/><span style="color:#888">        location / {
+</span></span></span><span style="display:flex"><span><span style="color:#888">                try_files $uri $uri/ =404;
+</span></span></span><span style="display:flex"><span><span style="color:#888">        }
+</span></span></span><span style="display:flex"><span><span style="color:#888">}
+</span></span></span><span style="display:flex"><span><span style="color:#888"/><span>
+</span></span></span><span style="display:flex"><span><span/><span style="color:#888">BinaryData
+</span></span></span><span style="display:flex"><span><span style="color:#888">====
+</span></span></span><span style="display:flex"><span><span style="color:#888"/><span>
+</span></span></span><span style="display:flex"><span><span/><span style="color:#888">Events:  &lt;none&gt;
+</span></span></span></code></pre></div><p>Following are the manual steps to follow in case you run into problems running make (on windows for example):</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Create a public private key pair</span>
+</span></span><span style="display:flex"><span>openssl req -x509 -nodes -days <span style="color:#666">365</span> -newkey rsa:2048 -keyout /d/tmp/nginx.key -out /d/tmp/nginx.crt -subj <span style="color:#b44">"/CN=my-nginx/O=my-nginx"</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Convert the keys to base64 encoding</span>
+</span></span><span style="display:flex"><span>cat /d/tmp/nginx.crt | base64
+</span></span><span style="display:flex"><span>cat /d/tmp/nginx.key | base64
+</span></span></code></pre></div><p>Use the output from the previous commands to create a yaml file as follows.
+The base64 encoded value should all be on a single line.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"v1"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span><span style="color:#b44">"Secret"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span><span style="color:#b44">"nginxsecret"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span><span style="color:#b44">"default"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>kubernetes.io/tls<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">data</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># NOTE: Replace the following values with your own base64-encoded certificate and key.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">tls.crt</span>:<span style="color:#bbb"> </span><span style="color:#b44">"REPLACE_WITH_BASE64_CERT"</span><span style="color:#bbb"> 
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">tls.key</span>:<span style="color:#bbb"> </span><span style="color:#b44">"REPLACE_WITH_BASE64_KEY"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Now create the secrets using the file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f nginxsecrets.yaml
+</span></span><span style="display:flex"><span>kubectl get secrets
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                  TYPE                                  DATA      AGE
+nginxsecret           kubernetes.io/tls                     2         1m
+</code></pre><p>Now modify your nginx replicas to start an https server using the certificate
+in the secret, and the Service, to expose both ports (80 and 443):</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/nginx-secure-app.yaml" download="service/networking/nginx-secure-app.yaml"><code>service/networking/nginx-secure-app.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-nginx-secure-app-yaml&quot;)" title="Copy service/networking/nginx-secure-app.yaml to clipboard"/></div><div class="includecode" id="service-networking-nginx-secure-app-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>NodePort<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">8080</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>http<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">443</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>https<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">replicas</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">run</span>:<span style="color:#bbb"> </span>my-nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>secret-volume<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">secret</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">secretName</span>:<span style="color:#bbb"> </span>nginxsecret<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>configmap-volume<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">configMap</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginxconfigmap<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginxhttps<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>bprashanth/nginxhttps:1.0<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">443</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/etc/nginx/ssl<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>secret-volume<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/etc/nginx/conf.d<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>configmap-volume<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>Noteworthy points about the nginx-secure-app manifest:</p><ul><li>It contains both Deployment and Service specification in the same file.</li><li>The <a href="https://github.com/kubernetes/examples/blob/master/_archived/https-nginx/default.conf">nginx server</a>
+serves HTTP traffic on port 80 and HTTPS traffic on 443, and nginx Service
+exposes both ports.</li><li>Each container has access to the keys through a volume mounted at <code>/etc/nginx/ssl</code>.
+This is set up <em>before</em> the nginx server is started.</li></ul><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete deployments,svc my-nginx; kubectl create -f ./nginx-secure-app.yaml
+</span></span></code></pre></div><p>At this point you can reach the nginx server from any node.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">run</span><span style="color:#666">=</span>my-nginx -o custom-columns<span style="color:#666">=</span>POD_IP:.status.podIPs
+</span></span><span style="display:flex"><span>    POD_IP
+</span></span><span style="display:flex"><span>    <span style="color:#666">[</span>map<span style="color:#666">[</span>ip:10.244.3.5<span style="color:#666">]]</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>node $ curl -k https://10.244.3.5
+</span></span><span style="display:flex"><span>...
+</span></span><span style="display:flex"><span>&lt;h1&gt;Welcome to nginx!&lt;/h1&gt;
+</span></span></code></pre></div><p>Note how we supplied the <code>-k</code> parameter to curl in the last step, this is because
+we don't know anything about the pods running nginx at certificate generation time,
+so we have to tell curl to ignore the CName mismatch. By creating a Service we
+linked the CName used in the certificate with the actual DNS name used by pods
+during Service lookup. Let's test this from a pod (the same secret is being reused
+for simplicity, the pod only needs nginx.crt to access the Service):</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/curlpod.yaml" download="service/networking/curlpod.yaml"><code>service/networking/curlpod.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-curlpod-yaml&quot;)" title="Copy service/networking/curlpod.yaml to clipboard"/></div><div class="includecode" id="service-networking-curlpod-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>curl-deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>curlpod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">replicas</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>curlpod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>secret-volume<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">secret</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">secretName</span>:<span style="color:#bbb"> </span>nginxsecret<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>curlpod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- sh<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- -c<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- while true; do sleep 1; done<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>radial/busyboxplus:curl<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/etc/nginx/ssl<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>secret-volume<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f ./curlpod.yaml
+</span></span><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>curlpod
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                               READY     STATUS    RESTARTS   AGE
+curl-deployment-1515033274-1410r   1/1       Running   0          1m
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> curl-deployment-1515033274-1410r -- curl https://my-nginx --cacert /etc/nginx/ssl/tls.crt
+</span></span><span style="display:flex"><span>...
+</span></span><span style="display:flex"><span>&lt;title&gt;Welcome to nginx!&lt;/title&gt;
+</span></span><span style="display:flex"><span>...
+</span></span></code></pre></div><h2 id="exposing-the-service">Exposing the Service</h2><p>For some parts of your applications you may want to expose a Service onto an
+external IP address. Kubernetes supports two ways of doing this: NodePorts and
+LoadBalancers. The Service created in the last section already used <code>NodePort</code>,
+so your nginx HTTPS replica is ready to serve traffic on the internet if your
+node has a public IP.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc my-nginx -o yaml | grep nodePort -C <span style="color:#666">5</span>
+</span></span><span style="display:flex"><span>  uid: 07191fb3-f61a-11e5-8ae5-42010af00002
+</span></span><span style="display:flex"><span>spec:
+</span></span><span style="display:flex"><span>  clusterIP: 10.0.162.149
+</span></span><span style="display:flex"><span>  ports:
+</span></span><span style="display:flex"><span>  - name: http
+</span></span><span style="display:flex"><span>    nodePort: <span style="color:#666">31704</span>
+</span></span><span style="display:flex"><span>    port: <span style="color:#666">8080</span>
+</span></span><span style="display:flex"><span>    protocol: TCP
+</span></span><span style="display:flex"><span>    targetPort: <span style="color:#666">80</span>
+</span></span><span style="display:flex"><span>  - name: https
+</span></span><span style="display:flex"><span>    nodePort: <span style="color:#666">32453</span>
+</span></span><span style="display:flex"><span>    port: <span style="color:#666">443</span>
+</span></span><span style="display:flex"><span>    protocol: TCP
+</span></span><span style="display:flex"><span>    targetPort: <span style="color:#666">443</span>
+</span></span><span style="display:flex"><span>  selector:
+</span></span><span style="display:flex"><span>    run: my-nginx
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get nodes -o yaml | grep ExternalIP -C <span style="color:#666">1</span>
+</span></span><span style="display:flex"><span>    - address: 104.197.41.11
+</span></span><span style="display:flex"><span>      type: ExternalIP
+</span></span><span style="display:flex"><span>    allocatable:
+</span></span><span style="display:flex"><span>--
+</span></span><span style="display:flex"><span>    - address: 23.251.152.56
+</span></span><span style="display:flex"><span>      type: ExternalIP
+</span></span><span style="display:flex"><span>    allocatable:
+</span></span><span style="display:flex"><span>...
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>$ curl https://&lt;EXTERNAL-IP&gt;:&lt;NODE-PORT&gt; -k
+</span></span><span style="display:flex"><span>...
+</span></span><span style="display:flex"><span>&lt;h1&gt;Welcome to nginx!&lt;/h1&gt;
+</span></span></code></pre></div><p>Let's now recreate the Service to use a cloud load balancer.
+Change the <code>Type</code> of <code>my-nginx</code> Service from <code>NodePort</code> to <code>LoadBalancer</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl edit svc my-nginx
+</span></span><span style="display:flex"><span>kubectl get svc my-nginx
+</span></span></code></pre></div><pre tabindex="0"><code>NAME       TYPE           CLUSTER-IP     EXTERNAL-IP        PORT(S)               AGE
+my-nginx   LoadBalancer   10.0.162.149     xx.xxx.xxx.xxx     8080:30163/TCP        21s
+</code></pre><pre tabindex="0"><code>curl https://&lt;EXTERNAL-IP&gt; -k
+...
+&lt;title&gt;Welcome to nginx!&lt;/title&gt;
+</code></pre><p>The IP address in the <code>EXTERNAL-IP</code> column is the one that is available on the public internet.
+The <code>CLUSTER-IP</code> is only available inside your cluster/private cloud network.</p><p>Note that on AWS, type <code>LoadBalancer</code> creates an ELB, which uses a (long)
+hostname, not an IP. It's too long to fit in the standard <code>kubectl get svc</code>
+output, in fact, so you'll need to do <code>kubectl describe service my-nginx</code> to
+see it. You'll see something like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe service my-nginx
+</span></span><span style="display:flex"><span>...
+</span></span><span style="display:flex"><span>LoadBalancer Ingress:   a320587ffd19711e5a37606cf4a74574-1142138393.us-east-1.elb.amazonaws.com
+</span></span><span style="display:flex"><span>...
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/tasks/access-application-cluster/service-access-application-cluster/">Using a Service to Access an Application in a Cluster</a></li><li>Learn more about <a href="/docs/tasks/access-application-cluster/connecting-frontend-backend/">Connecting a Front End to a Back End Using a Service</a></li><li>Learn more about <a href="/docs/tasks/access-application-cluster/create-external-load-balancer/">Creating an External Load Balancer</a></li></ul></div>

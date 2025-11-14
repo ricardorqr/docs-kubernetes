@@ -1,0 +1,72 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Configuration Best Practices</h1><p>This document highlights and consolidates configuration best practices that are introduced
+throughout the user guide, Getting Started documentation, and examples.</p><p>This is a living document. If you think of something that is not on this list but might be useful
+to others, please don't hesitate to file an issue or submit a PR.</p><h2 id="general-configuration-tips">General Configuration Tips</h2><ul><li><p>When defining configurations, specify the latest stable API version.</p></li><li><p>Configuration files should be stored in version control before being pushed to the cluster. This
+allows you to quickly roll back a configuration change if necessary. It also aids cluster
+re-creation and restoration.</p></li><li><p>Write your configuration files using YAML rather than JSON. Though these formats can be used
+interchangeably in almost all scenarios, YAML tends to be more user-friendly.</p></li><li><p>Group related objects into a single file whenever it makes sense. One file is often easier to
+manage than several. See the
+<a href="https://github.com/kubernetes/examples/tree/master/web/guestbook/all-in-one/guestbook-all-in-one.yaml">guestbook-all-in-one.yaml</a>
+file as an example of this syntax.</p></li><li><p>Note also that many <code>kubectl</code> commands can be called on a directory. For example, you can call
+<code>kubectl apply</code> on a directory of config files.</p></li><li><p>Don't specify default values unnecessarily: simple, minimal configuration will make errors less likely.</p></li><li><p>Put object descriptions in annotations, to allow better introspection.</p></li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>There is a breaking change introduced in the <a href="https://yaml.org/spec/1.2.0/#id2602744">YAML 1.2</a>
+boolean values specification with respect to <a href="https://yaml.org/spec/1.1/#id864510">YAML 1.1</a>.
+This is a known <a href="https://github.com/kubernetes/kubernetes/issues/34146">issue</a> in Kubernetes.
+YAML 1.2 only recognizes <strong>true</strong> and <strong>false</strong> as valid booleans, while YAML 1.1 also accepts
+<strong>yes</strong>, <strong>no</strong>, <strong>on</strong>, and <strong>off</strong> as booleans. However, Kubernetes uses YAML
+<a href="https://github.com/kubernetes/kubernetes/issues/34146#issuecomment-252692024">parsers</a> that are
+mostly compatible with YAML 1.1, which means that using <strong>yes</strong> or <strong>no</strong> instead of <strong>true</strong> or
+<strong>false</strong> in a YAML manifest may cause unexpected errors or behaviors. To avoid this issue, it is
+recommended to always use <strong>true</strong> or <strong>false</strong> for boolean values in YAML manifests, and to quote
+any strings that may be confused with booleans, such as <strong>"yes"</strong> or <strong>"no"</strong>.</p><p>Besides booleans, there are additional specifications changes between YAML versions. Please refer
+to the <a href="https://spec.yaml.io/main/spec/1.2.2/ext/changes">YAML Specification Changes</a> documentation
+for a comprehensive list.</p></div><h2 id="naked-pods-vs-replicasets-deployments-and-jobs">"Naked" Pods versus ReplicaSets, Deployments, and Jobs</h2><ul><li><p>Don't use naked Pods (that is, Pods not bound to a <a href="/docs/concepts/workloads/controllers/replicaset/">ReplicaSet</a> or
+<a href="/docs/concepts/workloads/controllers/deployment/">Deployment</a>) if you can avoid it. Naked Pods
+will not be rescheduled in the event of a node failure.</p><p>A Deployment, which both creates a ReplicaSet to ensure that the desired number of Pods is
+always available, and specifies a strategy to replace Pods (such as
+<a href="/docs/concepts/workloads/controllers/deployment/#rolling-update-deployment">RollingUpdate</a>), is
+almost always preferable to creating Pods directly, except for some explicit
+<a href="/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy"><code>restartPolicy: Never</code></a> scenarios.
+A <a href="/docs/concepts/workloads/controllers/job/">Job</a> may also be appropriate.</p></li></ul><h2 id="services">Services</h2><ul><li><p>Create a <a href="/docs/concepts/services-networking/service/">Service</a> before its corresponding backend
+workloads (Deployments or ReplicaSets), and before any workloads that need to access it.
+When Kubernetes starts a container, it provides environment variables pointing to all the Services
+which were running when the container was started. For example, if a Service named <code>foo</code> exists,
+all containers will get the following variables in their initial environment:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">FOO_SERVICE_HOST</span><span style="color:#666">=</span>&lt;the host the Service is running on&gt;
+</span></span><span style="display:flex"><span><span style="color:#b8860b">FOO_SERVICE_PORT</span><span style="color:#666">=</span>&lt;the port the Service is running on&gt;
+</span></span></code></pre></div><p><em>This does imply an ordering requirement</em> - any <code>Service</code> that a <code>Pod</code> wants to access must be
+created before the <code>Pod</code> itself, or else the environment variables will not be populated.
+DNS does not have this restriction.</p></li><li><p>An optional (though strongly recommended) <a href="/docs/concepts/cluster-administration/addons/">cluster add-on</a>
+is a DNS server. The DNS server watches the Kubernetes API for new <code>Services</code> and creates a set
+of DNS records for each. If DNS has been enabled throughout the cluster then all <code>Pods</code> should be
+able to do name resolution of <code>Services</code> automatically.</p></li><li><p>Don't specify a <code>hostPort</code> for a Pod unless it is absolutely necessary. When you bind a Pod to a
+<code>hostPort</code>, it limits the number of places the Pod can be scheduled, because each &lt;<code>hostIP</code>,
+<code>hostPort</code>, <code>protocol</code>&gt; combination must be unique. If you don't specify the <code>hostIP</code> and
+<code>protocol</code> explicitly, Kubernetes will use <code>0.0.0.0</code> as the default <code>hostIP</code> and <code>TCP</code> as the
+default <code>protocol</code>.</p><p>If you only need access to the port for debugging purposes, you can use the
+<a href="/docs/tasks/access-application-cluster/access-cluster/#manually-constructing-apiserver-proxy-urls">apiserver proxy</a>
+or <a href="/docs/tasks/access-application-cluster/port-forward-access-application-cluster/"><code>kubectl port-forward</code></a>.</p><p>If you explicitly need to expose a Pod's port on the node, consider using a
+<a href="/docs/concepts/services-networking/service/#type-nodeport">NodePort</a> Service before resorting to
+<code>hostPort</code>.</p></li><li><p>Avoid using <code>hostNetwork</code>, for the same reasons as <code>hostPort</code>.</p></li><li><p>Use <a href="/docs/concepts/services-networking/service/#headless-services">headless Services</a>
+(which have a <code>ClusterIP</code> of <code>None</code>) for service discovery when you don't need <code>kube-proxy</code>
+load balancing.</p></li></ul><h2 id="using-labels">Using Labels</h2><ul><li><p>Define and use <a href="/docs/concepts/overview/working-with-objects/labels/">labels</a> that identify
+<strong>semantic attributes</strong> of your application or Deployment, such as <code>{ app.kubernetes.io/name: MyApp, tier: frontend, phase: test, deployment: v3 }</code>. You can use these labels to select the
+appropriate Pods for other resources; for example, a Service that selects all <code>tier: frontend</code>
+Pods, or all <code>phase: test</code> components of <code>app.kubernetes.io/name: MyApp</code>.
+See the <a href="https://github.com/kubernetes/examples/tree/master/web/guestbook/">guestbook</a> app
+for examples of this approach.</p><p>A Service can be made to span multiple Deployments by omitting release-specific labels from its
+selector. When you need to update a running service without downtime, use a
+<a href="/docs/concepts/workloads/controllers/deployment/">Deployment</a>.</p><p>A desired state of an object is described by a Deployment, and if changes to that spec are
+<em>applied</em>, the deployment controller changes the actual state to the desired state at a controlled
+rate.</p></li><li><p>Use the <a href="/docs/concepts/overview/working-with-objects/common-labels/">Kubernetes common labels</a>
+for common use cases. These standardized labels enrich the metadata in a way that allows tools,
+including <code>kubectl</code> and <a href="/docs/tasks/access-application-cluster/web-ui-dashboard/">dashboard</a>, to
+work in an interoperable way.</p></li><li><p>You can manipulate labels for debugging. Because Kubernetes controllers (such as ReplicaSet) and
+Services match to Pods using selector labels, removing the relevant labels from a Pod will stop
+it from being considered by a controller or from being served traffic by a Service. If you remove
+the labels of an existing Pod, its controller will create a new Pod to take its place. This is a
+useful way to debug a previously "live" Pod in a "quarantine" environment. To interactively remove
+or add labels, use <a href="/docs/reference/generated/kubectl/kubectl-commands#label"><code>kubectl label</code></a>.</p></li></ul><h2 id="using-kubectl">Using kubectl</h2><ul><li><p>Use <code>kubectl apply -f &lt;directory&gt;</code>. This looks for Kubernetes configuration in all <code>.yaml</code>,
+<code>.yml</code>, and <code>.json</code> files in <code>&lt;directory&gt;</code> and passes it to <code>apply</code>.</p></li><li><p>Use label selectors for <code>get</code> and <code>delete</code> operations instead of specific object names. See the
+sections on <a href="/docs/concepts/overview/working-with-objects/labels/#label-selectors">label selectors</a>
+and <a href="/docs/concepts/overview/working-with-objects/labels/#using-labels-effectively">using labels effectively</a>.</p></li><li><p>Use <code>kubectl create deployment</code> and <code>kubectl expose</code> to quickly create single-container
+Deployments and Services.
+See <a href="/docs/tasks/access-application-cluster/service-access-application-cluster/">Use a Service to Access an Application in a Cluster</a>
+for an example.</p></li></ul></div>

@@ -1,0 +1,172 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Run a Single-Instance Stateful Application</h1><p>This page shows you how to run a single-instance stateful application
+in Kubernetes using a PersistentVolume and a Deployment. The
+application is MySQL.</p><h2 id="objectives">Objectives</h2><ul><li>Create a PersistentVolume referencing a disk in your environment.</li><li>Create a MySQL Deployment.</li><li>Expose MySQL to other pods in the cluster at a known DNS name.</li></ul><h2 id="before-you-begin">Before you begin</h2><ul><li><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p></li><li><p>You need to either have a <a href="/docs/concepts/storage/dynamic-provisioning/">dynamic PersistentVolume provisioner</a> with a default
+<a href="/docs/concepts/storage/storage-classes/">StorageClass</a>,
+or <a href="/docs/concepts/storage/persistent-volumes/#provisioning">statically provision PersistentVolumes</a>
+yourself to satisfy the <a href="/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims">PersistentVolumeClaims</a>
+used here.</p></li></ul><h2 id="deploy-mysql">Deploy MySQL</h2><p>You can run a stateful application by creating a Kubernetes Deployment
+and connecting it to an existing PersistentVolume using a
+PersistentVolumeClaim. For example, this YAML file describes a
+Deployment that runs MySQL and references the PersistentVolumeClaim. The file
+defines a volume mount for /var/lib/mysql, and then creates a
+PersistentVolumeClaim that looks for a 20G volume. This claim is
+satisfied by any existing volume that meets the requirements,
+or by a dynamic provisioner.</p><p>Note: The password is defined in the config yaml, and this is insecure. See
+<a href="/docs/concepts/configuration/secret/">Kubernetes Secrets</a>
+for a secure solution.</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/application/mysql/mysql-deployment.yaml" download="application/mysql/mysql-deployment.yaml"><code>application/mysql/mysql-deployment.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;application-mysql-mysql-deployment-yaml&quot;)" title="Copy application/mysql/mysql-deployment.yaml to clipboard"/></div><div class="includecode" id="application-mysql-mysql-deployment-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">3306</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIP</span>:<span style="color:#bbb"> </span>None<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">strategy</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Recreate<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>mysql:9<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">env</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:#080;font-style:italic"># Use secret in real usage</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MYSQL_ROOT_PASSWORD<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">value</span>:<span style="color:#bbb"> </span>password<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">3306</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql-persistent-storage<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/var/lib/mysql<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql-persistent-storage<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">persistentVolumeClaim</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">claimName</span>:<span style="color:#bbb"> </span>mysql-pv-claim<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/application/mysql/mysql-pv.yaml" download="application/mysql/mysql-pv.yaml"><code>application/mysql/mysql-pv.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;application-mysql-mysql-pv-yaml&quot;)" title="Copy application/mysql/mysql-pv.yaml to clipboard"/></div><div class="includecode" id="application-mysql-mysql-pv-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>PersistentVolume<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql-pv-volume<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>local<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">storageClassName</span>:<span style="color:#bbb"> </span>manual<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">capacity</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">storage</span>:<span style="color:#bbb"> </span>20Gi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">accessModes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- ReadWriteOnce<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostPath</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">path</span>:<span style="color:#bbb"> </span><span style="color:#b44">"/mnt/data"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>PersistentVolumeClaim<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mysql-pv-claim<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">storageClassName</span>:<span style="color:#bbb"> </span>manual<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">accessModes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- ReadWriteOnce<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">storage</span>:<span style="color:#bbb"> </span>20Gi<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><ol><li><p>Deploy the PV and PVC of the YAML file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/application/mysql/mysql-pv.yaml
+</span></span></code></pre></div></li><li><p>Deploy the contents of the YAML file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/application/mysql/mysql-deployment.yaml
+</span></span></code></pre></div></li><li><p>Display information about the Deployment:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe deployment mysql
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Name:                 mysql
+Namespace:            default
+CreationTimestamp:    Tue, 01 Nov 2016 11:18:45 -0700
+Labels:               app=mysql
+Annotations:          deployment.kubernetes.io/revision=1
+Selector:             app=mysql
+Replicas:             1 desired | 1 updated | 1 total | 0 available | 1 unavailable
+StrategyType:         Recreate
+MinReadySeconds:      0
+Pod Template:
+  Labels:       app=mysql
+  Containers:
+    mysql:
+    Image:      mysql:9
+    Port:       3306/TCP
+    Environment:
+      MYSQL_ROOT_PASSWORD:      password
+    Mounts:
+      /var/lib/mysql from mysql-persistent-storage (rw)
+  Volumes:
+    mysql-persistent-storage:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  mysql-pv-claim
+    ReadOnly:   false
+Conditions:
+  Type          Status  Reason
+  ----          ------  ------
+  Available     False   MinimumReplicasUnavailable
+  Progressing   True    ReplicaSetUpdated
+OldReplicaSets:       &lt;none&gt;
+NewReplicaSet:        mysql-63082529 (1/1 replicas created)
+Events:
+  FirstSeen    LastSeen    Count    From                SubobjectPath    Type        Reason            Message
+  ---------    --------    -----    ----                -------------    --------    ------            -------
+  33s          33s         1        {deployment-controller }             Normal      ScalingReplicaSet Scaled up replica set mysql-63082529 to 1
+</code></pre></li><li><p>List the pods created by the Deployment:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>mysql
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>NAME                   READY     STATUS    RESTARTS   AGE
+mysql-63082529-2z3ki   1/1       Running   0          3m
+</code></pre></li><li><p>Inspect the PersistentVolumeClaim:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe pvc mysql-pv-claim
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Name:         mysql-pv-claim
+Namespace:    default
+StorageClass:
+Status:       Bound
+Volume:       mysql-pv-volume
+Labels:       &lt;none&gt;
+Annotations:    pv.kubernetes.io/bind-completed=yes
+                pv.kubernetes.io/bound-by-controller=yes
+Capacity:     20Gi
+Access Modes: RWO
+Events:       &lt;none&gt;
+</code></pre></li></ol><h2 id="accessing-the-mysql-instance">Accessing the MySQL instance</h2><p>The preceding YAML file creates a service that
+allows other Pods in the cluster to access the database. The Service option
+<code>clusterIP: None</code> lets the Service DNS name resolve directly to the
+Pod's IP address. This is optimal when you have only one Pod
+behind a Service and you don't intend to increase the number of Pods.</p><p>Run a MySQL client to connect to the server:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl run -it --rm --image<span style="color:#666">=</span>mysql:9 --restart<span style="color:#666">=</span>Never mysql-client -- mysql -h mysql -ppassword
+</span></span></code></pre></div><p>This command creates a new Pod in the cluster running a MySQL client
+and connects it to the server through the Service. If it connects, you
+know your stateful MySQL database is up and running.</p><pre tabindex="0"><code>Waiting for pod default/mysql-client-274442439-zyp6i to be running, status is Pending, pod ready: false
+If you don't see a command prompt, try pressing enter.
+
+mysql&gt;
+</code></pre><h2 id="updating">Updating</h2><p>The image or any other part of the Deployment can be updated as usual
+with the <code>kubectl apply</code> command. Here are some precautions that are
+specific to stateful apps:</p><ul><li>Don't scale the app. This setup is for single-instance apps
+only. The underlying PersistentVolume can only be mounted to one
+Pod. For clustered stateful apps, see the
+<a href="/docs/concepts/workloads/controllers/statefulset/">StatefulSet documentation</a>.</li><li>Use <code>strategy:</code> <code>type: Recreate</code> in the Deployment configuration
+YAML file. This instructs Kubernetes to <em>not</em> use rolling
+updates. Rolling updates will not work, as you cannot have more than
+one Pod running at a time. The <code>Recreate</code> strategy will stop the
+first pod before creating a new one with the updated configuration.</li></ul><h2 id="deleting-a-deployment">Deleting a deployment</h2><p>Delete the deployed objects by name:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete deployment,svc mysql
+</span></span><span style="display:flex"><span>kubectl delete pvc mysql-pv-claim
+</span></span><span style="display:flex"><span>kubectl delete pv mysql-pv-volume
+</span></span></code></pre></div><p>If you manually provisioned a PersistentVolume, you also need to manually
+delete it, as well as release the underlying resource.
+If you used a dynamic provisioner, it automatically deletes the
+PersistentVolume when it sees that you deleted the PersistentVolumeClaim.
+Some dynamic provisioners (such as those for EBS and PD) also release the
+underlying resource upon deleting the PersistentVolume.</p><h2 id="what-s-next">What's next</h2><ul><li><p>Learn more about <a href="/docs/concepts/workloads/controllers/deployment/">Deployment objects</a>.</p></li><li><p>Learn more about <a href="/docs/tasks/run-application/run-stateless-application-deployment/">Deploying applications</a></p></li><li><p><a href="/docs/reference/generated/kubectl/kubectl-commands/#run">kubectl run documentation</a></p></li><li><p><a href="/docs/concepts/storage/volumes/">Volumes</a> and <a href="/docs/concepts/storage/persistent-volumes/">Persistent Volumes</a></p></li></ul></div>

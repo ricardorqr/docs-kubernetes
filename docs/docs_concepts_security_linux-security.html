@@ -1,0 +1,7 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Security For Linux Nodes</h1><p>This page describes security considerations and best practices specific to the Linux operating system.</p><h2 id="protection-for-secret-data-on-nodes">Protection for Secret data on nodes</h2><p>On Linux nodes, memory-backed volumes (such as <a href="/docs/concepts/configuration/secret/"><code>secret</code></a>
+volume mounts, or <a href="/docs/concepts/storage/volumes/#emptydir"><code>emptyDir</code></a> with <code>medium: Memory</code>)
+are implemented with a <code>tmpfs</code> filesystem.</p><p>If you have swap configured and use an older Linux kernel (or a current kernel and an unsupported configuration of Kubernetes),
+<strong>memory</strong> backed volumes can have data written to persistent storage.</p><p>The Linux kernel officially supports the <code>noswap</code> option from version 6.3,
+therefore it is recommended the used kernel version is 6.3 or later,
+or supports the <code>noswap</code> option via a backport, if swap is enabled on the node.</p><p>Read <a href="/docs/concepts/cluster-administration/swap-memory-management/#memory-backed-volumes">swap memory management</a>
+for more info.</p></div>

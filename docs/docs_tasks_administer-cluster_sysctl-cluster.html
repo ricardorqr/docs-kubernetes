@@ -1,0 +1,70 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Using sysctls in a Kubernetes Cluster</h1><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.21 [stable]</code></div><p>This document describes how to configure and use kernel parameters within a
+Kubernetes cluster using the <a class="glossary-tooltip" title="An interface for getting and setting Unix kernel parameters" data-toggle="tooltip" data-placement="top" href="/docs/tasks/administer-cluster/sysctl-cluster/" target="_blank" aria-label="sysctl">sysctl</a>
+interface.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Starting from Kubernetes version 1.23, the kubelet supports the use of either <code>/</code> or <code>.</code>
+as separators for sysctl names.
+Starting from Kubernetes version 1.25, setting Sysctls for a Pod supports setting sysctls with slashes.
+For example, you can represent the same sysctl name as <code>kernel.shm_rmid_forced</code> using a
+period as the separator, or as <code>kernel/shm_rmid_forced</code> using a slash as a separator.
+For more sysctl parameter conversion method details, please refer to
+the page <a href="https://man7.org/linux/man-pages/man5/sysctl.d.5.html">sysctl.d(5)</a> from
+the Linux man-pages project.</div><h2 id="before-you-begin">Before you begin</h2><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><code>sysctl</code> is a Linux-specific command-line tool used to configure various kernel parameters
+and it is not available on non-Linux operating systems.</div><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>For some steps, you also need to be able to reconfigure the command line
+options for the kubelets running on your cluster.</p><h2 id="listing-all-sysctl-parameters">Listing all Sysctl Parameters</h2><p>In Linux, the sysctl interface allows an administrator to modify kernel
+parameters at runtime. Parameters are available via the <code>/proc/sys/</code> virtual
+process file system. The parameters cover various subsystems such as:</p><ul><li>kernel (common prefix: <code>kernel.</code>)</li><li>networking (common prefix: <code>net.</code>)</li><li>virtual memory (common prefix: <code>vm.</code>)</li><li>MDADM (common prefix: <code>dev.</code>)</li><li>More subsystems are described in <a href="https://www.kernel.org/doc/Documentation/sysctl/README">Kernel docs</a>.</li></ul><p>To get a list of all parameters, you can run</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sudo sysctl -a
+</span></span></code></pre></div><h2 id="safe-and-unsafe-sysctls">Safe and Unsafe Sysctls</h2><p>Kubernetes classes sysctls as either <em>safe</em> or <em>unsafe</em>. In addition to proper
+namespacing, a <em>safe</em> sysctl must be properly <em>isolated</em> between pods on the
+same node. This means that setting a <em>safe</em> sysctl for one pod</p><ul><li>must not have any influence on any other pod on the node</li><li>must not allow to harm the node's health</li><li>must not allow to gain CPU or memory resources outside of the resource limits
+of a pod.</li></ul><p>By far, most of the <em>namespaced</em> sysctls are not necessarily considered <em>safe</em>.
+The following sysctls are supported in the <em>safe</em> set:</p><ul><li><code>kernel.shm_rmid_forced</code>;</li><li><code>net.ipv4.ip_local_port_range</code>;</li><li><code>net.ipv4.tcp_syncookies</code>;</li><li><code>net.ipv4.ping_group_range</code> (since Kubernetes 1.18);</li><li><code>net.ipv4.ip_unprivileged_port_start</code> (since Kubernetes 1.22);</li><li><code>net.ipv4.ip_local_reserved_ports</code> (since Kubernetes 1.27, needs kernel 3.16+);</li><li><code>net.ipv4.tcp_keepalive_time</code> (since Kubernetes 1.29, needs kernel 4.5+);</li><li><code>net.ipv4.tcp_fin_timeout</code> (since Kubernetes 1.29, needs kernel 4.6+);</li><li><code>net.ipv4.tcp_keepalive_intvl</code> (since Kubernetes 1.29, needs kernel 4.5+);</li><li><code>net.ipv4.tcp_keepalive_probes</code> (since Kubernetes 1.29, needs kernel 4.5+).</li><li><code>net.ipv4.tcp_rmem</code> (since Kubernetes 1.32, needs kernel 4.15+).</li><li><code>net.ipv4.tcp_wmem</code> (since Kubernetes 1.32, needs kernel 4.15+).</li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>There are some exceptions to the set of safe sysctls:</p><ul><li>The <code>net.*</code> sysctls are not allowed with host networking enabled.</li><li>The <code>net.ipv4.tcp_syncookies</code> sysctl is not namespaced on Linux kernel version 4.5 or lower.</li></ul></div><p>This list will be extended in future Kubernetes versions when the kubelet
+supports better isolation mechanisms.</p><h3 id="enabling-unsafe-sysctls">Enabling Unsafe Sysctls</h3><p>All <em>safe</em> sysctls are enabled by default.</p><p>All <em>unsafe</em> sysctls are disabled by default and must be allowed manually by the
+cluster admin on a per-node basis. Pods with disabled unsafe sysctls will be
+scheduled, but will fail to launch.</p><p>With the warning above in mind, the cluster admin can allow certain <em>unsafe</em>
+sysctls for very special situations such as high-performance or real-time
+application tuning. <em>Unsafe</em> sysctls are enabled on a node-by-node basis with a
+flag of the kubelet; for example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubelet --allowed-unsafe-sysctls <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  <span style="color:#b44">'kernel.msg*,net.core.somaxconn'</span> ...
+</span></span></code></pre></div><p>For <a class="glossary-tooltip" title="A tool for running Kubernetes locally." data-toggle="tooltip" data-placement="top" href="/docs/tasks/tools/#minikube" target="_blank" aria-label="Minikube">Minikube</a>, this can be done via the <code>extra-config</code> flag:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>minikube start --extra-config<span style="color:#666">=</span><span style="color:#b44">"kubelet.allowed-unsafe-sysctls=kernel.msg*,net.core.somaxconn"</span>...
+</span></span></code></pre></div><p>Only <em>namespaced</em> sysctls can be enabled this way.</p><h2 id="setting-sysctls-for-a-pod">Setting Sysctls for a Pod</h2><p>A number of sysctls are <em>namespaced</em> in today's Linux kernels. This means that
+they can be set independently for each pod on a node. Only namespaced sysctls
+are configurable via the pod securityContext within Kubernetes.</p><p>The following sysctls are known to be namespaced. This list could change
+in future versions of the Linux kernel.</p><ul><li><code>kernel.shm*</code>,</li><li><code>kernel.msg*</code>,</li><li><code>kernel.sem</code>,</li><li><code>fs.mqueue.*</code>,</li><li>Those <code>net.*</code> that can be set in container networking namespace. However,
+there are exceptions (e.g., <code>net.netfilter.nf_conntrack_max</code> and
+<code>net.netfilter.nf_conntrack_expect_max</code> can be set in container networking
+namespace but are unnamespaced before Linux 5.12.2).</li></ul><p>Sysctls with no namespace are called <em>node-level</em> sysctls. If you need to set
+them, you must manually configure them on each node's operating system, or by
+using a DaemonSet with privileged containers.</p><p>Use the pod securityContext to configure namespaced sysctls. The securityContext
+applies to all containers in the same pod.</p><p>This example uses the pod securityContext to set a safe sysctl
+<code>kernel.shm_rmid_forced</code> and two unsafe sysctls <code>net.core.somaxconn</code> and
+<code>kernel.msgmax</code>. There is no distinction between <em>safe</em> and <em>unsafe</em> sysctls in
+the specification.</p><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>Only modify sysctl parameters after you understand their effects, to avoid
+destabilizing your operating system.</div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>sysctl-example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">sysctls</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>kernel.shm_rmid_forced<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">value</span>:<span style="color:#bbb"> </span><span style="color:#b44">"0"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>net.core.somaxconn<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">value</span>:<span style="color:#bbb"> </span><span style="color:#b44">"1024"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>kernel.msgmax<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">value</span>:<span style="color:#bbb"> </span><span style="color:#b44">"65536"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>...<span style="color:#bbb">
+</span></span></span></code></pre></div><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>Due to their nature of being <em>unsafe</em>, the use of <em>unsafe</em> sysctls
+is at-your-own-risk and can lead to severe problems like wrong behavior of
+containers, resource shortage or complete breakage of a node.</div><p>It is good practice to consider nodes with special sysctl settings as
+<em>tainted</em> within a cluster, and only schedule pods onto them which need those
+sysctl settings. It is suggested to use the Kubernetes <a href="/docs/reference/generated/kubectl/kubectl-commands/#taint"><em>taints and toleration</em>
+feature</a> to implement this.</p><p>A pod with the <em>unsafe</em> sysctls will fail to launch on any node which has not
+enabled those two <em>unsafe</em> sysctls explicitly. As with <em>node-level</em> sysctls it
+is recommended to use
+<a href="/docs/reference/generated/kubectl/kubectl-commands/#taint"><em>taints and toleration</em> feature</a> or
+<a href="/docs/concepts/scheduling-eviction/taint-and-toleration/">taints on nodes</a>
+to schedule those pods onto the right nodes.</p></div>

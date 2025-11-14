@@ -1,0 +1,22 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Node metrics data</h1><div class="lead">Mechanisms for accessing metrics at node, volume, pod and container level, as seen by the kubelet.</div><p>The <a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet</a>
+gathers metric statistics at the node, volume, pod and container level,
+and emits this information in the
+<a href="/docs/reference/config-api/kubelet-stats.v1alpha1/">Summary API</a>.</p><p>You can send a proxied request to the stats summary API via the
+Kubernetes API server.</p><p>Here is an example of a Summary API request for a node named <code>minikube</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw <span style="color:#b44">"/api/v1/nodes/minikube/proxy/stats/summary"</span>
+</span></span></code></pre></div><p>Here is the same API call using <code>curl</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># You need to run "kubectl proxy" first</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Change 8080 to the port that "kubectl proxy" assigns</span>
+</span></span><span style="display:flex"><span>curl http://localhost:8080/api/v1/nodes/minikube/proxy/stats/summary
+</span></span></code></pre></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Beginning with <code>metrics-server</code> 0.6.x, <code>metrics-server</code> queries the <code>/metrics/resource</code>
+kubelet endpoint, and not <code>/stats/summary</code>.</div><h2 id="summary-api-source">Summary metrics API source</h2><p>By default, Kubernetes fetches node summary metrics data using an embedded
+<a href="https://github.com/google/cadvisor">cAdvisor</a> that runs within the kubelet. If you
+enable the <code>PodAndContainerStatsFromCRI</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>
+in your cluster, and you use a container runtime that supports statistics access via
+<a class="glossary-tooltip" title="Protocol for communication between the kubelet and the local container runtime." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cri" target="_blank" aria-label="Container Runtime Interface">Container Runtime Interface</a> (CRI), then
+the kubelet <a href="/docs/reference/instrumentation/cri-pod-container-metrics/">fetches Pod- and container-level metric data using CRI</a>, and not via cAdvisor.</p><h2 id="psi">Pressure Stall Information (PSI)</h2><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [beta]</code></div><p>As a beta feature, Kubernetes lets you configure kubelet to collect Linux kernel
+<a href="https://docs.kernel.org/accounting/psi.html">Pressure Stall Information</a>
+(PSI) for CPU, memory, and I/O usage. The information is collected at node, pod and container level.
+See <a href="/docs/reference/config-api/kubelet-stats.v1alpha1/">Summary API</a> for detailed schema.
+This feature is enabled by default, by setting the <code>KubeletPSI</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>. The information is also exposed in
+<a href="/docs/concepts/cluster-administration/system-metrics/#psi-metrics">Prometheus metrics</a>.</p><p>You can learn how to interpret the PSI metrics in <a href="/docs/reference/instrumentation/understand-psi-metrics/">Understand PSI Metrics</a>.</p><h3 id="requirements">Requirements</h3><p>Pressure Stall Information requires:</p><ul><li><a href="/docs/reference/node/kernel-version-requirements/#requirements-psi">Linux kernel versions 4.20 or later</a>.</li><li><a href="/docs/concepts/architecture/cgroups/">cgroup v2</a></li></ul><h2 id="what-s-next">What's next</h2><p>The task pages for <a href="/docs/tasks/debug/debug-cluster/">Troubleshooting Clusters</a> discuss
+how to use a metrics pipeline that rely on these data.</p></div>

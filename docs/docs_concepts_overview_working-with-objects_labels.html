@@ -1,0 +1,183 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Labels and Selectors</h1><p><em>Labels</em> are key/value pairs that are attached to
+<a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="objects">objects</a> such as Pods.
+Labels are intended to be used to specify identifying attributes of objects
+that are meaningful and relevant to users, but do not directly imply semantics
+to the core system. Labels can be used to organize and to select subsets of
+objects. Labels can be attached to objects at creation time and subsequently
+added and modified at any time. Each object can have a set of key/value labels
+defined. Each Key must be unique for a given object.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span><span style="color:#b44">"metadata"</span><span>:</span> {
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"labels"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"key1"</span> : <span style="color:#b44">"value1"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"key2"</span> : <span style="color:#b44">"value2"</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>Labels allow for efficient queries and watches and are ideal for use in UIs
+and CLIs. Non-identifying information should be recorded using
+<a href="/docs/concepts/overview/working-with-objects/annotations/">annotations</a>.</p><h2 id="motivation">Motivation</h2><p>Labels enable users to map their own organizational structures onto system objects
+in a loosely coupled fashion, without requiring clients to store these mappings.</p><p>Service deployments and batch processing pipelines are often multi-dimensional entities
+(e.g., multiple partitions or deployments, multiple release tracks, multiple tiers,
+multiple micro-services per tier). Management often requires cross-cutting operations,
+which breaks encapsulation of strictly hierarchical representations, especially rigid
+hierarchies determined by the infrastructure rather than by users.</p><p>Example labels:</p><ul><li><code>"release" : "stable"</code>, <code>"release" : "canary"</code></li><li><code>"environment" : "dev"</code>, <code>"environment" : "qa"</code>, <code>"environment" : "production"</code></li><li><code>"tier" : "frontend"</code>, <code>"tier" : "backend"</code>, <code>"tier" : "cache"</code></li><li><code>"partition" : "customerA"</code>, <code>"partition" : "customerB"</code></li><li><code>"track" : "daily"</code>, <code>"track" : "weekly"</code></li></ul><p>These are examples of
+<a href="/docs/concepts/overview/working-with-objects/common-labels/">commonly used labels</a>;
+you are free to develop your own conventions.
+Keep in mind that label Key must be unique for a given object.</p><h2 id="syntax-and-character-set">Syntax and character set</h2><p><em>Labels</em> are key/value pairs. Valid label keys have two segments: an optional
+prefix and name, separated by a slash (<code>/</code>). The name segment is required and
+must be 63 characters or less, beginning and ending with an alphanumeric
+character (<code>[a-z0-9A-Z]</code>) with dashes (<code>-</code>), underscores (<code>_</code>), dots (<code>.</code>),
+and alphanumerics between. The prefix is optional. If specified, the prefix
+must be a DNS subdomain: a series of DNS labels separated by dots (<code>.</code>),
+not longer than 253 characters in total, followed by a slash (<code>/</code>).</p><p>If the prefix is omitted, the label Key is presumed to be private to the user.
+Automated system components (e.g. <code>kube-scheduler</code>, <code>kube-controller-manager</code>,
+<code>kube-apiserver</code>, <code>kubectl</code>, or other third-party automation) which add labels
+to end-user objects must specify a prefix.</p><p>The <code>kubernetes.io/</code> and <code>k8s.io/</code> prefixes are
+<a href="/docs/reference/labels-annotations-taints/">reserved</a> for Kubernetes core components.</p><p>Valid label value:</p><ul><li>must be 63 characters or less (can be empty),</li><li>unless empty, must begin and end with an alphanumeric character (<code>[a-z0-9A-Z]</code>),</li><li>could contain dashes (<code>-</code>), underscores (<code>_</code>), dots (<code>.</code>), and alphanumerics between.</li></ul><p>For example, here's a manifest for a Pod that has two labels
+<code>environment: production</code> and <code>app: nginx</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>label-demo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">environment</span>:<span style="color:#bbb"> </span>production<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx:1.14.2<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="label-selectors">Label selectors</h2><p>Unlike <a href="/docs/concepts/overview/working-with-objects/names/">names and UIDs</a>, labels
+do not provide uniqueness. In general, we expect many objects to carry the same label(s).</p><p>Via a <em>label selector</em>, the client/user can identify a set of objects.
+The label selector is the core grouping primitive in Kubernetes.</p><p>The API currently supports two types of selectors: <em>equality-based</em> and <em>set-based</em>.
+A label selector can be made of multiple <em>requirements</em> which are comma-separated.
+In the case of multiple requirements, all must be satisfied so the comma separator
+acts as a logical <em>AND</em> (<code>&amp;&amp;</code>) operator.</p><p>The semantics of empty or non-specified selectors are dependent on the context,
+and API types that use selectors should document the validity and meaning of
+them.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>For some API types, such as ReplicaSets, the label selectors of two instances must
+not overlap within a namespace, or the controller can see that as conflicting
+instructions and fail to determine how many replicas should be present.</div><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>For both equality-based and set-based conditions there is no logical <em>OR</em> (<code>||</code>) operator.
+Ensure your filter statements are structured accordingly.</div><h3 id="equality-based-requirement"><em>Equality-based</em> requirement</h3><p><em>Equality-</em> or <em>inequality-based</em> requirements allow filtering by label keys and values.
+Matching objects must satisfy all of the specified label constraints, though they may
+have additional labels as well. Three kinds of operators are admitted <code>=</code>,<code>==</code>,<code>!=</code>.
+The first two represent <em>equality</em> (and are synonyms), while the latter represents <em>inequality</em>.
+For example:</p><pre tabindex="0"><code>environment = production
+tier != frontend
+</code></pre><p>The former selects all resources with key equal to <code>environment</code> and value equal to <code>production</code>.
+The latter selects all resources with key equal to <code>tier</code> and value distinct from <code>frontend</code>,
+and all resources with no labels with the <code>tier</code> key. One could filter for resources in <code>production</code>
+excluding <code>frontend</code> using the comma operator: <code>environment=production,tier!=frontend</code></p><p>One usage scenario for equality-based label requirement is for Pods to specify
+node selection criteria. For example, the sample Pod below selects nodes where
+the <code>accelerator</code> label exists and is set to <code>nvidia-tesla-p100</code>.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cuda-test<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cuda-test<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span><span style="color:#b44">"registry.k8s.io/cuda-vector-add:v0.1"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">nvidia.com/gpu</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">nodeSelector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">accelerator</span>:<span style="color:#bbb"> </span>nvidia-tesla-p100<span style="color:#bbb">
+</span></span></span></code></pre></div><h3 id="set-based-requirement"><em>Set-based</em> requirement</h3><p><em>Set-based</em> label requirements allow filtering keys according to a set of values.
+Three kinds of operators are supported: <code>in</code>,<code>notin</code> and <code>exists</code> (only the key identifier).
+For example:</p><pre tabindex="0"><code>environment in (production, qa)
+tier notin (frontend, backend)
+partition
+!partition
+</code></pre><ul><li>The first example selects all resources with key equal to <code>environment</code> and value
+equal to <code>production</code> or <code>qa</code>.</li><li>The second example selects all resources with key equal to <code>tier</code> and values other
+than <code>frontend</code> and <code>backend</code>, and all resources with no labels with the <code>tier</code> key.</li><li>The third example selects all resources including a label with key <code>partition</code>;
+no values are checked.</li><li>The fourth example selects all resources without a label with key <code>partition</code>;
+no values are checked.</li></ul><p>Similarly the comma separator acts as an <em>AND</em> operator. So filtering resources
+with a <code>partition</code> key (no matter the value) and with <code>environment</code> different
+than <code>qa</code> can be achieved using <code>partition,environment notin (qa)</code>.
+The <em>set-based</em> label selector is a general form of equality since
+<code>environment=production</code> is equivalent to <code>environment in (production)</code>;
+similarly for <code>!=</code> and <code>notin</code>.</p><p><em>Set-based</em> requirements can be mixed with <em>equality-based</em> requirements.
+For example: <code>partition in (customerA, customerB),environment!=qa</code>.</p><h2 id="api">API</h2><h3 id="list-and-watch-filtering">LIST and WATCH filtering</h3><p>For <strong>list</strong> and <strong>watch</strong> operations, you can specify label selectors to filter the sets of objects
+returned; you specify the filter using a query parameter.
+(To learn in detail about watches in Kubernetes, read
+<a href="/docs/reference/using-api/api-concepts/#efficient-detection-of-changes">efficient detection of changes</a>).
+Both requirements are permitted
+(presented here as they would appear in a URL query string):</p><ul><li><em>equality-based</em> requirements: <code>?labelSelector=environment%3Dproduction,tier%3Dfrontend</code></li><li><em>set-based</em> requirements: <code>?labelSelector=environment+in+%28production%2Cqa%29%2Ctier+in+%28frontend%29</code></li></ul><p>Both label selector styles can be used to list or watch resources via a REST client.
+For example, targeting <code>apiserver</code> with <code>kubectl</code> and using <em>equality-based</em> one may write:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">environment</span><span style="color:#666">=</span>production,tier<span style="color:#666">=</span>frontend
+</span></span></code></pre></div><p>or using <em>set-based</em> requirements:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b44">'environment in (production),tier in (frontend)'</span>
+</span></span></code></pre></div><p>As already mentioned <em>set-based</em> requirements are more expressive.
+For instance, they can implement the <em>OR</em> operator on values:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b44">'environment in (production, qa)'</span>
+</span></span></code></pre></div><p>or restricting negative matching via <em>notin</em> operator:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b44">'environment,environment notin (frontend)'</span>
+</span></span></code></pre></div><h3 id="set-references-in-api-objects">Set references in API objects</h3><p>Some Kubernetes objects, such as <a href="/docs/concepts/services-networking/service/"><code>services</code></a>
+and <a href="/docs/concepts/workloads/controllers/replicationcontroller/"><code>replicationcontrollers</code></a>,
+also use label selectors to specify sets of other resources, such as
+<a href="/docs/concepts/workloads/pods/">pods</a>.</p><h4 id="service-and-replicationcontroller">Service and ReplicationController</h4><p>The set of pods that a <code>service</code> targets is defined with a label selector.
+Similarly, the population of pods that a <code>replicationcontroller</code> should
+manage is also defined with a label selector.</p><p>Label selectors for both objects are defined in <code>json</code> or <code>yaml</code> files using maps,
+and only <em>equality-based</em> requirement selectors are supported:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span><span style="color:#b44">"selector"</span><span>:</span> {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"component"</span> : <span style="color:#b44">"redis"</span>,
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>or</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">component</span>:<span style="color:#bbb"> </span>redis<span style="color:#bbb">
+</span></span></span></code></pre></div><p>This selector (respectively in <code>json</code> or <code>yaml</code> format) is equivalent to
+<code>component=redis</code> or <code>component in (redis)</code>.</p><h4 id="resources-that-support-set-based-requirements">Resources that support set-based requirements</h4><p>Newer resources, such as <a href="/docs/concepts/workloads/controllers/job/"><code>Job</code></a>,
+<a href="/docs/concepts/workloads/controllers/deployment/"><code>Deployment</code></a>,
+<a href="/docs/concepts/workloads/controllers/replicaset/"><code>ReplicaSet</code></a>, and
+<a href="/docs/concepts/workloads/controllers/daemonset/"><code>DaemonSet</code></a>,
+support <em>set-based</em> requirements as well.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">component</span>:<span style="color:#bbb"> </span>redis<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchExpressions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- {<span style="color:#bbb"> </span><span style="color:green;font-weight:700">key: tier, operator: In, values</span>:<span style="color:#bbb"> </span>[cache] }<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- {<span style="color:#bbb"> </span><span style="color:green;font-weight:700">key: environment, operator: NotIn, values</span>:<span style="color:#bbb"> </span>[dev] }<span style="color:#bbb">
+</span></span></span></code></pre></div><p><code>matchLabels</code> is a map of <code>{key,value}</code> pairs. A single <code>{key,value}</code> in the
+<code>matchLabels</code> map is equivalent to an element of <code>matchExpressions</code>, whose <code>key</code>
+field is "key", the <code>operator</code> is "In", and the <code>values</code> array contains only "value".
+<code>matchExpressions</code> is a list of pod selector requirements. Valid operators include
+In, NotIn, Exists, and DoesNotExist. The values set must be non-empty in the case of
+In and NotIn. All of the requirements, from both <code>matchLabels</code> and <code>matchExpressions</code>
+are ANDed together -- they must all be satisfied in order to match.</p><h4 id="selecting-sets-of-nodes">Selecting sets of nodes</h4><p>One use case for selecting over labels is to constrain the set of nodes onto which
+a pod can schedule. See the documentation on
+<a href="/docs/concepts/scheduling-eviction/assign-pod-node/">node selection</a> for more information.</p><h2 id="using-labels-effectively">Using labels effectively</h2><p>You can apply a single label to any resources, but this is not always the
+best practice. There are many scenarios where multiple labels should be used to
+distinguish resource sets from one another.</p><p>For instance, different applications would use different values for the <code>app</code> label, but a
+multi-tier application, such as the <a href="https://github.com/kubernetes/examples/tree/master/web/guestbook/">guestbook example</a>,
+would additionally need to distinguish each tier. The frontend could carry the following labels:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>guestbook<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">tier</span>:<span style="color:#bbb"> </span>frontend<span style="color:#bbb">
+</span></span></span></code></pre></div><p>while the Redis master and replica would have different <code>tier</code> labels, and perhaps even an
+additional <code>role</code> label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>guestbook<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">tier</span>:<span style="color:#bbb"> </span>backend<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">role</span>:<span style="color:#bbb"> </span>master<span style="color:#bbb">
+</span></span></span></code></pre></div><p>and</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>guestbook<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">tier</span>:<span style="color:#bbb"> </span>backend<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">role</span>:<span style="color:#bbb"> </span>replica<span style="color:#bbb">
+</span></span></span></code></pre></div><p>The labels allow for slicing and dicing the resources along any dimension specified by a label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f examples/guestbook/all-in-one/guestbook-all-in-one.yaml
+</span></span><span style="display:flex"><span>kubectl get pods -Lapp -Ltier -Lrole
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">NAME                           READY  STATUS    RESTARTS   AGE   APP         TIER       ROLE
+guestbook-fe-4nlpb             1/1    Running   0          1m    guestbook   frontend   &lt;none&gt;
+guestbook-fe-ght6d             1/1    Running   0          1m    guestbook   frontend   &lt;none&gt;
+guestbook-fe-jpy62             1/1    Running   0          1m    guestbook   frontend   &lt;none&gt;
+guestbook-redis-master-5pg3b   1/1    Running   0          1m    guestbook   backend    master
+guestbook-redis-replica-2q2yf  1/1    Running   0          1m    guestbook   backend    replica
+guestbook-redis-replica-qgazl  1/1    Running   0          1m    guestbook   backend    replica
+my-nginx-divi2                 1/1    Running   0          29m   nginx       &lt;none&gt;     &lt;none&gt;
+my-nginx-o0ef1                 1/1    Running   0          29m   nginx       &lt;none&gt;     &lt;none&gt;
+</code></pre><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -lapp<span style="color:#666">=</span>guestbook,role<span style="color:#666">=</span>replica
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">NAME                           READY  STATUS   RESTARTS  AGE
+guestbook-redis-replica-2q2yf  1/1    Running  0         3m
+guestbook-redis-replica-qgazl  1/1    Running  0         3m
+</code></pre><h2 id="updating-labels">Updating labels</h2><p>Sometimes you may want to relabel existing pods and other resources before creating
+new resources. This can be done with <code>kubectl label</code>.
+For example, if you want to label all your NGINX Pods as frontend tier, run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl label pods -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>nginx <span style="color:#b8860b">tier</span><span style="color:#666">=</span>fe
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">pod/my-nginx-2035384211-j5fhi labeled
+pod/my-nginx-2035384211-u2c7e labeled
+pod/my-nginx-2035384211-u3t6x labeled
+</code></pre><p>This first filters all pods with the label "app=nginx", and then labels them with the "tier=fe".
+To see the pods you labeled, run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -l <span style="color:#b8860b">app</span><span style="color:#666">=</span>nginx -L tier
+</span></span></code></pre></div><pre tabindex="0"><code class="language-none" data-lang="none">NAME                        READY     STATUS    RESTARTS   AGE       TIER
+my-nginx-2035384211-j5fhi   1/1       Running   0          23m       fe
+my-nginx-2035384211-u2c7e   1/1       Running   0          23m       fe
+my-nginx-2035384211-u3t6x   1/1       Running   0          23m       fe
+</code></pre><p>This outputs all "app=nginx" pods, with an additional label column of pods' tier
+(specified with <code>-L</code> or <code>--label-columns</code>).</p><p>For more information, please see <a href="/docs/reference/generated/kubectl/kubectl-commands/#label">kubectl label</a>.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn how to <a href="/docs/tasks/configure-pod-container/assign-pods-nodes/#add-a-label-to-a-node">add a label to a node</a></li><li>Find <a href="/docs/reference/labels-annotations-taints/">Well-known labels, Annotations and Taints</a></li><li>See <a href="/docs/concepts/overview/working-with-objects/common-labels/">Recommended labels</a></li><li><a href="/docs/tasks/configure-pod-container/enforce-standards-namespace-labels/">Enforce Pod Security Standards with Namespace Labels</a></li><li>Read a blog on <a href="/blog/2021/06/21/writing-a-controller-for-pod-labels/">Writing a Controller for Pod Labels</a></li></ul></div>

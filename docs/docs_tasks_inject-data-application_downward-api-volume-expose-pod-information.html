@@ -1,0 +1,177 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Expose Pod Information to Containers Through Files</h1><p>This page shows how a Pod can use a
+<a href="/docs/concepts/storage/volumes/#downwardapi"><code>downwardAPI</code> volume</a>,
+to expose information about itself to containers running in the Pod.
+A <code>downwardAPI</code> volume can expose Pod fields and container fields.</p><p>In Kubernetes, there are two ways to expose Pod and container fields to a running container:</p><ul><li><a href="/docs/tasks/inject-data-application/environment-variable-expose-pod-information/">Environment variables</a></li><li>Volume files, as explained in this task</li></ul><p>Together, these two ways of exposing Pod and container fields are called the
+<em>downward API</em>.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><h2 id="store-pod-fields">Store Pod fields</h2><p>In this part of exercise, you create a Pod that has one container, and you
+project Pod-level fields into the running container as files.
+Here is the manifest for the Pod:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/inject/dapi-volume.yaml" download="pods/inject/dapi-volume.yaml"><code>pods/inject/dapi-volume.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-inject-dapi-volume-yaml&quot;)" title="Copy pods/inject/dapi-volume.yaml to clipboard"/></div><div class="includecode" id="pods-inject-dapi-volume-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>kubernetes-downwardapi-volume-example<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">zone</span>:<span style="color:#bbb"> </span>us-est-coast<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">cluster</span>:<span style="color:#bbb"> </span>test-cluster1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">rack</span>:<span style="color:#bbb"> </span>rack-22<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">annotations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">build</span>:<span style="color:#bbb"> </span>two<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">builder</span>:<span style="color:#bbb"> </span>john-doe<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>client-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>registry.k8s.io/busybox:1.27.2<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"sh"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"-c"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- while true; do<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>if [[ -e /etc/podinfo/labels ]]; then<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>echo -en '\n\n'; cat /etc/podinfo/labels; fi;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>if [[ -e /etc/podinfo/annotations ]]; then<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>echo -en '\n\n'; cat /etc/podinfo/annotations; fi;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>sleep 5;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>done;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>podinfo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/etc/podinfo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>podinfo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">downwardAPI</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">items</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">path</span>:<span style="color:#bbb"> </span><span style="color:#b44">"labels"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>metadata.labels<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">path</span>:<span style="color:#bbb"> </span><span style="color:#b44">"annotations"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">fieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">fieldPath</span>:<span style="color:#bbb"> </span>metadata.annotations<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>In the manifest, you can see that the Pod has a <code>downwardAPI</code> Volume,
+and the container mounts the volume at <code>/etc/podinfo</code>.</p><p>Look at the <code>items</code> array under <code>downwardAPI</code>. Each element of the array
+defines a <code>downwardAPI</code> volume.
+The first element specifies that the value of the Pod's
+<code>metadata.labels</code> field should be stored in a file named <code>labels</code>.
+The second element specifies that the value of the Pod's <code>annotations</code>
+field should be stored in a file named <code>annotations</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The fields in this example are Pod fields. They are not
+fields of the container in the Pod.</div><p>Create the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/inject/dapi-volume.yaml
+</span></span></code></pre></div><p>Verify that the container in the Pod is running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><p>View the container's logs:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs kubernetes-downwardapi-volume-example
+</span></span></code></pre></div><p>The output shows the contents of the <code>labels</code> file and the <code>annotations</code> file:</p><pre tabindex="0"><code>cluster="test-cluster1"
+rack="rack-22"
+zone="us-est-coast"
+
+build="two"
+builder="john-doe"
+</code></pre><p>Get a shell into the container that is running in your Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it kubernetes-downwardapi-volume-example -- sh
+</span></span></code></pre></div><p>In your shell, view the <code>labels</code> file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>/# cat /etc/podinfo/labels
+</span></span></code></pre></div><p>The output shows that all of the Pod's labels have been written
+to the <code>labels</code> file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#b8860b">cluster</span><span style="color:#666">=</span><span style="color:#b44">"test-cluster1"</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">rack</span><span style="color:#666">=</span><span style="color:#b44">"rack-22"</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">zone</span><span style="color:#666">=</span><span style="color:#b44">"us-est-coast"</span>
+</span></span></code></pre></div><p>Similarly, view the <code>annotations</code> file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>/# cat /etc/podinfo/annotations
+</span></span></code></pre></div><p>View the files in the <code>/etc/podinfo</code> directory:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>/# ls -laR /etc/podinfo
+</span></span></code></pre></div><p>In the output, you can see that the <code>labels</code> and <code>annotations</code> files
+are in a temporary subdirectory: in this example,
+<code>..2982_06_02_21_47_53.299460680</code>. In the <code>/etc/podinfo</code> directory, <code>..data</code> is
+a symbolic link to the temporary subdirectory. Also in the <code>/etc/podinfo</code> directory,
+<code>labels</code> and <code>annotations</code> are symbolic links.</p><pre tabindex="0"><code>drwxr-xr-x  ... Feb 6 21:47 ..2982_06_02_21_47_53.299460680
+lrwxrwxrwx  ... Feb 6 21:47 ..data -&gt; ..2982_06_02_21_47_53.299460680
+lrwxrwxrwx  ... Feb 6 21:47 annotations -&gt; ..data/annotations
+lrwxrwxrwx  ... Feb 6 21:47 labels -&gt; ..data/labels
+
+/etc/..2982_06_02_21_47_53.299460680:
+total 8
+-rw-r--r--  ... Feb  6 21:47 annotations
+-rw-r--r--  ... Feb  6 21:47 labels
+</code></pre><p>Using symbolic links enables dynamic atomic refresh of the metadata; updates are
+written to a new temporary directory, and the <code>..data</code> symlink is updated
+atomically using <a href="http://man7.org/linux/man-pages/man2/rename.2.html">rename(2)</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>A container using Downward API as a
+<a href="/docs/concepts/storage/volumes/#using-subpath">subPath</a> volume mount will not
+receive Downward API updates.</div><p>Exit the shell:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>/# <span style="color:#a2f">exit</span>
+</span></span></code></pre></div><h2 id="store-container-fields">Store container fields</h2><p>The preceding exercise, you made Pod-level fields accessible using the
+downward API.
+In this next exercise, you are going to pass fields that are part of the Pod
+definition, but taken from the specific
+<a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container">container</a>
+rather than from the Pod overall. Here is a manifest for a Pod that again has
+just one container:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/inject/dapi-volume-resources.yaml" download="pods/inject/dapi-volume-resources.yaml"><code>pods/inject/dapi-volume-resources.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-inject-dapi-volume-resources-yaml&quot;)" title="Copy pods/inject/dapi-volume-resources.yaml to clipboard"/></div><div class="includecode" id="pods-inject-dapi-volume-resources-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>kubernetes-downwardapi-volume-example-2<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>client-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>registry.k8s.io/busybox:1.27.2<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"sh"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"-c"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- while true; do<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>echo -en '\n';<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>if [[ -e /etc/podinfo/cpu_limit ]]; then<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>echo -en '\n'; cat /etc/podinfo/cpu_limit; fi;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>if [[ -e /etc/podinfo/cpu_request ]]; then<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>echo -en '\n'; cat /etc/podinfo/cpu_request; fi;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>if [[ -e /etc/podinfo/mem_limit ]]; then<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>echo -en '\n'; cat /etc/podinfo/mem_limit; fi;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>if [[ -e /etc/podinfo/mem_request ]]; then<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span>echo -en '\n'; cat /etc/podinfo/mem_request; fi;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>sleep 5;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>done;<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">requests</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"32Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"125m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">limits</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">memory</span>:<span style="color:#bbb"> </span><span style="color:#b44">"64Mi"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">cpu</span>:<span style="color:#bbb"> </span><span style="color:#b44">"250m"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>podinfo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/etc/podinfo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>podinfo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">downwardAPI</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">items</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">path</span>:<span style="color:#bbb"> </span><span style="color:#b44">"cpu_limit"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>client-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>limits.cpu<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">divisor</span>:<span style="color:#bbb"> </span>1m<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">path</span>:<span style="color:#bbb"> </span><span style="color:#b44">"cpu_request"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>client-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>requests.cpu<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">divisor</span>:<span style="color:#bbb"> </span>1m<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">path</span>:<span style="color:#bbb"> </span><span style="color:#b44">"mem_limit"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>client-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>limits.memory<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">divisor</span>:<span style="color:#bbb"> </span>1Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">path</span>:<span style="color:#bbb"> </span><span style="color:#b44">"mem_request"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">resourceFieldRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">containerName</span>:<span style="color:#bbb"> </span>client-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">resource</span>:<span style="color:#bbb"> </span>requests.memory<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">divisor</span>:<span style="color:#bbb"> </span>1Mi<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>In the manifest, you can see that the Pod has a
+<a href="/docs/concepts/storage/volumes/#downwardapi"><code>downwardAPI</code> volume</a>,
+and that the single container in that Pod mounts the volume at <code>/etc/podinfo</code>.</p><p>Look at the <code>items</code> array under <code>downwardAPI</code>. Each element of the array
+defines a file in the downward API volume.</p><p>The first element specifies that in the container named <code>client-container</code>,
+the value of the <code>limits.cpu</code> field in the format specified by <code>1m</code> should be
+published as a file named <code>cpu_limit</code>. The <code>divisor</code> field is optional and has the
+default value of <code>1</code>. A divisor of 1 means cores for <code>cpu</code> resources, or
+bytes for <code>memory</code> resources.</p><p>Create the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/inject/dapi-volume-resources.yaml
+</span></span></code></pre></div><p>Get a shell into the container that is running in your Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it kubernetes-downwardapi-volume-example-2 -- sh
+</span></span></code></pre></div><p>In your shell, view the <code>cpu_limit</code> file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Run this in a shell inside the container</span>
+</span></span><span style="display:flex"><span>cat /etc/podinfo/cpu_limit
+</span></span></code></pre></div><p>You can use similar commands to view the <code>cpu_request</code>, <code>mem_limit</code> and
+<code>mem_request</code> files.</p><h2 id="project-keys-to-specific-paths-and-file-permissions">Project keys to specific paths and file permissions</h2><p>You can project keys to specific paths and specific permissions on a per-file
+basis. For more information, see
+<a href="/docs/concepts/configuration/secret/">Secrets</a>.</p><h2 id="what-s-next">What's next</h2><ul><li>Read the <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec"><code>spec</code></a>
+API definition for Pod. This includes the definition of Container (part of Pod).</li><li>Read the list of <a href="/docs/concepts/workloads/pods/downward-api/#available-fields">available fields</a> that you
+can expose using the downward API.</li></ul><p>Read about volumes in the legacy API reference:</p><ul><li>Check the <a href="/docs/reference/generated/kubernetes-api/v1.34/#volume-v1-core"><code>Volume</code></a>
+API definition which defines a generic volume in a Pod for containers to access.</li><li>Check the <a href="/docs/reference/generated/kubernetes-api/v1.34/#downwardapivolumesource-v1-core"><code>DownwardAPIVolumeSource</code></a>
+API definition which defines a volume that contains Downward API information.</li><li>Check the <a href="/docs/reference/generated/kubernetes-api/v1.34/#downwardapivolumefile-v1-core"><code>DownwardAPIVolumeFile</code></a>
+API definition which contains references to object or resource fields for
+populating a file in the Downward API volume.</li><li>Check the <a href="/docs/reference/generated/kubernetes-api/v1.34/#resourcefieldselector-v1-core"><code>ResourceFieldSelector</code></a>
+API definition which specifies the container resources and their output format.</li></ul></div>

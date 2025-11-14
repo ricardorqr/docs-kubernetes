@@ -1,0 +1,55 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Apply Pod Security Standards at the Namespace Level</h1><div class="alert alert-primary" role="alert"><h4 class="alert-heading">Note</h4>This tutorial applies only for new clusters.</div><p>Pod Security Admission is an admission controller that applies
+<a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a>
+when pods are created. It is a feature GA'ed in v1.25.
+In this tutorial, you will enforce the <code>baseline</code> Pod Security Standard,
+one namespace at a time.</p><p>You can also apply Pod Security Standards to multiple namespaces at once at the cluster
+level. For instructions, refer to
+<a href="/docs/tutorials/security/cluster-level-pss/">Apply Pod Security Standards at the cluster level</a>.</p><h2 id="before-you-begin">Before you begin</h2><p>Install the following on your workstation:</p><ul><li><a href="https://kind.sigs.k8s.io/docs/user/quick-start/#installation">kind</a></li><li><a href="/docs/tasks/tools/">kubectl</a></li></ul><h2 id="create-cluster">Create cluster</h2><ol><li><p>Create a <code>kind</code> cluster as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kind create cluster --name psa-ns-level
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Creating cluster "psa-ns-level" ...
+ ✓ Ensuring node image (kindest/node:v1.34.0) 🖼 
+ ✓ Preparing nodes 📦  
+ ✓ Writing configuration 📜 
+ ✓ Starting control-plane 🕹️ 
+ ✓ Installing CNI 🔌 
+ ✓ Installing StorageClass 💾 
+Set kubectl context to "kind-psa-ns-level"
+You can now use your cluster with:
+
+kubectl cluster-info --context kind-psa-ns-level
+
+Not sure what to do next? 😅  Check out https://kind.sigs.k8s.io/docs/user/quick-start/
+</code></pre></li><li><p>Set the kubectl context to the new cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl cluster-info --context kind-psa-ns-level
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Kubernetes control plane is running at https://127.0.0.1:50996
+CoreDNS is running at https://127.0.0.1:50996/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+</code></pre></li></ol><h2 id="create-a-namespace">Create a namespace</h2><p>Create a new namespace called <code>example</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl create ns example
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>namespace/example created
+</code></pre><h2 id="enable-pod-security-standards-checking-for-that-namespace">Enable Pod Security Standards checking for that namespace</h2><ol><li><p>Enable Pod Security Standards on this namespace using labels supported by
+built-in Pod Security Admission. In this step you will configure a check to
+warn on Pods that don't meet the latest version of the <em>baseline</em> pod
+security standard.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl label --overwrite ns example <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>   pod-security.kubernetes.io/warn<span style="color:#666">=</span>baseline <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>   pod-security.kubernetes.io/warn-version<span style="color:#666">=</span>latest
+</span></span></code></pre></div></li><li><p>You can configure multiple pod security standard checks on any namespace, using labels.
+The following command will <code>enforce</code> the <code>baseline</code> Pod Security Standard, but
+<code>warn</code> and <code>audit</code> for <code>restricted</code> Pod Security Standards as per the latest
+version (default value)</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl label --overwrite ns example <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  pod-security.kubernetes.io/enforce<span style="color:#666">=</span>baseline <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  pod-security.kubernetes.io/enforce-version<span style="color:#666">=</span>latest <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  pod-security.kubernetes.io/warn<span style="color:#666">=</span>restricted <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  pod-security.kubernetes.io/warn-version<span style="color:#666">=</span>latest <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  pod-security.kubernetes.io/audit<span style="color:#666">=</span>restricted <span style="color:#b62;font-weight:700">\
+</span></span></span><span style="display:flex"><span><span style="color:#b62;font-weight:700"/>  pod-security.kubernetes.io/audit-version<span style="color:#666">=</span>latest
+</span></span></code></pre></div></li></ol><h2 id="verify-the-pod-security-standard-enforcement">Verify the Pod Security Standard enforcement</h2><ol><li><p>Create a baseline Pod in the <code>example</code> namespace:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -n example -f https://k8s.io/examples/security/example-baseline-pod.yaml
+</span></span></code></pre></div><p>The Pod does start OK; the output includes a warning. For example:</p><pre tabindex="0"><code>Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "nginx" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "nginx" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "nginx" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "nginx" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+pod/nginx created
+</code></pre></li><li><p>Create a baseline Pod in the <code>default</code> namespace:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -n default -f https://k8s.io/examples/security/example-baseline-pod.yaml
+</span></span></code></pre></div><p>Output is similar to this:</p><pre tabindex="0"><code>pod/nginx created
+</code></pre></li></ol><p>The Pod Security Standards enforcement and warning settings were applied only
+to the <code>example</code> namespace. You could create the same Pod in the <code>default</code>
+namespace with no warnings.</p><h2 id="clean-up">Clean up</h2><p>Now delete the cluster which you created above by running the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kind delete cluster --name psa-ns-level
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li><p>Run a
+<a href="/examples/security/kind-with-namespace-level-baseline-pod-security.sh">shell script</a>
+to perform all the preceding steps all at once.</p><ol><li>Create kind cluster</li><li>Create new namespace</li><li>Apply <code>baseline</code> Pod Security Standard in <code>enforce</code> mode while applying
+<code>restricted</code> Pod Security Standard also in <code>warn</code> and <code>audit</code> mode.</li><li>Create a new pod with the following pod security standards applied</li></ol></li><li><p><a href="/docs/concepts/security/pod-security-admission/">Pod Security Admission</a></p></li><li><p><a href="/docs/concepts/security/pod-security-standards/">Pod Security Standards</a></p></li><li><p><a href="/docs/tutorials/security/cluster-level-pss/">Apply Pod Security Standards at the cluster level</a></p></li></ul></div>

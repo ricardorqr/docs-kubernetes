@@ -1,0 +1,175 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Init Containers</h1><p>This page provides an overview of init containers: specialized containers that run
+before app containers in a <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a>.
+Init containers can contain utilities or setup scripts not present in an app image.</p><p>You can specify init containers in the Pod specification alongside the <code>containers</code>
+array (which describes app containers).</p><p>In Kubernetes, a <a href="/docs/concepts/workloads/pods/sidecar-containers/">sidecar container</a> is a container that
+starts before the main application container and <em>continues to run</em>. This document is about init containers:
+containers that run to completion during Pod initialization.</p><h2 id="understanding-init-containers">Understanding init containers</h2><p>A <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a> can have multiple containers
+running apps within it, but it can also have one or more init containers, which are run
+before the app containers are started.</p><p>Init containers are exactly like regular containers, except:</p><ul><li>Init containers always run to completion.</li><li>Each init container must complete successfully before the next one starts.</li></ul><p>If a Pod's init container fails, the kubelet repeatedly restarts that init container until it succeeds.
+However, if the Pod has a <code>restartPolicy</code> of Never, and an init container fails during startup of that Pod, Kubernetes treats the overall Pod as failed.</p><p>To specify an init container for a Pod, add the <code>initContainers</code> field into
+the <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodSpec">Pod specification</a>,
+as an array of <code>container</code> items (similar to the app <code>containers</code> field and its contents).
+See <a href="/docs/reference/kubernetes-api/workload-resources/pod-v1/#Container">Container</a> in the
+API reference for more details.</p><p>The status of the init containers is returned in <code>.status.initContainerStatuses</code>
+field as an array of the container statuses (similar to the <code>.status.containerStatuses</code>
+field).</p><h3 id="differences-from-regular-containers">Differences from regular containers</h3><p>Init containers support all the fields and features of app containers,
+including resource limits, <a href="/docs/concepts/storage/volumes/">volumes</a>, and security settings. However, the
+resource requests and limits for an init container are handled differently,
+as documented in <a href="#resource-sharing-within-containers">Resource sharing within containers</a>.</p><p>Regular init containers (in other words: excluding sidecar containers) do not support the
+<code>lifecycle</code>, <code>livenessProbe</code>, <code>readinessProbe</code>, or <code>startupProbe</code> fields. Init containers
+must run to completion before the Pod can be ready; sidecar containers continue running
+during a Pod's lifetime, and <em>do</em> support some probes. See <a href="/docs/concepts/workloads/pods/sidecar-containers/">sidecar container</a>
+for further details about sidecar containers.</p><p>If you specify multiple init containers for a Pod, kubelet runs each init
+container sequentially. Each init container must succeed before the next can run.
+When all of the init containers have run to completion, kubelet initializes
+the application containers for the Pod and runs them as usual.</p><h3 id="differences-from-sidecar-containers">Differences from sidecar containers</h3><p>Init containers run and complete their tasks before the main application container starts.
+Unlike <a href="/docs/concepts/workloads/pods/sidecar-containers/">sidecar containers</a>,
+init containers are not continuously running alongside the main containers.</p><p>Init containers run to completion sequentially, and the main container does not start
+until all the init containers have successfully completed.</p><p>init containers do not support <code>lifecycle</code>, <code>livenessProbe</code>, <code>readinessProbe</code>, or
+<code>startupProbe</code> whereas sidecar containers support all these <a href="/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe">probes</a> to control their lifecycle.</p><p>Init containers share the same resources (CPU, memory, network) with the main application
+containers but do not interact directly with them. They can, however, use shared volumes
+for data exchange.</p><h2 id="using-init-containers">Using init containers</h2><p>Because init containers have separate images from app containers, they
+have some advantages for start-up related code:</p><ul><li>Init containers can contain utilities or custom code for setup that are not present in an app
+image. For example, there is no need to make an image <code>FROM</code> another image just to use a tool like
+<code>sed</code>, <code>awk</code>, <code>python</code>, or <code>dig</code> during setup.</li><li>The application image builder and deployer roles can work independently without
+the need to jointly build a single app image.</li><li>Init containers can run with a different view of the filesystem than app containers in the
+same Pod. Consequently, they can be given access to
+<a class="glossary-tooltip" title="Stores sensitive information, such as passwords, OAuth tokens, and ssh keys." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/secret/" target="_blank" aria-label="Secrets">Secrets</a> that app containers cannot access.</li><li>Because init containers run to completion before any app containers start, init containers offer
+a mechanism to block or delay app container startup until a set of preconditions are met. Once
+preconditions are met, all of the app containers in a Pod can start in parallel.</li><li>Init containers can securely run utilities or custom code that would otherwise make an app
+container image less secure. By keeping unnecessary tools separate you can limit the attack
+surface of your app container image.</li></ul><h3 id="examples">Examples</h3><p>Here are some ideas for how to use init containers:</p><ul><li><p>Wait for a <a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Service">Service</a> to
+be created, using a shell one-line command like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f;font-weight:700">for</span> i in <span style="color:#666">{</span>1..100<span style="color:#666">}</span>; <span style="color:#a2f;font-weight:700">do</span> sleep 1; <span style="color:#a2f;font-weight:700">if</span> nslookup myservice; <span style="color:#a2f;font-weight:700">then</span> <span style="color:#a2f">exit</span> 0; <span style="color:#a2f;font-weight:700">fi</span>; <span style="color:#a2f;font-weight:700">done</span>; <span style="color:#a2f">exit</span> <span style="color:#666">1</span>
+</span></span></code></pre></div></li><li><p>Register this Pod with a remote server from the downward API with a command like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -X POST http://<span style="color:#b8860b">$MANAGEMENT_SERVICE_HOST</span>:<span style="color:#b8860b">$MANAGEMENT_SERVICE_PORT</span>/register -d <span style="color:#b44">'instance=$(&lt;POD_NAME&gt;)&amp;ip=$(&lt;POD_IP&gt;)'</span>
+</span></span></code></pre></div></li><li><p>Wait for some time before starting the app container with a command like</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>sleep <span style="color:#666">60</span>
+</span></span></code></pre></div></li><li><p>Clone a Git repository into a <a class="glossary-tooltip" title="A directory containing data, accessible to the containers in a pod." data-toggle="tooltip" data-placement="top" href="/docs/concepts/storage/volumes/" target="_blank" aria-label="Volume">Volume</a></p></li><li><p>Place values into a configuration file and run a template tool to dynamically
+generate a configuration file for the main app container. For example,
+place the <code>POD_IP</code> value in a configuration and generate the main app
+configuration file using Jinja.</p></li></ul><h4 id="init-containers-in-use">Init containers in use</h4><p>This example defines a simple Pod that has two init containers.
+The first waits for <code>myservice</code>, and the second waits for <code>mydb</code>. Once both
+init containers complete, the Pod runs the app container from its <code>spec</code> section.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myapp-pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app.kubernetes.io/name</span>:<span style="color:#bbb"> </span>MyApp<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myapp-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">'sh'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'-c'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'echo The app is running! &amp;&amp; sleep 3600'</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">initContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>init-myservice<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">'sh'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'-c'</span>,<span style="color:#bbb"> </span><span style="color:#b44">"until nslookup myservice.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>init-mydb<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">'sh'</span>,<span style="color:#bbb"> </span><span style="color:#b44">'-c'</span>,<span style="color:#bbb"> </span><span style="color:#b44">"until nslookup mydb.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for mydb; sleep 2; done"</span>]<span style="color:#bbb">
+</span></span></span></code></pre></div><p>You can start this Pod by running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f myapp.yaml
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>pod/myapp-pod created
+</code></pre><p>And check on its status with:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get -f myapp.yaml
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>NAME        READY     STATUS     RESTARTS   AGE
+myapp-pod   0/1       Init:0/2   0          6m
+</code></pre><p>or for more details:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe -f myapp.yaml
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>Name:          myapp-pod
+Namespace:     default
+[...]
+Labels:        app.kubernetes.io/name=MyApp
+Status:        Pending
+[...]
+Init Containers:
+  init-myservice:
+[...]
+    State:         Running
+[...]
+  init-mydb:
+[...]
+    State:         Waiting
+      Reason:      PodInitializing
+    Ready:         False
+[...]
+Containers:
+  myapp-container:
+[...]
+    State:         Waiting
+      Reason:      PodInitializing
+    Ready:         False
+[...]
+Events:
+  FirstSeen    LastSeen    Count    From                      SubObjectPath                           Type          Reason        Message
+  ---------    --------    -----    ----                      -------------                           --------      ------        -------
+  16s          16s         1        {default-scheduler }                                              Normal        Scheduled     Successfully assigned myapp-pod to 172.17.4.201
+  16s          16s         1        {kubelet 172.17.4.201}    spec.initContainers{init-myservice}     Normal        Pulling       pulling image "busybox"
+  13s          13s         1        {kubelet 172.17.4.201}    spec.initContainers{init-myservice}     Normal        Pulled        Successfully pulled image "busybox"
+  13s          13s         1        {kubelet 172.17.4.201}    spec.initContainers{init-myservice}     Normal        Created       Created container init-myservice
+  13s          13s         1        {kubelet 172.17.4.201}    spec.initContainers{init-myservice}     Normal        Started       Started container init-myservice
+</code></pre><p>To see logs for the init containers in this Pod, run:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs myapp-pod -c init-myservice <span style="color:#080;font-style:italic"># Inspect the first init container</span>
+</span></span><span style="display:flex"><span>kubectl logs myapp-pod -c init-mydb      <span style="color:#080;font-style:italic"># Inspect the second init container</span>
+</span></span></code></pre></div><p>At this point, those init containers will be waiting to discover <a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="Services">Services</a> named
+<code>mydb</code> and <code>myservice</code>.</p><p>Here's a configuration you can use to make those Services appear:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>myservice<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9376</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>mydb<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">9377</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>To create the <code>mydb</code> and <code>myservice</code> services:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f services.yaml
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>service/myservice created
+service/mydb created
+</code></pre><p>You'll then see that those init containers complete, and that the <code>myapp-pod</code>
+Pod moves into the Running state:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get -f myapp.yaml
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>NAME        READY     STATUS    RESTARTS   AGE
+myapp-pod   1/1       Running   0          9m
+</code></pre><p>This simple example should provide some inspiration for you to create your own
+init containers. <a href="#what-s-next">What's next</a> contains a link to a more detailed example.</p><h2 id="detailed-behavior">Detailed behavior</h2><p>During Pod startup, the kubelet delays running init containers until the networking
+and storage are ready. Then the kubelet runs the Pod's init containers in the order
+they appear in the Pod's spec.</p><p>Each init container must exit successfully before
+the next container starts. If a container fails to start due to the runtime or
+exits with failure, it is retried according to the Pod <code>restartPolicy</code>. However,
+if the Pod <code>restartPolicy</code> is set to Always, the init containers use
+<code>restartPolicy</code> OnFailure.</p><p>A Pod cannot be <code>Ready</code> until all init containers have succeeded. The ports on an
+init container are not aggregated under a Service. A Pod that is initializing
+is in the <code>Pending</code> state but should have a condition <code>Initialized</code> set to false.</p><p>If the Pod <a href="#pod-restart-reasons">restarts</a>, or is restarted, all init containers
+must execute again.</p><p>Changes to the init container spec are limited to the container image field.
+Directly altering the <code>image</code> field of an init container does <em>not</em> restart the
+Pod or trigger its recreation. If the Pod has yet to start, that change may
+have an effect on how the Pod boots up.</p><p>For a <a href="/docs/concepts/workloads/pods/#pod-templates">pod template</a>
+you can typically change any field for an init container; the impact of making
+that change depends on where the pod template is used.</p><p>Because init containers can be restarted, retried, or re-executed, init container
+code should be idempotent. In particular, code that writes into any <code>emptyDir</code> volume
+should be prepared for the possibility that an output file already exists.</p><p>Init containers have all of the fields of an app container. However, Kubernetes
+prohibits <code>readinessProbe</code> from being used because init containers cannot
+define readiness distinct from completion. This is enforced during validation.</p><p>Use <code>activeDeadlineSeconds</code> on the Pod to prevent init containers from failing forever.
+The active deadline includes init containers.
+However it is recommended to use <code>activeDeadlineSeconds</code> only if teams deploy their application
+as a Job, because <code>activeDeadlineSeconds</code> has an effect even after initContainer finished.
+The Pod which is already running correctly would be killed by <code>activeDeadlineSeconds</code> if you set.</p><p>The name of each app and init container in a Pod must be unique; a
+validation error is thrown for any container sharing a name with another.</p><h3 id="resource-sharing-within-containers">Resource sharing within containers</h3><p>Given the order of execution for init, sidecar and app containers, the following rules
+for resource usage apply:</p><ul><li>The highest of any particular resource request or limit defined on all init
+containers is the <em>effective init request/limit</em>. If any resource has no
+resource limit specified this is considered as the highest limit.</li><li>The Pod's <em>effective request/limit</em> for a resource is the higher of:<ul><li>the sum of all app containers request/limit for a resource</li><li>the effective init request/limit for a resource</li></ul></li><li>Scheduling is done based on effective requests/limits, which means
+init containers can reserve resources for initialization that are not used
+during the life of the Pod.</li><li>The QoS (quality of service) tier of the Pod's <em>effective QoS tier</em> is the
+QoS tier for init containers and app containers alike.</li></ul><p>Quota and limits are applied based on the effective Pod request and
+limit.</p><h3 id="cgroups">Init containers and Linux cgroups</h3><p>On Linux, resource allocations for Pod level control groups (cgroups) are based on the effective Pod
+request and limit, the same as the scheduler.</p><h3 id="pod-restart-reasons">Pod restart reasons</h3><p>A Pod can restart, causing re-execution of init containers, for the following
+reasons:</p><ul><li>The Pod infrastructure container is restarted. This is uncommon and would
+have to be done by someone with root access to nodes.</li><li>All containers in a Pod are terminated while <code>restartPolicy</code> is set to Always,
+forcing a restart, and the init container completion record has been lost due
+to <a class="glossary-tooltip" title="A collective term for the various mechanisms Kubernetes uses to clean up cluster resources." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/garbage-collection/" target="_blank" aria-label="garbage collection">garbage collection</a>.</li></ul><p>The Pod will not be restarted when the init container image is changed, or the
+init container completion record has been lost due to garbage collection. This
+applies for Kubernetes v1.20 and later. If you are using an earlier version of
+Kubernetes, consult the documentation for the version you are using.</p><h2 id="what-s-next">What's next</h2><p>Learn more about the following:</p><ul><li><a href="/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container">Creating a Pod that has an init container</a>.</li><li><a href="/docs/tasks/debug/debug-application/debug-init-containers/">Debug init containers</a>.</li><li>Overview of <a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> and <a href="/docs/reference/kubectl/">kubectl</a>.</li><li><a href="/docs/concepts/workloads/pods/pod-lifecycle/#types-of-probe">Types of probes</a>: liveness, readiness, startup probe.</li><li><a href="/docs/concepts/workloads/pods/sidecar-containers/">Sidecar containers</a>.</li></ul></div>

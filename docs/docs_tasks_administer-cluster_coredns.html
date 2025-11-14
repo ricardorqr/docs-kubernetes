@@ -1,0 +1,31 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Using CoreDNS for Service Discovery</h1><p>This page describes the CoreDNS upgrade process and how to install CoreDNS instead of kube-dns.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.9.<p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="about-coredns">About CoreDNS</h2><p><a href="https://coredns.io">CoreDNS</a> is a flexible, extensible DNS server
+that can serve as the Kubernetes cluster DNS.
+Like Kubernetes, the CoreDNS project is hosted by the
+<a class="glossary-tooltip" title="Cloud Native Computing Foundation" data-toggle="tooltip" data-placement="top" href="https://cncf.io/" target="_blank" aria-label="CNCF">CNCF</a>.</p><p>You can use CoreDNS instead of kube-dns in your cluster by replacing
+kube-dns in an existing deployment, or by using tools like kubeadm
+that will deploy and upgrade the cluster for you.</p><h2 id="installing-coredns">Installing CoreDNS</h2><p>For manual deployment or replacement of kube-dns, see the documentation at the
+<a href="https://coredns.io/manual/installation/">CoreDNS website</a>.</p><h2 id="migrating-to-coredns">Migrating to CoreDNS</h2><h3 id="upgrading-an-existing-cluster-with-kubeadm">Upgrading an existing cluster with kubeadm</h3><p>In Kubernetes version 1.21, kubeadm removed its support for <code>kube-dns</code> as a DNS application.
+For <code>kubeadm</code> v1.34, the only supported cluster DNS application
+is CoreDNS.</p><p>You can move to CoreDNS when you use <code>kubeadm</code> to upgrade a cluster that is
+using <code>kube-dns</code>. In this case, <code>kubeadm</code> generates the CoreDNS configuration
+("Corefile") based upon the <code>kube-dns</code> ConfigMap, preserving configurations for
+stub domains, and upstream name server.</p><h2 id="upgrading-coredns">Upgrading CoreDNS</h2><p>You can check the version of CoreDNS that kubeadm installs for each version of
+Kubernetes in the page
+<a href="https://github.com/coredns/deployment/blob/master/kubernetes/CoreDNS-k8s_version.md">CoreDNS version in Kubernetes</a>.</p><p>CoreDNS can be upgraded manually in case you want to only upgrade CoreDNS
+or use your own custom image.
+There is a helpful <a href="https://github.com/coredns/deployment/blob/master/kubernetes/Upgrading_CoreDNS.md">guideline and walkthrough</a>
+available to ensure a smooth upgrade.
+Make sure the existing CoreDNS configuration ("Corefile") is retained when
+upgrading your cluster.</p><p>If you are upgrading your cluster using the <code>kubeadm</code> tool, <code>kubeadm</code>
+can take care of retaining the existing CoreDNS configuration automatically.</p><h2 id="tuning-coredns">Tuning CoreDNS</h2><p>When resource utilisation is a concern, it may be useful to tune the
+configuration of CoreDNS. For more details, check out the
+<a href="https://github.com/coredns/deployment/blob/master/kubernetes/Scaling_CoreDNS.md">documentation on scaling CoreDNS</a>.</p><h2 id="what-s-next">What's next</h2><p>You can configure <a href="https://coredns.io">CoreDNS</a> to support many more use cases than
+kube-dns does by modifying the CoreDNS configuration ("Corefile").
+For more information, see the <a href="https://coredns.io/plugins/kubernetes/">documentation</a>
+for the <code>kubernetes</code> CoreDNS plugin, or read the
+<a href="https://coredns.io/2017/05/08/custom-dns-entries-for-kubernetes/">Custom DNS Entries for Kubernetes</a>.
+in the CoreDNS blog.</p></div>

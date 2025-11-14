@@ -1,0 +1,63 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Accessing the Kubernetes API from a Pod</h1><p>This guide demonstrates how to access the Kubernetes API from within a pod.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><h2 id="accessing-the-api-from-within-a-pod">Accessing the API from within a Pod</h2><p>When accessing the API from within a Pod, locating and authenticating
+to the API server are slightly different to the external client case.</p><p>The easiest way to use the Kubernetes API from a Pod is to use
+one of the official <a href="/docs/reference/using-api/client-libraries/">client libraries</a>. These
+libraries can automatically discover the API server and authenticate.</p><h3 id="using-official-client-libraries">Using Official Client Libraries</h3><p>From within a Pod, the recommended ways to connect to the Kubernetes API are:</p><ul><li><p>For a Go client, use the official
+<a href="https://github.com/kubernetes/client-go/">Go client library</a>.
+The <code>rest.InClusterConfig()</code> function handles API host discovery and authentication automatically.
+See <a href="https://git.k8s.io/client-go/examples/in-cluster-client-configuration/main.go">an example here</a>.</p></li><li><p>For a Python client, use the official
+<a href="https://github.com/kubernetes-client/python/">Python client library</a>.
+The <code>config.load_incluster_config()</code> function handles API host discovery and authentication automatically.
+See <a href="https://github.com/kubernetes-client/python/blob/master/examples/in_cluster_config.py">an example here</a>.</p></li><li><p>There are a number of other libraries available, please refer to the
+<a href="/docs/reference/using-api/client-libraries/">Client Libraries</a> page.</p></li></ul><p>In each case, the service account credentials of the Pod are used to communicate
+securely with the API server.</p><h3 id="directly-accessing-the-rest-api">Directly accessing the REST API</h3><p>While running in a Pod, your container can create an HTTPS URL for the Kubernetes API
+server by fetching the <code>KUBERNETES_SERVICE_HOST</code> and <code>KUBERNETES_SERVICE_PORT_HTTPS</code>
+environment variables. The API server's in-cluster address is also published to a
+Service named <code>kubernetes</code> in the <code>default</code> namespace so that pods may reference
+<code>kubernetes.default.svc</code> as a DNS name for the local API server.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Kubernetes does not guarantee that the API server has a valid certificate for
+the hostname <code>kubernetes.default.svc</code>;
+however, the control plane <strong>is</strong> expected to present a valid certificate for the
+hostname or IP address that <code>$KUBERNETES_SERVICE_HOST</code> represents.</div><p>The recommended way to authenticate to the API server is with a
+<a href="/docs/tasks/configure-pod-container/configure-service-account/">service account</a>
+credential. By default, a Pod
+is associated with a service account, and a credential (token) for that
+service account is placed into the filesystem tree of each container in that Pod,
+at <code>/var/run/secrets/kubernetes.io/serviceaccount/token</code>.</p><p>If available, a certificate bundle is placed into the filesystem tree of each
+container at <code>/var/run/secrets/kubernetes.io/serviceaccount/ca.crt</code>, and should be
+used to verify the serving certificate of the API server.</p><p>Finally, the default namespace to be used for namespaced API operations is placed in a file
+at <code>/var/run/secrets/kubernetes.io/serviceaccount/namespace</code> in each container.</p><h3 id="using-kubectl-proxy">Using kubectl proxy</h3><p>If you would like to query the API without an official client library, you can run <code>kubectl proxy</code>
+as the <a href="/docs/tasks/inject-data-application/define-command-argument-container/">command</a>
+of a new sidecar container in the Pod. This way, <code>kubectl proxy</code> will authenticate
+to the API and expose it on the <code>localhost</code> interface of the Pod, so that other containers
+in the Pod can use it directly.</p><h3 id="without-using-a-proxy">Without using a proxy</h3><p>It is possible to avoid using the kubectl proxy by passing the authentication token
+directly to the API server. The internal certificate secures the connection.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Point to the internal API server hostname</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">APISERVER</span><span style="color:#666">=</span>https://kubernetes.default.svc
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Path to ServiceAccount token</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">SERVICEACCOUNT</span><span style="color:#666">=</span>/var/run/secrets/kubernetes.io/serviceaccount
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Read this Pod's namespace</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">NAMESPACE</span><span style="color:#666">=</span><span style="color:#a2f;font-weight:700">$(</span>cat <span style="color:#b68;font-weight:700">${</span><span style="color:#b8860b">SERVICEACCOUNT</span><span style="color:#b68;font-weight:700">}</span>/namespace<span style="color:#a2f;font-weight:700">)</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Read the ServiceAccount bearer token</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">TOKEN</span><span style="color:#666">=</span><span style="color:#a2f;font-weight:700">$(</span>cat <span style="color:#b68;font-weight:700">${</span><span style="color:#b8860b">SERVICEACCOUNT</span><span style="color:#b68;font-weight:700">}</span>/token<span style="color:#a2f;font-weight:700">)</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Reference the internal certificate authority (CA)</span>
+</span></span><span style="display:flex"><span><span style="color:#b8860b">CACERT</span><span style="color:#666">=</span><span style="color:#b68;font-weight:700">${</span><span style="color:#b8860b">SERVICEACCOUNT</span><span style="color:#b68;font-weight:700">}</span>/ca.crt
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Explore the API with TOKEN</span>
+</span></span><span style="display:flex"><span>curl --cacert <span style="color:#b68;font-weight:700">${</span><span style="color:#b8860b">CACERT</span><span style="color:#b68;font-weight:700">}</span> --header <span style="color:#b44">"Authorization: Bearer </span><span style="color:#b68;font-weight:700">${</span><span style="color:#b8860b">TOKEN</span><span style="color:#b68;font-weight:700">}</span><span style="color:#b44">"</span> -X GET <span style="color:#b68;font-weight:700">${</span><span style="color:#b8860b">APISERVER</span><span style="color:#b68;font-weight:700">}</span>/api
+</span></span></code></pre></div><p>The output will be similar to this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"APIVersions"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"versions"</span>: [<span style="color:#b44">"v1"</span>],
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"serverAddressByClientCIDRs"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"clientCIDR"</span>: <span style="color:#b44">"0.0.0.0/0"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"serverAddress"</span>: <span style="color:#b44">"10.0.1.149:443"</span>
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div></div>

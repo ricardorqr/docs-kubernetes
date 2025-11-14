@@ -1,0 +1,76 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Submitting articles to Kubernetes blogs</h1><p>There are two official Kubernetes blogs, and the CNCF has its own blog where you can cover Kubernetes too.
+For the <a href="/docs/contribute/blog/">main Kubernetes blog</a>, we (the Kubernetes project) like to publish articles with different perspectives and special focuses, that have a link to Kubernetes.</p><p>With only a few special case exceptions, we only publish content that hasn't been submitted or published anywhere else.</p><h2 id="writing-for-the-kubernetes-blog-s">Writing for the Kubernetes blog(s)</h2><p>As an author, you have three different routes towards publication.</p><h3 id="route-1">Recommended route</h3><p>The approach the Kubernetes project recommends is: pitch your article by contacting the blog team. You can do that via Kubernetes Slack (<a href="https://kubernetes.slack.com/archives/CJDHVD54J">#sig-docs-blog</a>).
+For articles that you want to publish to the contributor blog only, you can also pitch directly
+to <a href="https://kubernetes.slack.com/archives/C03KT3SUJ20">SIG ContribEx comms</a>.</p><p>Unless there's a problem with your submission, the blog team / SIG ContribEx will pair you up with:</p><ul><li>a blog <em>editor</em></li><li>your <em>writing buddy</em> (another blog author)</li></ul><p>When the team pairs you up with another author, the idea is that you both support each other by
+reviewing the other author's draft article. You don't need to be a subject matter expert; most of
+the people who read the article also won't be experts. We, the Kubernetes blog team, call the other author a writing buddy.</p><p>The editor is there to help you along the journey from draft to publication. They will either be
+directly able to approve your article for publication, or can arrange for the approval to happen.</p><p>Read <a href="#authoring">authoring a blog article</a> to learn more about the process.</p><h3 id="route-2">Starting with a pull request</h3><p>The second route to writing for our blogs is to start directly with a pull request in GitHub. The
+blog team actually don't recommend this; GitHub is quite useful for collaborating on code,
+but isn't an ideal fit for prose text.</p><p>It's absolutely fine to open a placeholder pull request with just an empty commit, and then
+work elsewhere before returning to your placeholder PR.</p><p>Similar to the <a href="#route-1">recommended route</a>, we'll try to pair you up with a writing buddy
+and a blog editor. They'll help you get the article ready for publication.</p><h3 id="route-3-post-release-comms">Post-release blog article process</h3><p>The third route is for blog articles about changes in Kubernetes relating to a release. Each
+time there is a release, the Release Comms team takes over the blog publication schedule. People
+adding features to a release, or who are planning other changes that the project needs to announce, can
+liaise with Release Comms to get their article planned, drafted, edited, and eventually published.</p><h2 id="article-scheduling">Article scheduling</h2><p>For the Kubernetes blog, the blog team usually schedules blog articles to publish on weekdays
+(Gregorian calendar, as used in the USA and other countries). When it's important to publish on
+a specific date that falls on a weekend, the blog team try to accommodate that.</p><p>The section on <a href="#authoring">authoring a blog article</a> explains what to do:</p><ul><li>initially, don't specify a date for the article</li><li>however, do set the article as draft (put <code>draft: true</code> in the front matter)</li></ul><p>When the Prow bot merges the PR you write, it will be a draft and won't be set to publish. A
+Kubernetes contributor (either you, your writing buddy or someone from the blog team) then opens a small
+follow-up PR that marks it for publication. Merging that second PR releases the previously-draft
+article so that it can automatically publish.</p><p>On the day the article is scheduled to publish, automation triggers a website build and your
+article becomes visible.</p><h2 id="authoring">Authoring an article</h2><p>After you've pitched, we'll encourage you to use either HackMD (a web Markdown editor) or a
+Google doc, to share an editable version of the article text. Your writing buddy can read your
+draft text and then either directly make suggestions or provide other feedback. They should
+also let you know if what you're drafting feedback isn't in line with the
+<a href="/docs/contribute/blog/guidelines/">blog guidelines</a>.</p><p>At the same time, you'll normally be <strong>their</strong> writing buddy and can follow our
+<a href="/docs/contribute/blog/writing-buddy/">guide</a> about supporting their work.</p><h3 id="initial-administrative-steps">Initial administrative steps</h3><p>You should <a href="/docs/contribute/new-content/#contributing-basics">sign the CLA</a>
+if you have not yet done so. It is best to make sure you start this early on; if you are
+writing as part of your job, you may need to check with the workplace legal team or with
+your manager, to make sure that you are allowed to sign.</p><h3 id="initial-drafting">Initial drafting</h3><p>The blog team recommends that you either use HackMD (a web Markdown editor) or a
+Google doc, to prepare and share an initial, live-editable version of the article text.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you choose to use Google Docs, you can set your document into Markdown mode.</div><p>Your writing buddy can provide comments and / or feedback for your draft text and
+will (or should) check that it's in line with the guidelines. At the same time, you'll
+be their writing buddy and can follow the <a href="/docs/contribute/blog/writing-buddy/">guide</a>
+that explains how you'll be supporting their work.</p><p>Don't worry too much at this stage about getting the Markdown formatting exactly right, though.</p><p>If you have images, you can paste in a bitmap copy for early feedback. The blog team can help
+you (later in the process), to get illustrations ready for final publication.</p><h3 id="markdown-for-publication">Markdown for publication</h3><p>Have a look at the Markdown format for existing blog posts in the
+<a href="https://github.com/kubernetes/website/tree/master/content/en/blog/_posts">website repository</a>
+in GitHub.</p><p>If you're not already familiar, read <a href="/docs/contribute/new-content/#contributing-basics">contributing basics</a>.
+This section of the page assumes that you don't have a local clone of your fork and that you
+are working within the GitHub web UI.
+You do need to make a remote fork of the website repository if you haven't already done so.</p><p>In the GitHub repository, click the <strong>Create new file</strong> button. Copy your existing content
+from HackMD or Google Docs, then paste it into the editor.
+There are more details later in the section about what goes into that file.
+Name the file to match the proposed title of the blog post, but don’t put the date in the file name.
+The blog reviewers will work with you to set the final file name and the date when the article will be published.</p><ol><li><p>When you save the file, GitHub will walk you through the pull request process.</p></li><li><p>Your writing buddy can review your submission and work with you on feedback and final details.
+A blog editor approves your pull request to merge, as a draft that is not yet scheduled.</p></li></ol><h4 id="front-matter">Front matter</h4><p>The Markdown file you write should use YAML-format Hugo
+<a href="https://gohugo.io/content-management/front-matter/">front matter</a>.</p><p>Here's an example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">layout</span>:<span style="color:#bbb"> </span>blog<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">title</span>:<span style="color:#bbb"> </span><span style="color:#b44">"Your Title Here"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">draft: true # will be changed to date</span>:<span style="color:#bbb"> </span>YYYY-MM-DD before publication<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">slug</span>:<span style="color:#bbb"> </span>lowercase-text-for-link-goes-here-no-spaces<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># optional</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">author</span>:<span style="color:#bbb"> </span>&gt;<span style="color:#b44;font-style:italic">
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">  Author-1 (Affiliation),
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">  Author-2 (Affiliation),
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">  Author-3 (Affiliation)</span><span style="color:#bbb">  
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span></code></pre></div><ul><li>initially, don't specify a date for the article</li><li>however, do set the article as draft (put <code>draft: true</code> in the
+article <a href="https://gohugo.io/content-management/front-matter/">front matter</a>)</li></ul><h4 id="article-content">Article content</h4><p>Make sure to use second-level Markdown headings (<code>##</code> not <code>#</code>) as the topmost heading level in
+the article. The <code>title</code> you set in the front matter becomes the first-level heading for that
+page.</p><p>You should follow the <a href="https://kubernetes.io/docs/contribute/style/style-guide/">style guide</a>,
+but with the following exceptions:</p><ul><li>we are OK to have authors write an article in their own writing style, so long as most readers
+would follow the point being made</li><li>it is OK to use “we“ in a blog article that has multiple authors, or where the article introduction clearly indicates that the author is writing on behalf of a specific group.
+As you'll notice from this section, although we <a href="/docs/contribute/style/style-guide/#avoid-using-we">avoid using “we”</a> in our documentation,
+it's OK to make justifiable exceptions.</li><li>we avoid using Kubernetes shortcodes for callouts (such as <code>{{&lt; caution &gt;}}</code>). This is
+because callouts are aimed at documentation readers, and blog articles aren't documentation.</li><li>statements about the future are OK, albeit we use them with care in official announcements on
+behalf of Kubernetes</li><li>code samples used in blog articles don't need to use the <code>{{&lt; code_sample &gt;}}</code> shortcode, and often
+it is better (easier to maintain) if they do not</li></ul><h4 id="illustrations">Diagrams and illustrations</h4><p>For illustrations, diagrams or charts, use the <a href="https://gohugo.io/content-management/shortcodes/#figure">figure shortcode</a> can be used where feasible. You should set an <code>alt</code> attribute for accessibility.</p><p>For illustrations and technical diagrams, try to use vector graphics. The blog team recommend SVG over raster (bitmap / pixel)
+diagram formats, and also recommend SVG rather than Mermaid (you can still capture the Mermaid source in a comment).
+The preference for SVG over Mermaid is because when maintainers upgrade Mermaid or make changes to diagram rendering, they may not have an easy way to contact the original blog article author to check that the changes are OK.</p><p>The <a href="/docs/contribute/style/diagram-guide/">diagram guide</a> is aimed at Kubernetes documentation,
+not blog articles. It is still good to align with it but:</p><ul><li>there is no need to caption diagrams as Figure 1, Figure 2, etc.</li></ul><p>The requirement for scalable (vector) imanges makes the process more difficult for
+less-familiar folks to submit articles; Kubernetes SIG Docs continues to look for ways to
+lower this bar.
+If you have ideas on how to lower the barrier, please volunteer to help out.</p><p>For other images (such as photos), the blog team strongly encourages use of <code>alt</code> attributes.
+It is OK to use an empty <code>alt</code> attribute if accessibility software should not mention the
+image at all, but this is a rare situation.</p><h4 id="commit-messages">Commit messages</h4><p>At the point you mark your pull request ready for review, each commit message should be a
+short summary of the work being done. The first commit message should make sense as an overall
+description of the blog post.</p><p>Examples of a good commit message:</p><ul><li><em>Add blog post on the foo kubernetes feature</em></li><li><em>blog: foobar announcement</em></li></ul><p>Examples of bad commit messages:</p><ul><li><em>Placeholder commit for announcement about foo</em></li><li><em>Add blog post</em></li><li><em>asdf</em></li><li><em>initial commit</em></li><li><em>draft post</em></li></ul><h4 id="squashing">Squashing</h4><p>Once you think the article is ready to merge, you should
+<a href="https://www.k8s.dev/docs/guide/pull-requests/#squashing">squash</a> the commits in your pull
+request; if you're not sure how to, it's OK to ask the blog team for help.</p></div>

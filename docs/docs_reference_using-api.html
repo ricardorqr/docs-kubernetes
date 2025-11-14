@@ -1,0 +1,42 @@
+<div class="td-content"><h1 data-pagefind-weight="10">API Overview</h1><p>This section provides reference information for the Kubernetes API.</p><p>The REST API is the fundamental fabric of Kubernetes. All operations and
+communications between components, and external user commands are REST API
+calls that the API Server handles. Consequently, everything in the Kubernetes
+platform is treated as an API object and has a corresponding entry in the
+<a href="/docs/reference/generated/kubernetes-api/v1.34/">API</a>.</p><p>The <a href="/docs/reference/generated/kubernetes-api/v1.34/">Kubernetes API reference</a>
+lists the API for Kubernetes version v1.34.</p><p>For general background information, read
+<a href="/docs/concepts/overview/kubernetes-api/">The Kubernetes API</a>.
+<a href="/docs/concepts/security/controlling-access/">Controlling Access to the Kubernetes API</a>
+describes how clients can authenticate to the Kubernetes API server, and how their
+requests are authorized.</p><h2 id="api-versioning">API versioning</h2><p>The JSON and Protobuf serialization schemas follow the same guidelines for
+schema changes. The following descriptions cover both formats.</p><p>The API versioning and software versioning are indirectly related.
+The <a href="https://git.k8s.io/sig-release/release-engineering/versioning.md">API and release versioning proposal</a>
+describes the relationship between API versioning and software versioning.</p><p>Different API versions indicate different levels of stability and support. You
+can find more information about the criteria for each level in the
+<a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api_changes.md#alpha-beta-and-stable-versions">API Changes documentation</a>.</p><p>Here's a summary of each level:</p><ul><li><p>Alpha:</p><ul><li>The version names contain <code>alpha</code> (for example, <code>v1alpha1</code>).</li><li>Built-in alpha API versions are disabled by default and must be explicitly enabled in the <code>kube-apiserver</code> configuration to be used.</li><li>The software may contain bugs. Enabling a feature may expose bugs.</li><li>Support for an alpha API may be dropped at any time without notice.</li><li>The API may change in incompatible ways in a later software release without notice.</li><li>The software is recommended for use only in short-lived testing clusters,
+due to increased risk of bugs and lack of long-term support.</li></ul></li><li><p>Beta:</p><ul><li><p>The version names contain <code>beta</code> (for example, <code>v2beta3</code>).</p></li><li><p>Built-in beta API versions are disabled by default and must be explicitly enabled in the <code>kube-apiserver</code> configuration to be used
+(<strong>except</strong> for beta versions of APIs introduced prior to Kubernetes 1.22, which were enabled by default).</p></li><li><p>Built-in beta API versions have a maximum lifetime of 9 months or 3 minor releases (whichever is longer) from introduction
+to deprecation, and 9 months or 3 minor releases (whichever is longer) from deprecation to removal.</p></li><li><p>The software is well tested. Enabling a feature is considered safe.</p></li><li><p>The support for a feature will not be dropped, though the details may change.</p></li><li><p>The schema and/or semantics of objects may change in incompatible ways in
+a subsequent beta or stable API version. When this happens, migration
+instructions are provided. Adapting to a subsequent beta or stable API version
+may require editing or re-creating API objects, and may not be straightforward.
+The migration may require downtime for applications that rely on the feature.</p></li><li><p>The software is not recommended for production uses. Subsequent releases
+may introduce incompatible changes. Use of beta API versions is
+required to transition to subsequent beta or stable API versions
+once the beta API version is deprecated and no longer served.</p></li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Please try beta features and provide feedback. After the features exit beta, it
+may not be practical to make more changes.</div></li><li><p>Stable:</p><ul><li>The version name is <code>vX</code> where <code>X</code> is an integer.</li><li>Stable API versions remain available for all future releases within a Kubernetes major version,
+and there are no current plans for a major version revision of Kubernetes that removes stable APIs.</li></ul></li></ul><h2 id="api-groups">API groups</h2><p><a href="https://git.k8s.io/design-proposals-archive/api-machinery/api-group.md">API groups</a>
+make it easier to extend the Kubernetes API.
+The API group is specified in a REST path and in the <code>apiVersion</code> field of a
+serialized object.</p><p>There are several API groups in Kubernetes:</p><ul><li>The <em>core</em> (also called <em>legacy</em>) group is found at REST path <code>/api/v1</code>.
+The core group is not specified as part of the <code>apiVersion</code> field, for
+example, <code>apiVersion: v1</code>.</li><li>The named groups are at REST path <code>/apis/$GROUP_NAME/$VERSION</code> and use
+<code>apiVersion: $GROUP_NAME/$VERSION</code> (for example, <code>apiVersion: batch/v1</code>).
+You can find the full list of supported API groups in
+<a href="/docs/reference/generated/kubernetes-api/v1.34/#-strong-api-groups-strong-">Kubernetes API reference</a>.</li></ul><h2 id="enabling-or-disabling">Enabling or disabling API groups</h2><p>Certain resources and API groups are enabled by default. You can enable or
+disable them by setting <code>--runtime-config</code> on the API server. The
+<code>--runtime-config</code> flag accepts comma separated <code>&lt;key&gt;[=&lt;value&gt;]</code> pairs
+describing the runtime configuration of the API server. If the <code>=&lt;value&gt;</code>
+part is omitted, it is treated as if <code>=true</code> is specified. For example:</p><ul><li>to disable <code>batch/v1</code>, set <code>--runtime-config=batch/v1=false</code></li><li>to enable <code>batch/v2alpha1</code>, set <code>--runtime-config=batch/v2alpha1</code></li><li>to enable a specific version of an API, such as <code>storage.k8s.io/v1beta1/csistoragecapacities</code>, set <code>--runtime-config=storage.k8s.io/v1beta1/csistoragecapacities</code></li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>When you enable or disable groups or resources, you need to restart the API
+server and controller manager to pick up the <code>--runtime-config</code> changes.</div><h2 id="persistence">Persistence</h2><p>Kubernetes stores its serialized state in terms of the API resources by writing them into
+<a class="glossary-tooltip" title="Consistent and highly-available key value store used as backing store of Kubernetes for all cluster data." data-toggle="tooltip" data-placement="top" href="/docs/tasks/administer-cluster/configure-upgrade-etcd/" target="_blank" aria-label="etcd">etcd</a>.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#api-conventions">API conventions</a></li><li>Read the design documentation for
+<a href="https://git.k8s.io/design-proposals-archive/api-machinery/aggregated-api-servers.md">aggregator</a></li><li>Learn about <a href="/docs/reference/using-api/declarative-validation/">Declarative API Validation</a>.</li></ul><div class="section-index"/></div>

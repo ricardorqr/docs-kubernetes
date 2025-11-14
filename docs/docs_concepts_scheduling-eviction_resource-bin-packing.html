@@ -1,0 +1,150 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Resource Bin Packing</h1><p>In the <a href="/docs/reference/scheduling/config/#scheduling-plugins">scheduling-plugin</a> <code>NodeResourcesFit</code> of kube-scheduler, there are two
+scoring strategies that support the bin packing of resources: <code>MostAllocated</code> and <code>RequestedToCapacityRatio</code>.</p><h2 id="enabling-bin-packing-using-mostallocated-strategy">Enabling bin packing using MostAllocated strategy</h2><p>The <code>MostAllocated</code> strategy scores the nodes based on the utilization of resources, favoring the ones with higher allocation.
+For each resource type, you can set a weight to modify its influence in the node score.</p><p>To set the <code>MostAllocated</code> strategy for the <code>NodeResourcesFit</code> plugin, use a
+<a href="/docs/reference/scheduling/config/">scheduler configuration</a> similar to the following:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubescheduler.config.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeSchedulerConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">profiles</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">pluginConfig</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">scoringStrategy</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cpu<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>memory<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>intel.com/foo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>intel.com/bar<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>MostAllocated<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>NodeResourcesFit<span style="color:#bbb">
+</span></span></span></code></pre></div><p>To learn more about other parameters and their default configuration, see the API documentation for
+<a href="/docs/reference/config-api/kube-scheduler-config.v1/#kubescheduler-config-k8s-io-v1-NodeResourcesFitArgs"><code>NodeResourcesFitArgs</code></a>.</p><h2 id="enabling-bin-packing-using-requestedtocapacityratio">Enabling bin packing using RequestedToCapacityRatio</h2><p>The <code>RequestedToCapacityRatio</code> strategy allows the users to specify the resources along with weights for
+each resource to score nodes based on the request to capacity ratio. This
+allows users to bin pack extended resources by using appropriate parameters
+to improve the utilization of scarce resources in large clusters. It favors nodes according to a
+configured function of the allocated resources. The behavior of the <code>RequestedToCapacityRatio</code> in
+the <code>NodeResourcesFit</code> score function can be controlled by the
+<a href="/docs/reference/config-api/kube-scheduler-config.v1/#kubescheduler-config-k8s-io-v1-ScoringStrategy">scoringStrategy</a> field.
+Within the <code>scoringStrategy</code> field, you can configure two parameters: <code>requestedToCapacityRatio</code> and
+<code>resources</code>. The <code>shape</code> in the <code>requestedToCapacityRatio</code>
+parameter allows the user to tune the function as least requested or most
+requested based on <code>utilization</code> and <code>score</code> values. The <code>resources</code> parameter
+comprises both the <code>name</code> of the resource to be considered during scoring and
+its corresponding <code>weight</code>, which specifies the weight of each resource.</p><p>Below is an example configuration that sets
+the bin packing behavior for extended resources <code>intel.com/foo</code> and <code>intel.com/bar</code>
+using the <code>requestedToCapacityRatio</code> field.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>kubescheduler.config.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>KubeSchedulerConfiguration<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">profiles</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">pluginConfig</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">scoringStrategy</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>intel.com/foo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>intel.com/bar<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">requestedToCapacityRatio</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">shape</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">utilization</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">score</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span>- <span style="color:green;font-weight:700">utilization</span>:<span style="color:#bbb"> </span><span style="color:#666">100</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">score</span>:<span style="color:#bbb"> </span><span style="color:#666">10</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>RequestedToCapacityRatio<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>NodeResourcesFit<span style="color:#bbb">
+</span></span></span></code></pre></div><p>Referencing the <code>KubeSchedulerConfiguration</code> file with the kube-scheduler
+flag <code>--config=/path/to/config/file</code> will pass the configuration to the
+scheduler.</p><p>To learn more about other parameters and their default configuration, see the API documentation for
+<a href="/docs/reference/config-api/kube-scheduler-config.v1/#kubescheduler-config-k8s-io-v1-NodeResourcesFitArgs"><code>NodeResourcesFitArgs</code></a>.</p><h3 id="tuning-the-score-function">Tuning the score function</h3><p><code>shape</code> is used to specify the behavior of the <code>RequestedToCapacityRatio</code> function.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">shape</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">utilization</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">score</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">utilization</span>:<span style="color:#bbb"> </span><span style="color:#666">100</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">score</span>:<span style="color:#bbb"> </span><span style="color:#666">10</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The above arguments give the node a <code>score</code> of 0 if <code>utilization</code> is 0% and 10 for
+<code>utilization</code> 100%, thus enabling bin packing behavior. To enable least
+requested the score value must be reversed as follows.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">shape</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">utilization</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">score</span>:<span style="color:#bbb"> </span><span style="color:#666">10</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">utilization</span>:<span style="color:#bbb"> </span><span style="color:#666">100</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">score</span>:<span style="color:#bbb"> </span><span style="color:#666">0</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p><code>resources</code> is an optional parameter which defaults to:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cpu<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>memory<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>It can be used to add extended resources as follows:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>intel.com/foo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">5</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cpu<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>memory<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">weight</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>The <code>weight</code> parameter is optional and is set to 1 if not specified. Also, the
+<code>weight</code> cannot be set to a negative value.</p><h3 id="node-scoring-for-capacity-allocation">Node scoring for capacity allocation</h3><p>This section is intended for those who want to understand the internal details
+of this feature.
+Below is an example of how the node score is calculated for a given set of values.</p><p>Requested resources:</p><pre tabindex="0"><code>intel.com/foo : 2
+memory: 256MB
+cpu: 2
+</code></pre><p>Resource weights:</p><pre tabindex="0"><code>intel.com/foo : 5
+memory: 1
+cpu: 3
+</code></pre><p>FunctionShapePoint {{0, 0}, {100, 10}}</p><p>Node 1 spec:</p><pre tabindex="0"><code>Available:
+  intel.com/foo: 4
+  memory: 1 GB
+  cpu: 8
+
+Used:
+  intel.com/foo: 1
+  memory: 256MB
+  cpu: 1
+</code></pre><p>Node score:</p><pre tabindex="0"><code>intel.com/foo  = resourceScoringFunction((2+1),4)
+               = (100 - ((4-3)*100/4))
+               = (100 - 25)
+               = 75                       # requested + used = 75% * available
+               = rawScoringFunction(75)
+               = 7                        # floor(75/10)
+
+memory         = resourceScoringFunction((256+256),1024)
+               = (100 -((1024-512)*100/1024))
+               = 50                       # requested + used = 50% * available
+               = rawScoringFunction(50)
+               = 5                        # floor(50/10)
+
+cpu            = resourceScoringFunction((2+1),8)
+               = (100 -((8-3)*100/8))
+               = 37.5                     # requested + used = 37.5% * available
+               = rawScoringFunction(37.5)
+               = 3                        # floor(37.5/10)
+
+NodeScore   =  ((7 * 5) + (5 * 1) + (3 * 3)) / (5 + 1 + 3)
+            =  5
+</code></pre><p>Node 2 spec:</p><pre tabindex="0"><code>Available:
+  intel.com/foo: 8
+  memory: 1GB
+  cpu: 8
+Used:
+  intel.com/foo: 2
+  memory: 512MB
+  cpu: 6
+</code></pre><p>Node score:</p><pre tabindex="0"><code>intel.com/foo  = resourceScoringFunction((2+2),8)
+               =  (100 - ((8-4)*100/8)
+               =  (100 - 50)
+               =  50
+               =  rawScoringFunction(50)
+               = 5
+
+memory         = resourceScoringFunction((256+512),1024)
+               = (100 -((1024-768)*100/1024))
+               = 75
+               = rawScoringFunction(75)
+               = 7
+
+cpu            = resourceScoringFunction((2+6),8)
+               = (100 -((8-8)*100/8))
+               = 100
+               = rawScoringFunction(100)
+               = 10
+
+NodeScore   =  ((5 * 5) + (7 * 1) + (10 * 3)) / (5 + 1 + 3)
+            =  7
+</code></pre><h2 id="what-s-next">What's next</h2><ul><li>Read more about the <a href="/docs/concepts/scheduling-eviction/scheduling-framework/">scheduling framework</a></li><li>Read more about <a href="/docs/reference/scheduling/config/">scheduler configuration</a></li></ul></div>

@@ -1,0 +1,92 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Communicate Between Containers in the Same Pod Using a Shared Volume</h1><p>This page shows how to use a Volume to communicate between two Containers running
+in the same Pod. See also how to allow processes to communicate by
+<a href="/docs/tasks/configure-pod-container/share-process-namespace/">sharing process namespace</a>
+between containers.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="creating-a-pod-that-runs-two-containers">Creating a Pod that runs two Containers</h2><p>In this exercise, you create a Pod that runs two Containers. The two containers
+share a Volume that they can use to communicate. Here is the configuration file
+for the Pod:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/two-container-pod.yaml" download="pods/two-container-pod.yaml"><code>pods/two-container-pod.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-two-container-pod-yaml&quot;)" title="Copy pods/two-container-pod.yaml to clipboard"/></div><div class="includecode" id="pods-two-container-pod-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>two-containers<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>shared-data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>shared-data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/usr/share/nginx/html<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>debian-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>debian<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>shared-data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/pod-data<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"/bin/sh"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"-c"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"echo Hello from the debian container &gt; /pod-data/index.html"</span>]<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>In the configuration file, you can see that the Pod has a Volume named
+<code>shared-data</code>.</p><p>The first container listed in the configuration file runs an nginx server. The
+mount path for the shared Volume is <code>/usr/share/nginx/html</code>.
+The second container is based on the debian image, and has a mount path of
+<code>/pod-data</code>. The second container runs the following command and then terminates.</p><pre><code>echo Hello from the debian container &gt; /pod-data/index.html
+</code></pre><p>Notice that the second container writes the <code>index.html</code> file in the root
+directory of the nginx server.</p><p>Create the Pod and the two Containers:</p><pre><code>kubectl apply -f https://k8s.io/examples/pods/two-container-pod.yaml
+</code></pre><p>View information about the Pod and the Containers:</p><pre><code>kubectl get pod two-containers --output=yaml
+</code></pre><p>Here is a portion of the output:</p><pre><code>apiVersion: v1
+kind: Pod
+metadata:
+  ...
+  name: two-containers
+  namespace: default
+  ...
+spec:
+  ...
+  containerStatuses:
+
+  - containerID: docker://c1d8abd1 ...
+    image: debian
+    ...
+    lastState:
+      terminated:
+        ...
+    name: debian-container
+    ...
+
+  - containerID: docker://96c1ff2c5bb ...
+    image: nginx
+    ...
+    name: nginx-container
+    ...
+    state:
+      running:
+    ...
+</code></pre><p>You can see that the debian Container has terminated, and the nginx Container
+is still running.</p><p>Get a shell to nginx Container:</p><pre><code>kubectl exec -it two-containers -c nginx-container -- /bin/bash
+</code></pre><p>In your shell, verify that nginx is running:</p><pre><code>root@two-containers:/# apt-get update
+root@two-containers:/# apt-get install curl procps
+root@two-containers:/# ps aux
+</code></pre><p>The output is similar to this:</p><pre><code>USER       PID  ...  STAT START   TIME COMMAND
+root         1  ...  Ss   21:12   0:00 nginx: master process nginx -g daemon off;
+</code></pre><p>Recall that the debian Container created the <code>index.html</code> file in the nginx root
+directory. Use <code>curl</code> to send a GET request to the nginx server:</p><pre tabindex="0"><code>root@two-containers:/# curl localhost
+</code></pre><p>The output shows that nginx serves a web page written by the debian container:</p><pre tabindex="0"><code>Hello from the debian container
+</code></pre><h2 id="discussion">Discussion</h2><p>The primary reason that Pods can have multiple containers is to support
+helper applications that assist a primary application. Typical examples of
+helper applications are data pullers, data pushers, and proxies.
+Helper and primary applications often need to communicate with each other.
+Typically this is done through a shared filesystem, as shown in this exercise,
+or through the loopback network interface, localhost. An example of this pattern is a
+web server along with a helper program that polls a Git repository for new updates.</p><p>The Volume in this exercise provides a way for Containers to communicate during
+the life of the Pod. If the Pod is deleted and recreated, any data stored in
+the shared Volume is lost.</p><h2 id="what-s-next">What's next</h2><ul><li><p>Learn more about <a href="/blog/2015/06/the-distributed-system-toolkit-patterns/">patterns for composite containers</a>.</p></li><li><p>Learn about <a href="https://www.slideshare.net/Docker/slideshare-burns">composite containers for modular architecture</a>.</p></li><li><p>See <a href="/docs/tasks/configure-pod-container/configure-volume-storage/">Configuring a Pod to Use a Volume for Storage</a>.</p></li><li><p>See <a href="/docs/tasks/configure-pod-container/share-process-namespace/">Configure a Pod to share process namespace between containers in a Pod</a></p></li><li><p>See <a href="/docs/reference/generated/kubernetes-api/v1.34/#volume-v1-core">Volume</a>.</p></li><li><p>See <a href="/docs/reference/generated/kubernetes-api/v1.34/#pod-v1-core">Pod</a>.</p></li></ul></div>

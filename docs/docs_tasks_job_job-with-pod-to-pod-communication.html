@@ -1,0 +1,75 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Job with Pod-to-Pod Communication</h1><p>In this example, you will run a Job in <a href="/blog/2021/04/19/introducing-indexed-jobs/">Indexed completion mode</a>
+configured such that the pods created by the Job can communicate with each other using pod hostnames rather
+than pod IP addresses.</p><p>Pods within a Job might need to communicate among themselves. The user workload running in each pod
+could query the Kubernetes API server to learn the IPs of the other Pods, but it's much simpler to
+rely on Kubernetes' built-in DNS resolution.</p><p>Jobs in Indexed completion mode automatically set the pods' hostname to be in the format of
+<code>${jobName}-${completionIndex}</code>. You can use this format to deterministically build
+pod hostnames and enable pod communication <em>without</em> needing to create a client connection to
+the Kubernetes control plane to obtain pod hostnames/IPs via API requests.</p><p>This configuration is useful for use cases where pod networking is required but you don't want
+to depend on a network connection with the Kubernetes API server.</p><h2 id="before-you-begin">Before you begin</h2><p>You should already be familiar with the basic use of <a href="/docs/concepts/workloads/controllers/job/">Job</a>.</p><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version v1.21.<p>To check the version, enter <code>kubectl version</code>.</p></p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you are using minikube or a similar tool, you may need to take
+<a href="https://minikube.sigs.k8s.io/docs/handbook/addons/ingress-dns/">extra steps</a>
+to ensure you have DNS.</div><h2 id="starting-a-job-with-pod-to-pod-communication">Starting a Job with pod-to-pod communication</h2><p>To enable pod-to-pod communication using pod hostnames in a Job, you must do the following:</p><ol><li><p>Set up a <a href="/docs/concepts/services-networking/service/#headless-services">headless Service</a>
+with a valid label selector for the pods created by your Job. The headless service must be
+in the same namespace as the Job. One easy way to do this is to use the
+<code>job-name: &lt;your-job-name&gt;</code> selector, since the <code>job-name</code> label will be automatically added
+by Kubernetes. This configuration will trigger the DNS system to create records of the hostnames
+of the pods running your Job.</p></li><li><p>Configure the headless service as subdomain service for the Job pods by including the following
+value in your Job template spec:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">subdomain</span>:<span style="color:#bbb"> </span>&lt;headless-svc-name&gt;<span style="color:#bbb">
+</span></span></span></code></pre></div></li></ol><h3 id="example">Example</h3><p>Below is a working example of a Job with pod-to-pod communication via pod hostnames enabled.
+The Job is completed only after all pods successfully ping each other using hostnames.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>In the Bash script executed on each pod in the example below, the pod hostnames can be prefixed
+by the namespace as well if the pod needs to be reached from outside the namespace.</div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>headless-svc<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">clusterIP</span>:<span style="color:#bbb"> </span>None<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># clusterIP must be None to create a headless service</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">job-name</span>:<span style="color:#bbb"> </span>example-job<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># must match Job name</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>batch/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Job<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-job<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">completions</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">parallelism</span>:<span style="color:#bbb"> </span><span style="color:#666">3</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">completionMode</span>:<span style="color:#bbb"> </span>Indexed<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">subdomain</span>:<span style="color:#bbb"> </span>headless-svc<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># has to match Service name</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example-workload<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>bash:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- bash<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- -c<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- |<span style="color:#b44;font-style:italic">
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">          for i in 0 1 2
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">          do
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            gotStatus="-1"
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            wantStatus="0"             
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            while [ $gotStatus -ne $wantStatus ]
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            do                                       
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">              ping -c 1 example-job-${i}.headless-svc &gt; /dev/null 2&gt;&amp;1
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">              gotStatus=$?                
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">              if [ $gotStatus -ne $wantStatus ]; then
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">                echo "Failed to ping pod example-job-${i}.headless-svc, retrying in 1 second..."
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">                sleep 1
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">              fi
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            done                                                         
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">            echo "Successfully pinged pod: example-job-${i}.headless-svc"
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">          done</span><span style="color:#bbb">          
+</span></span></span></code></pre></div><p>After applying the example above, reach each other over the network
+using: <code>&lt;pod-hostname&gt;.&lt;headless-service-name&gt;</code>. You should see output similar to the following:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs example-job-0-qws42
+</span></span></code></pre></div><pre tabindex="0"><code>Failed to ping pod example-job-0.headless-svc, retrying in 1 second...
+Successfully pinged pod: example-job-0.headless-svc
+Successfully pinged pod: example-job-1.headless-svc
+Successfully pinged pod: example-job-2.headless-svc
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Keep in mind that the <code>&lt;pod-hostname&gt;.&lt;headless-service-name&gt;</code> name format used
+in this example would not work with DNS policy set to <code>None</code> or <code>Default</code>.
+Refer to <a href="/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy">Pod's DNS Policy</a>.</div></div>

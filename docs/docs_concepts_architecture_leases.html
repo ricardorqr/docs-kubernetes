@@ -1,0 +1,54 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Leases</h1><p>Distributed systems often have a need for <em>leases</em>, which provide a mechanism to lock shared resources
+and coordinate activity between members of a set.
+In Kubernetes, the lease concept is represented by <a href="/docs/reference/kubernetes-api/cluster-resources/lease-v1/">Lease</a>
+objects in the <code>coordination.k8s.io</code> <a class="glossary-tooltip" title="A set of related paths in the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/kubernetes-api/#api-groups-and-versioning" target="_blank" aria-label="API Group">API Group</a>,
+which are used for system-critical capabilities such as node heartbeats and component-level leader election.</p><h2 id="node-heart-beats">Node heartbeats</h2><p>Kubernetes uses the Lease API to communicate kubelet node heartbeats to the Kubernetes API server.
+For every <code>Node</code> , there is a <code>Lease</code> object with a matching name in the <code>kube-node-lease</code>
+namespace. Under the hood, every kubelet heartbeat is an <strong>update</strong> request to this <code>Lease</code> object, updating
+the <code>spec.renewTime</code> field for the Lease. The Kubernetes control plane uses the time stamp of this field
+to determine the availability of this <code>Node</code>.</p><p>See <a href="/docs/concepts/architecture/nodes/#node-heartbeats">Node Lease objects</a> for more details.</p><h2 id="leader-election">Leader election</h2><p>Kubernetes also uses Leases to ensure only one instance of a component is running at any given time.
+This is used by control plane components like <code>kube-controller-manager</code> and <code>kube-scheduler</code> in
+HA configurations, where only one instance of the component should be actively running while the other
+instances are on stand-by.</p><p>Read <a href="/docs/concepts/cluster-administration/coordinated-leader-election/">coordinated leader election</a>
+to learn about how Kubernetes builds on the Lease API to select which component instance
+acts as leader.</p><h2 id="api-server-identity">API server identity</h2><div class="feature-state-notice feature-beta" title="Feature Gate: APIServerIdentity"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.26 [beta]</code> (enabled by default: true)</div><p>Starting in Kubernetes v1.26, each <code>kube-apiserver</code> uses the Lease API to publish its identity to the
+rest of the system. While not particularly useful on its own, this provides a mechanism for clients to
+discover how many instances of <code>kube-apiserver</code> are operating the Kubernetes control plane.
+Existence of kube-apiserver leases enables future capabilities that may require coordination between
+each kube-apiserver.</p><p>You can inspect Leases owned by each kube-apiserver by checking for lease objects in the <code>kube-system</code> namespace
+with the name <code>apiserver-&lt;sha256-hash&gt;</code>. Alternatively you can use the label selector <code>apiserver.kubernetes.io/identity=kube-apiserver</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl -n kube-system get lease -l apiserver.kubernetes.io/identity<span style="color:#666">=</span>kube-apiserver
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                                        HOLDER                                                                           AGE
+apiserver-07a5ea9b9b072c4a5f3d1c3702        apiserver-07a5ea9b9b072c4a5f3d1c3702_0c8914f7-0f35-440e-8676-7844977d3a05        5m33s
+apiserver-7be9e061c59d368b3ddaf1376e        apiserver-7be9e061c59d368b3ddaf1376e_84f2a85d-37c1-4b14-b6b9-603e62e4896f        4m23s
+apiserver-1dfef752bcb36637d2763d1868        apiserver-1dfef752bcb36637d2763d1868_c5ffa286-8a9a-45d4-91e7-61118ed58d2e        4m43s
+</code></pre><p>The SHA256 hash used in the lease name is based on the OS hostname as seen by that API server. Each kube-apiserver should be
+configured to use a hostname that is unique within the cluster. New instances of kube-apiserver that use the same hostname
+will take over existing Leases using a new holder identity, as opposed to instantiating new Lease objects. You can check the
+hostname used by kube-apiserver by checking the value of the <code>kubernetes.io/hostname</code> label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl -n kube-system get lease apiserver-07a5ea9b9b072c4a5f3d1c3702 -o yaml
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>coordination.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Lease<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">creationTimestamp</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-07-02T13:16:48Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">apiserver.kubernetes.io/identity</span>:<span style="color:#bbb"> </span>kube-apiserver<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">kubernetes.io/hostname</span>:<span style="color:#bbb"> </span>master-1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>apiserver-07a5ea9b9b072c4a5f3d1c3702<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resourceVersion</span>:<span style="color:#bbb"> </span><span style="color:#b44">"334899"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">uid</span>:<span style="color:#bbb"> </span>90870ab5-1ba9-4523-b215-e4d4e662acb1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">holderIdentity</span>:<span style="color:#bbb"> </span>apiserver-07a5ea9b9b072c4a5f3d1c3702_0c8914f7-0f35-440e-8676-7844977d3a05<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">leaseDurationSeconds</span>:<span style="color:#bbb"> </span><span style="color:#666">3600</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">renewTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2023-07-04T21:58:48.065888Z"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>Expired leases from kube-apiservers that no longer exist are garbage collected by new kube-apiservers after 1 hour.</p><p>You can disable API server identity leases by disabling the <code>APIServerIdentity</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>.</p><h2 id="custom-workload">Workloads</h2><p>Your own workload can define its own use of Leases. For example, you might run a custom
+<a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a> where a primary or leader member
+performs operations that its peers do not. You define a Lease so that the controller replicas can select
+or elect a leader, using the Kubernetes API for coordination.
+If you do use a Lease, it's a good practice to define a name for the Lease that is obviously linked to
+the product or component. For example, if you have a component named Example Foo, use a Lease named
+<code>example-foo</code>.</p><p>If a cluster operator or another end user could deploy multiple instances of a component, select a name
+prefix and pick a mechanism (such as hash of the name of the Deployment) to avoid name collisions
+for the Leases.</p><p>You can use another approach so long as it achieves the same outcome: different software products do
+not conflict with one another.</p></div>

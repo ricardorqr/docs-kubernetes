@@ -1,0 +1,117 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Resource metrics pipeline</h1><p>For Kubernetes, the <em>Metrics API</em> offers a basic set of metrics to support automatic scaling and
+similar use cases. This API makes information available about resource usage for node and pod,
+including metrics for CPU and memory. If you deploy the Metrics API into your cluster, clients of
+the Kubernetes API can then query for this information, and you can use Kubernetes' access control
+mechanisms to manage permissions to do so.</p><p>The <a href="/docs/tasks/run-application/horizontal-pod-autoscale/">HorizontalPodAutoscaler</a> (HPA) and
+<a href="https://github.com/kubernetes/autoscaler/tree/master/vertical-pod-autoscaler#readme">VerticalPodAutoscaler</a> (VPA)
+use data from the metrics API to adjust workload replicas and resources to meet customer demand.</p><p>You can also view the resource metrics using the
+<a href="/docs/reference/generated/kubectl/kubectl-commands#top"><code>kubectl top</code></a>
+command.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The Metrics API, and the metrics pipeline that it enables, only offers the minimum
+CPU and memory metrics to enable automatic scaling using HPA and / or VPA.
+If you would like to provide a more complete set of metrics, you can complement
+the simpler Metrics API by deploying a second
+<a href="/docs/tasks/debug/debug-cluster/resource-usage-monitoring/#full-metrics-pipeline">metrics pipeline</a>
+that uses the <em>Custom Metrics API</em>.</div><p>Figure 1 illustrates the architecture of the resource metrics pipeline.</p><figure><div class="mermaid">flowchart RL
+subgraph cluster[Cluster]
+direction RL
+S[<br/><br/>]
+A[Metrics-<br/>Server]
+subgraph B[Nodes]
+direction TB
+D[cAdvisor] --&gt; C[kubelet]
+E[Container<br/>runtime] --&gt; D
+E1[Container<br/>runtime] --&gt; D
+P[pod data] -.- C
+end
+L[API<br/>server]
+W[HPA]
+C ----&gt;|node level<br/>resource metrics| A --&gt;|metrics<br/>API| L --&gt; W
+end
+L ---&gt; K[kubectl<br/>top]
+classDef box fill:#fff,stroke:#000,stroke-width:1px,color:#000;
+class W,B,P,K,cluster,D,E,E1 box
+classDef spacewhite fill:#ffffff,stroke:#fff,stroke-width:0px,color:#000
+class S spacewhite
+classDef k8s fill:#326ce5,stroke:#fff,stroke-width:1px,color:#fff;
+class A,L,C k8s</div></figure><noscript><div class="alert alert-secondary callout" role="alert"><em class="javascript-required">JavaScript must be <a href="https://www.enable-javascript.com/">enabled</a> to view this content</em></div></noscript><p>Figure 1. Resource Metrics Pipeline</p><p>The architecture components, from right to left in the figure, consist of the following:</p><ul><li><p><a href="https://github.com/google/cadvisor">cAdvisor</a>: Daemon for collecting, aggregating and exposing
+container metrics included in Kubelet.</p></li><li><p><a href="/docs/concepts/architecture/#kubelet">kubelet</a>: Node agent for managing container
+resources. Resource metrics are accessible using the <code>/metrics/resource</code> and <code>/stats</code> kubelet
+API endpoints.</p></li><li><p><a href="/docs/reference/instrumentation/node-metrics/">node level resource metrics</a>: API provided by the kubelet for discovering and retrieving
+per-node summarized stats available through the <code>/metrics/resource</code> endpoint.</p></li><li><p><a href="#metrics-server">metrics-server</a>: Cluster addon component that collects and aggregates resource
+metrics pulled from each kubelet. The API server serves Metrics API for use by HPA, VPA, and by
+the <code>kubectl top</code> command. Metrics Server is a reference implementation of the Metrics API.</p></li><li><p><a href="#metrics-api">Metrics API</a>: Kubernetes API supporting access to CPU and memory used for
+workload autoscaling. To make this work in your cluster, you need an API extension server that
+provides the Metrics API.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>cAdvisor supports reading metrics from cgroups, which works with typical container runtimes on Linux.
+If you use a container runtime that uses another resource isolation mechanism, for example
+virtualization, then that container runtime must support
+<a href="https://github.com/kubernetes/community/blob/master/contributors/devel/sig-node/cri-container-stats.md">CRI Container Metrics</a>
+in order for metrics to be available to the kubelet.</div></li></ul><h2 id="metrics-api">Metrics API</h2><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes 1.8 [beta]</code></div><p>The metrics-server implements the Metrics API. This API allows you to access CPU and memory usage
+for the nodes and pods in your cluster. Its primary role is to feed resource usage metrics to K8s
+autoscaler components.</p><p>Here is an example of the Metrics API request for a <code>minikube</code> node piped through <code>jq</code> for easier
+reading:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw <span style="color:#b44">"/apis/metrics.k8s.io/v1beta1/nodes/minikube"</span> | jq <span style="color:#b44">'.'</span>
+</span></span></code></pre></div><p>Here is the same API call using <code>curl</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://localhost:8080/apis/metrics.k8s.io/v1beta1/nodes/minikube
+</span></span></code></pre></div><p>Sample response:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"NodeMetrics"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"metrics.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"metadata"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"name"</span>: <span style="color:#b44">"minikube"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"selfLink"</span>: <span style="color:#b44">"/apis/metrics.k8s.io/v1beta1/nodes/minikube"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"creationTimestamp"</span>: <span style="color:#b44">"2022-01-27T18:48:43Z"</span>
+</span></span><span style="display:flex"><span>  },
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"timestamp"</span>: <span style="color:#b44">"2022-01-27T18:48:33Z"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"window"</span>: <span style="color:#b44">"30s"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"usage"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"cpu"</span>: <span style="color:#b44">"487558164n"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"memory"</span>: <span style="color:#b44">"732212Ki"</span>
+</span></span><span style="display:flex"><span>  }
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>Here is an example of the Metrics API request for a <code>kube-scheduler-minikube</code> pod contained in the
+<code>kube-system</code> namespace and piped through <code>jq</code> for easier reading:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw <span style="color:#b44">"/apis/metrics.k8s.io/v1beta1/namespaces/kube-system/pods/kube-scheduler-minikube"</span> | jq <span style="color:#b44">'.'</span>
+</span></span></code></pre></div><p>Here is the same API call using <code>curl</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl http://localhost:8080/apis/metrics.k8s.io/v1beta1/namespaces/kube-system/pods/kube-scheduler-minikube
+</span></span></code></pre></div><p>Sample response:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json"><span style="display:flex"><span>{
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"kind"</span>: <span style="color:#b44">"PodMetrics"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"apiVersion"</span>: <span style="color:#b44">"metrics.k8s.io/v1beta1"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"metadata"</span>: {
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"name"</span>: <span style="color:#b44">"kube-scheduler-minikube"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"namespace"</span>: <span style="color:#b44">"kube-system"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"selfLink"</span>: <span style="color:#b44">"/apis/metrics.k8s.io/v1beta1/namespaces/kube-system/pods/kube-scheduler-minikube"</span>,
+</span></span><span style="display:flex"><span>    <span style="color:green;font-weight:700">"creationTimestamp"</span>: <span style="color:#b44">"2022-01-27T19:25:00Z"</span>
+</span></span><span style="display:flex"><span>  },
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"timestamp"</span>: <span style="color:#b44">"2022-01-27T19:24:31Z"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"window"</span>: <span style="color:#b44">"30s"</span>,
+</span></span><span style="display:flex"><span>  <span style="color:green;font-weight:700">"containers"</span>: [
+</span></span><span style="display:flex"><span>    {
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"name"</span>: <span style="color:#b44">"kube-scheduler"</span>,
+</span></span><span style="display:flex"><span>      <span style="color:green;font-weight:700">"usage"</span>: {
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"cpu"</span>: <span style="color:#b44">"9559630n"</span>,
+</span></span><span style="display:flex"><span>        <span style="color:green;font-weight:700">"memory"</span>: <span style="color:#b44">"22244Ki"</span>
+</span></span><span style="display:flex"><span>      }
+</span></span><span style="display:flex"><span>    }
+</span></span><span style="display:flex"><span>  ]
+</span></span><span style="display:flex"><span>}
+</span></span></code></pre></div><p>The Metrics API is defined in the <a href="https://github.com/kubernetes/metrics">k8s.io/metrics</a>
+repository. You must enable the <a href="/docs/tasks/extend-kubernetes/configure-aggregation-layer/">API aggregation layer</a>
+and register an <a href="/docs/reference/kubernetes-api/cluster-resources/api-service-v1/">APIService</a>
+for the <code>metrics.k8s.io</code> API.</p><p>To learn more about the Metrics API, see <a href="https://git.k8s.io/design-proposals-archive/instrumentation/resource-metrics-api.md">resource metrics API design</a>,
+the <a href="https://github.com/kubernetes-sigs/metrics-server">metrics-server repository</a> and the
+<a href="https://github.com/kubernetes/metrics#resource-metrics-api">resource metrics API</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>You must deploy the metrics-server or alternative adapter that serves the Metrics API to be able
+to access it.</div><h2 id="measuring-resource-usage">Measuring resource usage</h2><h3 id="cpu">CPU</h3><p>CPU is reported as the average core usage measured in cpu units. One cpu, in Kubernetes, is
+equivalent to 1 vCPU/Core for cloud providers, and 1 hyper-thread on bare-metal Intel processors.</p><p>This value is derived by taking a rate over a cumulative CPU counter provided by the kernel (in
+both Linux and Windows kernels). The time window used to calculate CPU is shown under window field
+in Metrics API.</p><p>To learn more about how Kubernetes allocates and measures CPU resources, see
+<a href="/docs/concepts/configuration/manage-resources-containers/#meaning-of-cpu">meaning of CPU</a>.</p><h3 id="memory">Memory</h3><p>Memory is reported as the working set, measured in bytes, at the instant the metric was collected.</p><p>In an ideal world, the "working set" is the amount of memory in-use that cannot be freed under
+memory pressure. However, calculation of the working set varies by host OS, and generally makes
+heavy use of heuristics to produce an estimate.</p><p>The Kubernetes model for a container's working set expects that the container runtime counts
+anonymous memory associated with the container in question. The working set metric typically also
+includes some cached (file-backed) memory, because the host OS cannot always reclaim pages.</p><p>To learn more about how Kubernetes allocates and measures memory resources, see
+<a href="/docs/concepts/configuration/manage-resources-containers/#meaning-of-memory">meaning of memory</a>.</p><h2 id="metrics-server">Metrics Server</h2><p>The metrics-server fetches resource metrics from the kubelets and exposes them in the Kubernetes
+API server through the Metrics API for use by the HPA and VPA. You can also view these metrics
+using the <code>kubectl top</code> command.</p><p>The metrics-server uses the Kubernetes API to track nodes and pods in your cluster. The
+metrics-server queries each node over HTTP to fetch metrics. The metrics-server also builds an
+internal view of pod metadata, and keeps a cache of pod health. That cached pod health information
+is available via the extension API that the metrics-server makes available.</p><p>For example with an HPA query, the metrics-server needs to identify which pods fulfill the label
+selectors in the deployment.</p><p>The metrics-server calls the <a href="/docs/reference/command-line-tools-reference/kubelet/">kubelet</a> API
+to collect metrics from each node. Depending on the metrics-server version it uses:</p><ul><li>Metrics resource endpoint <code>/metrics/resource</code> in version v0.6.0+ or</li><li>Summary API endpoint <code>/stats/summary</code> in older versions</li></ul><h2 id="what-s-next">What's next</h2><p>To learn more about the metrics-server, see the
+<a href="https://github.com/kubernetes-sigs/metrics-server">metrics-server repository</a>.</p><p>You can also check out the following:</p><ul><li><a href="https://git.k8s.io/design-proposals-archive/instrumentation/metrics-server.md">metrics-server design</a></li><li><a href="https://github.com/kubernetes-sigs/metrics-server/blob/master/FAQ.md">metrics-server FAQ</a></li><li><a href="https://github.com/kubernetes-sigs/metrics-server/blob/master/KNOWN_ISSUES.md">metrics-server known issues</a></li><li><a href="https://github.com/kubernetes-sigs/metrics-server/releases">metrics-server releases</a></li><li><a href="/docs/tasks/run-application/horizontal-pod-autoscale/">Horizontal Pod Autoscaling</a></li></ul><p>To learn about how the kubelet serves node metrics, and how you can access those via
+the Kubernetes API, read <a href="/docs/reference/instrumentation/node-metrics/">Node Metrics Data</a>.</p></div>

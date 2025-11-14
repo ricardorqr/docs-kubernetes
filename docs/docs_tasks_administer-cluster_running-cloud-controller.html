@@ -1,0 +1,133 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Cloud Controller Manager Administration</h1><div class="feature-state-notice feature-beta"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.11 [beta]</code></div><p>Since cloud providers develop and release at a different pace compared to the
+Kubernetes project, abstracting the provider-specific code to the
+<code><a class="glossary-tooltip" title="Control plane component that integrates Kubernetes with third-party cloud providers." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/cloud-controller/" target="_blank" aria-label="cloud-controller-manager">cloud-controller-manager</a></code>
+binary allows cloud vendors to evolve independently from the core Kubernetes code.</p><p>The <code>cloud-controller-manager</code> can be linked to any cloud provider that satisfies
+<a href="https://github.com/kubernetes/cloud-provider/blob/master/cloud.go">cloudprovider.Interface</a>.
+For backwards compatibility, the
+<a href="https://github.com/kubernetes/kubernetes/tree/master/cmd/cloud-controller-manager">cloud-controller-manager</a>
+provided in the core Kubernetes project uses the same cloud libraries as <code>kube-controller-manager</code>.
+Cloud providers already supported in Kubernetes core are expected to use the in-tree
+cloud-controller-manager to transition out of Kubernetes core.</p><h2 id="administration">Administration</h2><h3 id="requirements">Requirements</h3><p>Every cloud has their own set of requirements for running their own cloud provider
+integration, it should not be too different from the requirements when running
+<code>kube-controller-manager</code>. As a general rule of thumb you'll need:</p><ul><li>cloud authentication/authorization: your cloud may require a token or IAM rules
+to allow access to their APIs</li><li>kubernetes authentication/authorization: cloud-controller-manager may need RBAC
+rules set to speak to the kubernetes apiserver</li><li>high availability: like kube-controller-manager, you may want a high available
+setup for cloud controller manager using leader election (on by default).</li></ul><h3 id="running-cloud-controller-manager">Running cloud-controller-manager</h3><p>Successfully running cloud-controller-manager requires some changes to your cluster configuration.</p><ul><li><code>kubelet</code>, <code>kube-apiserver</code>, and <code>kube-controller-manager</code> must be set according to the
+user's usage of external CCM. If the user has an external CCM (not the internal cloud
+controller loops in the Kubernetes Controller Manager), then <code>--cloud-provider=external</code>
+must be specified. Otherwise, it should not be specified.</li></ul><p>Keep in mind that setting up your cluster to use cloud controller manager will
+change your cluster behaviour in a few ways:</p><ul><li>Components that specify <code>--cloud-provider=external</code> will add a taint
+<code>node.cloudprovider.kubernetes.io/uninitialized</code> with an effect <code>NoSchedule</code>
+during initialization. This marks the node as needing a second initialization
+from an external controller before it can be scheduled work. Note that in the
+event that cloud controller manager is not available, new nodes in the cluster
+will be left unschedulable. The taint is important since the scheduler may
+require cloud specific information about nodes such as their region or type
+(high cpu, gpu, high memory, spot instance, etc).</li><li>cloud information about nodes in the cluster will no longer be retrieved using
+local metadata, but instead all API calls to retrieve node information will go
+through cloud controller manager. This may mean you can restrict access to your
+cloud API on the kubelets for better security. For larger clusters you may want
+to consider if cloud controller manager will hit rate limits since it is now
+responsible for almost all API calls to your cloud from within the cluster.</li></ul><p>The cloud controller manager can implement:</p><ul><li>Node controller - responsible for updating kubernetes nodes using cloud APIs
+and deleting kubernetes nodes that were deleted on your cloud.</li><li>Service controller - responsible for loadbalancers on your cloud against
+services of type LoadBalancer.</li><li>Route controller - responsible for setting up network routes on your cloud</li><li>any other features you would like to implement if you are running an out-of-tree provider.</li></ul><h2 id="examples">Examples</h2><p>If you are using a cloud that is currently supported in Kubernetes core and would
+like to adopt cloud controller manager, see the
+<a href="https://github.com/kubernetes/kubernetes/tree/master/cmd/cloud-controller-manager">cloud controller manager in kubernetes core</a>.</p><p>For cloud controller managers not in Kubernetes core, you can find the respective
+projects in repositories maintained by cloud vendors or by SIGs.</p><p>For providers already in Kubernetes core, you can run the in-tree cloud controller
+manager as a DaemonSet in your cluster, use the following as a guideline:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/admin/cloud/ccm-example.yaml" download="admin/cloud/ccm-example.yaml"><code>admin/cloud/ccm-example.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;admin-cloud-ccm-example-yaml&quot;)" title="Copy admin/cloud/ccm-example.yaml to clipboard"/></div><div class="includecode" id="admin-cloud-ccm-example-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#080;font-style:italic"># This is an example of how to set up cloud-controller-manager as a Daemonset in your cluster.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># It assumes that your masters can run pods and has the role node-role.kubernetes.io/master</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># Note that this Daemonset will not work straight out of the box for your cloud, this is</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># meant to be a guideline.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ServiceAccount<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>rbac.authorization.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterRoleBinding<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>system:cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">roleRef</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">apiGroup</span>:<span style="color:#bbb"> </span>rbac.authorization.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterRole<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cluster-admin<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">subjects</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ServiceAccount<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">---</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>DaemonSet<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">k8s-app</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">k8s-app</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">k8s-app</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">serviceAccountName</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:#080;font-style:italic"># for in-tree providers we use registry.k8s.io/cloud-controller-manager</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:#080;font-style:italic"># this can be replaced with any other image for out-of-tree providers</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>registry.k8s.io/cloud-controller-manager:v1.8.0<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- /usr/local/bin/cloud-controller-manager<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- --cloud-provider=[YOUR_CLOUD_PROVIDER] <span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># Add your own cloud provider here!</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- --leader-elect=true<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- --use-service-account-credentials<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:#080;font-style:italic"># these flags will vary for every cloud provider</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- --allocate-node-cidrs=true<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- --configure-cloud-routes=true<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- --cluster-cidr=172.17.0.0/16<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">tolerations</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># this is required so CCM can bootstrap itself</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">key</span>:<span style="color:#bbb"> </span>node.cloudprovider.kubernetes.io/uninitialized<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">value</span>:<span style="color:#bbb"> </span><span style="color:#b44">"true"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">effect</span>:<span style="color:#bbb"> </span>NoSchedule<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># these tolerations are to have the daemonset runnable on control plane nodes</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># remove them if your control plane nodes should not run pods</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">key</span>:<span style="color:#bbb"> </span>node-role.kubernetes.io/control-plane<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">operator</span>:<span style="color:#bbb"> </span>Exists<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">effect</span>:<span style="color:#bbb"> </span>NoSchedule<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">key</span>:<span style="color:#bbb"> </span>node-role.kubernetes.io/master<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">operator</span>:<span style="color:#bbb"> </span>Exists<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">effect</span>:<span style="color:#bbb"> </span>NoSchedule<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># this is to restrict CCM to only run on master nodes</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:#080;font-style:italic"># the node selector may vary depending on your cluster setup</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">nodeSelector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">node-role.kubernetes.io/master</span>:<span style="color:#bbb"> </span><span style="color:#b44">""</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><h2 id="limitations">Limitations</h2><p>Running cloud controller manager comes with a few possible limitations. Although
+these limitations are being addressed in upcoming releases, it's important that
+you are aware of these limitations for production workloads.</p><h3 id="support-for-volumes">Support for Volumes</h3><p>Cloud controller manager does not implement any of the volume controllers found
+in <code>kube-controller-manager</code> as the volume integrations also require coordination
+with kubelets. As we evolve CSI (container storage interface) and add stronger
+support for flex volume plugins, necessary support will be added to cloud
+controller manager so that clouds can fully integrate with volumes. Learn more
+about out-of-tree CSI volume plugins <a href="https://github.com/kubernetes/features/issues/178">here</a>.</p><h3 id="scalability">Scalability</h3><p>The cloud-controller-manager queries your cloud provider's APIs to retrieve
+information for all nodes. For very large clusters, consider possible
+bottlenecks such as resource requirements and API rate limiting.</p><h3 id="chicken-and-egg">Chicken and Egg</h3><p>The goal of the cloud controller manager project is to decouple development
+of cloud features from the core Kubernetes project. Unfortunately, many aspects
+of the Kubernetes project has assumptions that cloud provider features are tightly
+integrated into the project. As a result, adopting this new architecture can create
+several situations where a request is being made for information from a cloud provider,
+but the cloud controller manager may not be able to return that information without
+the original request being complete.</p><p>A good example of this is the TLS bootstrapping feature in the Kubelet.
+TLS bootstrapping assumes that the Kubelet has the ability to ask the cloud provider
+(or a local metadata service) for all its address types (private, public, etc)
+but cloud controller manager cannot set a node's address types without being
+initialized in the first place which requires that the kubelet has TLS certificates
+to communicate with the apiserver.</p><p>As this initiative evolves, changes will be made to address these issues in upcoming releases.</p><h2 id="what-s-next">What's next</h2><p>To build and develop your own cloud controller manager, read
+<a href="/docs/tasks/administer-cluster/developing-cloud-controller-manager/">Developing Cloud Controller Manager</a>.</p></div>

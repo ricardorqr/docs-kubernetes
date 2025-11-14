@@ -1,0 +1,62 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Configure Pod Initialization</h1><p>This page shows how to use an Init Container to initialize a Pod before an
+application Container runs.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="create-a-pod-that-has-an-init-container">Create a Pod that has an Init Container</h2><p>In this exercise you create a Pod that has one application Container and one
+Init Container. The init container runs to completion before the application
+container starts.</p><p>Here is the configuration file for the Pod:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/init-containers.yaml" download="pods/init-containers.yaml"><code>pods/init-containers.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-init-containers-yaml&quot;)" title="Copy pods/init-containers.yaml to clipboard"/></div><div class="includecode" id="pods-init-containers-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>init-demo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>workdir<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span>/usr/share/nginx/html<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># These containers are run during pod initialization</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">initContainers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>install<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- wget<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"-O"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"/work-dir/index.html"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- http://info.cern.ch<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">volumeMounts</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>workdir<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">mountPath</span>:<span style="color:#bbb"> </span><span style="color:#b44">"/work-dir"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">dnsPolicy</span>:<span style="color:#bbb"> </span>Default<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">volumes</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>workdir<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">emptyDir</span>:<span style="color:#bbb"> </span>{}<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>In the configuration file, you can see that the Pod has a Volume that the init
+container and the application container share.</p><p>The init container mounts the
+shared Volume at <code>/work-dir</code>, and the application container mounts the shared
+Volume at <code>/usr/share/nginx/html</code>. The init container runs the following command
+and then terminates:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>wget -O /work-dir/index.html http://info.cern.ch
+</span></span></code></pre></div><p>Notice that the init container writes the <code>index.html</code> file in the root directory
+of the nginx server.</p><p>Create the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/init-containers.yaml
+</span></span></code></pre></div><p>Verify that the nginx container is running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pod init-demo
+</span></span></code></pre></div><p>The output shows that the nginx container is running:</p><pre tabindex="0"><code>NAME        READY     STATUS    RESTARTS   AGE
+init-demo   1/1       Running   0          1m
+</code></pre><p>Get a shell into the nginx container running in the init-demo Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it init-demo -- /bin/bash
+</span></span></code></pre></div><p>In your shell, send a GET request to the nginx server:</p><pre tabindex="0"><code>root@nginx:~# apt-get update
+root@nginx:~# apt-get install curl
+root@nginx:~# curl localhost
+</code></pre><p>The output shows that nginx is serving the web page that was written by the init container:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-html" data-lang="html"><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">html</span>&gt;&lt;<span style="color:green;font-weight:700">head</span>&gt;&lt;/<span style="color:green;font-weight:700">head</span>&gt;&lt;<span style="color:green;font-weight:700">body</span>&gt;&lt;<span style="color:green;font-weight:700">header</span>&gt;
+</span></span><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">title</span>&gt;http://info.cern.ch&lt;/<span style="color:green;font-weight:700">title</span>&gt;
+</span></span><span style="display:flex"><span>&lt;/<span style="color:green;font-weight:700">header</span>&gt;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>&lt;<span style="color:green;font-weight:700">h1</span>&gt;http://info.cern.ch - home of the first website&lt;/<span style="color:green;font-weight:700">h1</span>&gt;
+</span></span><span style="display:flex"><span>  ...
+</span></span><span style="display:flex"><span>  &lt;<span style="color:green;font-weight:700">li</span>&gt;&lt;<span style="color:green;font-weight:700">a</span> <span style="color:#b44">href</span><span style="color:#666">=</span><span style="color:#b44">"http://info.cern.ch/hypertext/WWW/TheProject.html"</span>&gt;Browse the first website&lt;/<span style="color:green;font-weight:700">a</span>&gt;&lt;/<span style="color:green;font-weight:700">li</span>&gt;
+</span></span><span style="display:flex"><span>  ...
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li>Learn more about
+<a href="/docs/tasks/access-application-cluster/communicate-containers-same-pod-shared-volume/">communicating between Containers running in the same Pod</a>.</li><li>Learn more about <a href="/docs/concepts/workloads/pods/init-containers/">Init Containers</a>.</li><li>Learn more about <a href="/docs/concepts/storage/volumes/">Volumes</a>.</li><li>Learn more about <a href="/docs/tasks/debug/debug-application/debug-init-containers/">Debugging Init Containers</a></li></ul></div>

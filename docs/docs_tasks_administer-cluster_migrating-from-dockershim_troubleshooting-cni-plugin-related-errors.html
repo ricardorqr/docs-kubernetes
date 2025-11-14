@@ -1,0 +1,74 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Troubleshooting CNI plugin-related errors</h1><p>To avoid CNI plugin-related errors, verify that you are using or upgrading to a
+container runtime that has been tested to work correctly with your version of
+Kubernetes.</p><h2 id="about-the-incompatible-cni-versions-and-failed-to-destroy-network-for-sandbox-errors">About the "Incompatible CNI versions" and "Failed to destroy network for sandbox" errors</h2><p>Service issues exist for pod CNI network setup and tear down in containerd
+v1.6.0-v1.6.3 when the CNI plugins have not been upgraded and/or the CNI config
+version is not declared in the CNI config files. The containerd team reports,
+"these issues are resolved in containerd v1.6.4."</p><p>With containerd v1.6.0-v1.6.3, if you do not upgrade the CNI plugins and/or
+declare the CNI config version, you might encounter the following "Incompatible
+CNI versions" or "Failed to destroy network for sandbox" error conditions.</p><h3 id="incompatible-cni-versions-error">Incompatible CNI versions error</h3><p>If the version of your CNI plugin does not correctly match the plugin version in
+the config because the config version is later than the plugin version, the
+containerd log will likely show an error message on startup of a pod similar
+to:</p><pre tabindex="0"><code>incompatible CNI versions; config is \"1.0.0\", plugin supports [\"0.1.0\" \"0.2.0\" \"0.3.0\" \"0.3.1\" \"0.4.0\"]"
+</code></pre><p>To fix this issue, <a href="#updating-your-cni-plugins-and-cni-config-files">update your CNI plugins and CNI config files</a>.</p><h3 id="failed-to-destroy-network-for-sandbox-error">Failed to destroy network for sandbox error</h3><p>If the version of the plugin is missing in the CNI plugin config, the pod may
+run. However, stopping the pod generates an error similar to:</p><pre tabindex="0"><code>ERROR[2022-04-26T00:43:24.518165483Z] StopPodSandbox for "b" failed
+error="failed to destroy network for sandbox \"bbc85f891eaf060c5a879e27bba9b6b06450210161dfdecfbb2732959fb6500a\": invalid version \"\": the version is empty"
+</code></pre><p>This error leaves the pod in the not-ready state with a network namespace still
+attached. To recover from this problem, <a href="#updating-your-cni-plugins-and-cni-config-files">edit the CNI config file</a> to add
+the missing version information. The next attempt to stop the pod should
+be successful.</p><h3 id="updating-your-cni-plugins-and-cni-config-files">Updating your CNI plugins and CNI config files</h3><p>If you're using containerd v1.6.0-v1.6.3 and encountered "Incompatible CNI
+versions" or "Failed to destroy network for sandbox" errors, consider updating
+your CNI plugins and editing the CNI config files.</p><p>Here's an overview of the typical steps for each node:</p><ol><li><p><a href="/docs/tasks/administer-cluster/safely-drain-node/">Safely drain and cordon the node</a>.</p></li><li><p>After stopping your container runtime and kubelet services, perform the
+following upgrade operations:</p><ul><li>If you're running CNI plugins, upgrade them to the latest version.</li><li>If you're using non-CNI plugins, replace them with CNI plugins. Use the
+latest version of the plugins.</li><li>Update the plugin configuration file to specify or match a version of the
+CNI specification that the plugin supports, as shown in the following
+<a href="#an-example-containerd-configuration-file">"An example containerd configuration file"</a> section.</li><li>For <code>containerd</code>, ensure that you have installed the latest version (v1.0.0 or later)
+of the CNI loopback plugin.</li><li>Upgrade node components (for example, the kubelet) to Kubernetes v1.24</li><li>Upgrade to or install the most current version of the container runtime.</li></ul></li><li><p>Bring the node back into your cluster by restarting your container runtime
+and kubelet. Uncordon the node (<code>kubectl uncordon &lt;nodename&gt;</code>).</p></li></ol><h2 id="an-example-containerd-configuration-file">An example containerd configuration file</h2><p>The following example shows a configuration for <code>containerd</code> runtime v1.6.x,
+which supports a recent version of the CNI specification (v1.0.0).</p><p>Please see the documentation from your plugin and networking provider for
+further instructions on configuring your system.</p><p>On Kubernetes, containerd runtime adds a loopback interface, <code>lo</code>, to pods as a
+default behavior. The containerd runtime configures the loopback interface via a
+CNI plugin, <code>loopback</code>. The <code>loopback</code> plugin is distributed as part of the
+<code>containerd</code> release packages that have the <code>cni</code> designation. <code>containerd</code>
+v1.6.0 and later includes a CNI v1.0.0-compatible loopback plugin as well as
+other default CNI plugins. The configuration for the loopback plugin is done
+internally by containerd, and is set to use CNI v1.0.0. This also means that the
+version of the <code>loopback</code> plugin must be v1.0.0 or later when this newer version
+<code>containerd</code> is started.</p><p>The following bash command generates an example CNI config. Here, the 1.0.0
+value for the config version is assigned to the <code>cniVersion</code> field for use when
+<code>containerd</code> invokes the CNI bridge plugin.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>cat <span style="color:#b44">&lt;&lt; EOF | tee /etc/cni/net.d/10-containerd-net.conflist
+</span></span></span><span style="display:flex"><span><span style="color:#b44">{
+</span></span></span><span style="display:flex"><span><span style="color:#b44"> "cniVersion": "1.0.0",
+</span></span></span><span style="display:flex"><span><span style="color:#b44"> "name": "containerd-net",
+</span></span></span><span style="display:flex"><span><span style="color:#b44"> "plugins": [
+</span></span></span><span style="display:flex"><span><span style="color:#b44">   {
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "type": "bridge",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "bridge": "cni0",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "isGateway": true,
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "ipMasq": true,
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "promiscMode": true,
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "ipam": {
+</span></span></span><span style="display:flex"><span><span style="color:#b44">       "type": "host-local",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">       "ranges": [
+</span></span></span><span style="display:flex"><span><span style="color:#b44">         [{
+</span></span></span><span style="display:flex"><span><span style="color:#b44">           "subnet": "10.88.0.0/16"
+</span></span></span><span style="display:flex"><span><span style="color:#b44">         }],
+</span></span></span><span style="display:flex"><span><span style="color:#b44">         [{
+</span></span></span><span style="display:flex"><span><span style="color:#b44">           "subnet": "2001:db8:4860::/64"
+</span></span></span><span style="display:flex"><span><span style="color:#b44">         }]
+</span></span></span><span style="display:flex"><span><span style="color:#b44">       ],
+</span></span></span><span style="display:flex"><span><span style="color:#b44">       "routes": [
+</span></span></span><span style="display:flex"><span><span style="color:#b44">         { "dst": "0.0.0.0/0" },
+</span></span></span><span style="display:flex"><span><span style="color:#b44">         { "dst": "::/0" }
+</span></span></span><span style="display:flex"><span><span style="color:#b44">       ]
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     }
+</span></span></span><span style="display:flex"><span><span style="color:#b44">   },
+</span></span></span><span style="display:flex"><span><span style="color:#b44">   {
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "type": "portmap",
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "capabilities": {"portMappings": true},
+</span></span></span><span style="display:flex"><span><span style="color:#b44">     "externalSetMarkChain": "KUBE-MARK-MASQ"
+</span></span></span><span style="display:flex"><span><span style="color:#b44">   }
+</span></span></span><span style="display:flex"><span><span style="color:#b44"> ]
+</span></span></span><span style="display:flex"><span><span style="color:#b44">}
+</span></span></span><span style="display:flex"><span><span style="color:#b44">EOF</span>
+</span></span></code></pre></div><p>Update the IP address ranges in the preceding example with ones that are based
+on your use case and network addressing plan.</p></div>

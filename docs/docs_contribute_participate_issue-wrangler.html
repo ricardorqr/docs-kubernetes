@@ -1,0 +1,43 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Issue Wranglers</h1><p>Alongside the <a href="/docs/contribute/participate/pr-wranglers/">PR Wrangler</a>, formal approvers,
+reviewers and members of SIG Docs take week-long shifts
+<a href="/docs/contribute/review/for-approvers/#triage-and-categorize-issues">triaging and categorising issues</a>
+for the repository.</p><h2 id="duties">Duties</h2><p>Each day in a week-long shift the Issue Wrangler will be responsible for:</p><ul><li>Triaging and tagging incoming issues daily. See
+<a href="/docs/contribute/review/for-approvers/#triage-and-categorize-issues">Triage and categorize issues</a>
+for guidelines on how SIG Docs uses metadata.</li><li>Keeping an eye on stale &amp; rotten issues within the kubernetes/website repository.</li><li>Maintenance of the <a href="https://github.com/orgs/kubernetes/projects/72/views/1">Issues board</a>.</li></ul><h2 id="requirements">Requirements</h2><ul><li>Must be an active member of the Kubernetes organization.</li><li>A minimum of 15 <a href="https://www.kubernetes.dev/docs/guide/pull-requests/#trivial-edits">non-trivial</a>
+contributions to Kubernetes (of which a certain amount should be directed towards kubernetes/website).</li><li>Performing the role in an informal capacity already.</li></ul><h2 id="helpful-prow-commands-for-wranglers">Helpful Prow commands for wranglers</h2><p>Below are some commonly used commands for Issue Wranglers:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># reopen an issue</span>
+</span></span><span style="display:flex"><span>/reopen
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># transfer issues that don't fit in k/website to another repository</span>
+</span></span><span style="display:flex"><span>/transfer<span style="color:#666">[</span>-issue<span style="color:#666">]</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># change the state of rotten issues</span>
+</span></span><span style="display:flex"><span>/remove-lifecycle rotten
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># change the state of stale issues</span>
+</span></span><span style="display:flex"><span>/remove-lifecycle stale
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># assign sig to an issue</span>
+</span></span><span style="display:flex"><span>/sig &lt;sig_name&gt;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># add specific area</span>
+</span></span><span style="display:flex"><span>/area &lt;area_name&gt;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># for beginner friendly issues</span>
+</span></span><span style="display:flex"><span>/good-first-issue
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># issues that needs help</span>
+</span></span><span style="display:flex"><span>/help wanted
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># tagging issue as support specific</span>
+</span></span><span style="display:flex"><span>/kind support
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># to accept triaging for an issue</span>
+</span></span><span style="display:flex"><span>/triage accepted
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># closing an issue we won't be working on and haven't fixed yet</span>
+</span></span><span style="display:flex"><span>/close not-planned
+</span></span></code></pre></div><p>To find more Prow commands, refer to the <a href="https://prow.k8s.io/command-help">Command Help</a> documentation.</p><h2 id="when-to-close-issues">When to close Issues</h2><p>For an open source project to succeed, good issue management is crucial.
+But it is also critical to resolve issues in order to maintain the repository
+and communicate clearly with contributors and users.</p><p>Close issues when:</p><ul><li>A similar issue is reported more than once. You will first need to tag it as <code>/triage duplicate</code>;
+link it to the main issue &amp; then close it. It is also advisable to direct the users to the original issue.</li><li>It is very difficult to understand and address the issue presented by the author with the information provided.
+However, encourage the user to provide more details or reopen the issue if they can reproduce it later.</li><li>The same functionality is implemented elsewhere. One can close this issue and direct user to the appropriate place.</li><li>The reported issue is not currently planned or aligned with the project's goals.</li><li>If the issue appears to be spam and is clearly unrelated.</li><li>If the issue is related to an external limitation or dependency and is beyond the control of the project.</li></ul><p>To close an issue, leave a <code>/close</code> comment on the issue.</p></div>

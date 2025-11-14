@@ -1,0 +1,151 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Debugging DNS Resolution</h1><p>This page provides hints on diagnosing DNS problems.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><br/>Your cluster must be configured to use the CoreDNS
+<a class="glossary-tooltip" title="Resources that extend the functionality of Kubernetes." data-toggle="tooltip" data-placement="top" href="/docs/concepts/cluster-administration/addons/" target="_blank" aria-label="addon">addon</a> or its precursor,
+kube-dns.</p><p>Your Kubernetes server must be at or later than version v1.6.</p><p>To check the version, enter <code>kubectl version</code>.</p><h3 id="create-a-simple-pod-to-use-as-a-test-environment">Create a simple Pod to use as a test environment</h3><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/admin/dns/dnsutils.yaml" download="admin/dns/dnsutils.yaml"><code>admin/dns/dnsutils.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;admin-dns-dnsutils-yaml&quot;)" title="Copy admin/dns/dnsutils.yaml to clipboard"/></div><div class="includecode" id="admin-dns-dnsutils-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>dnsutils<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>default<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>dnsutils<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>registry.k8s.io/e2e-test-images/agnhost:2.39<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">imagePullPolicy</span>:<span style="color:#bbb"> </span>IfNotPresent<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Always<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>This example creates a pod in the <code>default</code> namespace. DNS name resolution for
+services depends on the namespace of the pod. For more information, review
+<a href="/docs/concepts/services-networking/dns-pod-service/#what-things-get-dns-names">DNS for Services and Pods</a>.</div><p>Use that manifest to create a Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/admin/dns/dnsutils.yaml
+</span></span></code></pre></div><pre tabindex="0"><code>pod/dnsutils created
+</code></pre><p>…and verify its status:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods dnsutils
+</span></span></code></pre></div><pre tabindex="0"><code>NAME       READY     STATUS    RESTARTS   AGE
+dnsutils   1/1       Running   0          &lt;some-time&gt;
+</code></pre><p>Once that Pod is running, you can exec <code>nslookup</code> in that environment.
+If you see something like the following, DNS is working correctly.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -i -t dnsutils -- nslookup kubernetes.default
+</span></span></code></pre></div><pre tabindex="0"><code>Server:    10.0.0.10
+Address 1: 10.0.0.10
+
+Name:      kubernetes.default
+Address 1: 10.0.0.1
+</code></pre><p>If the <code>nslookup</code> command fails, check the following:</p><h3 id="check-the-local-dns-configuration-first">Check the local DNS configuration first</h3><p>Take a look inside the resolv.conf file.
+(See <a href="/docs/tasks/administer-cluster/dns-custom-nameservers/">Customizing DNS Service</a> and
+<a href="#known-issues">Known issues</a> below for more information)</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -ti dnsutils -- cat /etc/resolv.conf
+</span></span></code></pre></div><p>Verify that the search path and name server are set up like the following
+(note that search path may vary for different cloud providers):</p><pre tabindex="0"><code>search default.svc.cluster.local svc.cluster.local cluster.local google.internal c.gce_project_id.internal
+nameserver 10.0.0.10
+options ndots:5
+</code></pre><p>Errors such as the following indicate a problem with the CoreDNS (or kube-dns)
+add-on or with associated Services:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -i -t dnsutils -- nslookup kubernetes.default
+</span></span></code></pre></div><pre tabindex="0"><code>Server:    10.0.0.10
+Address 1: 10.0.0.10
+
+nslookup: can't resolve 'kubernetes.default'
+</code></pre><p>or</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -i -t dnsutils -- nslookup kubernetes.default
+</span></span></code></pre></div><pre tabindex="0"><code>Server:    10.0.0.10
+Address 1: 10.0.0.10 kube-dns.kube-system.svc.cluster.local
+
+nslookup: can't resolve 'kubernetes.default'
+</code></pre><h3 id="check-if-the-dns-pod-is-running">Check if the DNS pod is running</h3><p>Use the <code>kubectl get pods</code> command to verify that the DNS pod is running.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods --namespace<span style="color:#666">=</span>kube-system -l k8s-app<span style="color:#666">=</span>kube-dns
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                       READY     STATUS    RESTARTS   AGE
+...
+coredns-7b96bf9f76-5hsxb   1/1       Running   0           1h
+coredns-7b96bf9f76-mvmmt   1/1       Running   0           1h
+...
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The value for label <code>k8s-app</code> is <code>kube-dns</code> for both CoreDNS and kube-dns deployments.</div><p>If you see that no CoreDNS Pod is running or that the Pod has failed/completed,
+the DNS add-on may not be deployed by default in your current environment and you
+will have to deploy it manually.</p><h3 id="check-for-errors-in-the-dns-pod">Check for errors in the DNS pod</h3><p>Use the <code>kubectl logs</code> command to see logs for the DNS containers.</p><p>For CoreDNS:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs --namespace<span style="color:#666">=</span>kube-system -l k8s-app<span style="color:#666">=</span>kube-dns
+</span></span></code></pre></div><p>Here is an example of a healthy CoreDNS log:</p><pre tabindex="0"><code>.:53
+2018/08/15 14:37:17 [INFO] CoreDNS-1.2.2
+2018/08/15 14:37:17 [INFO] linux/amd64, go1.10.3, 2e322f6
+CoreDNS-1.2.2
+linux/amd64, go1.10.3, 2e322f6
+2018/08/15 14:37:17 [INFO] plugin/reload: Running configuration MD5 = 24e6c59e83ce706f07bcc82c31b1ea1c
+</code></pre><p>See if there are any suspicious or unexpected messages in the logs.</p><h3 id="is-dns-service-up">Is DNS service up?</h3><p>Verify that the DNS service is up by using the <code>kubectl get service</code> command.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get svc --namespace<span style="color:#666">=</span>kube-system
+</span></span></code></pre></div><pre tabindex="0"><code>NAME         TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)             AGE
+...
+kube-dns     ClusterIP   10.0.0.10      &lt;none&gt;        53/UDP,53/TCP        1h
+...
+</code></pre><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The service name is <code>kube-dns</code> for both CoreDNS and kube-dns deployments.</div><p>If you have created the Service or in the case it should be created by default
+but it does not appear, see
+<a href="/docs/tasks/debug/debug-application/debug-service/">debugging Services</a> for
+more information.</p><h3 id="are-dns-endpoints-exposed">Are DNS endpoints exposed?</h3><p>You can verify that DNS endpoints are exposed by using the <code>kubectl get endpointslice</code>
+command.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get endpointslice -l k8s.io/service-name<span style="color:#666">=</span>kube-dns --namespace<span style="color:#666">=</span>kube-system
+</span></span></code></pre></div><pre tabindex="0"><code>NAME             ADDRESSTYPE   PORTS   ENDPOINTS                  AGE
+kube-dns-zxoja   IPv4          53      10.180.3.17,10.180.3.17    1h
+</code></pre><p>If you do not see the endpoints, see the endpoints section in the
+<a href="/docs/tasks/debug/debug-application/debug-service/">debugging Services</a> documentation.</p><h3 id="are-dns-queries-being-received-processed">Are DNS queries being received/processed?</h3><p>You can verify if queries are being received by CoreDNS by adding the <code>log</code> plugin to the CoreDNS configuration (aka Corefile).
+The CoreDNS Corefile is held in a <a class="glossary-tooltip" title="An API object used to store non-confidential data in key-value pairs. Can be consumed as environment variables, command-line arguments, or configuration files in a volume." data-toggle="tooltip" data-placement="top" href="/docs/concepts/configuration/configmap/" target="_blank" aria-label="ConfigMap">ConfigMap</a> named <code>coredns</code>. To edit it, use the command:</p><pre tabindex="0"><code>kubectl -n kube-system edit configmap coredns
+</code></pre><p>Then add <code>log</code> in the Corefile section per the example below:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ConfigMap<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>coredns<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">namespace</span>:<span style="color:#bbb"> </span>kube-system<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">data</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">Corefile</span>:<span style="color:#bbb"> </span>|<span style="color:#b44;font-style:italic">
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    .:53 {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        log
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        errors
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        health
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        kubernetes cluster.local in-addr.arpa ip6.arpa {
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">          pods insecure
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">          upstream
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">          fallthrough in-addr.arpa ip6.arpa
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        }
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        prometheus :9153
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        forward . /etc/resolv.conf
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        cache 30
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        loop
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        reload
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">        loadbalance
+</span></span></span><span style="display:flex"><span><span style="color:#b44;font-style:italic">    }</span><span style="color:#bbb">    
+</span></span></span></code></pre></div><p>After saving the changes, it may take up to minute or two for Kubernetes to propagate these changes to the CoreDNS pods.</p><p>Next, make some queries and view the logs per the sections above in this document. If CoreDNS pods are receiving the queries, you should see them in the logs.</p><p>Here is an example of a query in the log:</p><pre tabindex="0"><code>.:53
+2018/08/15 14:37:15 [INFO] CoreDNS-1.2.0
+2018/08/15 14:37:15 [INFO] linux/amd64, go1.10.3, 2e322f6
+CoreDNS-1.2.0
+linux/amd64, go1.10.3, 2e322f6
+2018/09/07 15:29:04 [INFO] plugin/reload: Running configuration MD5 = 162475cdf272d8aa601e6fe67a6ad42f
+2018/09/07 15:29:04 [INFO] Reloading complete
+172.17.0.18:41675 - [07/Sep/2018:15:29:11 +0000] 59925 "A IN kubernetes.default.svc.cluster.local. udp 54 false 512" NOERROR qr,aa,rd,ra 106 0.000066649s
+</code></pre><h3 id="does-coredns-have-sufficient-permissions">Does CoreDNS have sufficient permissions?</h3><p>CoreDNS must be able to list <a class="glossary-tooltip" title="A way to expose an application running on a set of Pods as a network service." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/service/" target="_blank" aria-label="service">service</a> and <a class="glossary-tooltip" title="EndpointSlices track the IP addresses of Pods for Services." data-toggle="tooltip" data-placement="top" href="/docs/concepts/services-networking/endpoint-slices/" target="_blank" aria-label="endpointslice">endpointslice</a> related resources to properly resolve service names.</p><p>Sample error message:</p><pre tabindex="0"><code>2022-03-18T07:12:15.699431183Z [INFO] 10.96.144.227:52299 - 3686 "A IN serverproxy.contoso.net.cluster.local. udp 52 false 512" SERVFAIL qr,aa,rd 145 0.000091221s
+</code></pre><p>First, get the current ClusterRole of <code>system:coredns</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl describe clusterrole system:coredns -n kube-system
+</span></span></code></pre></div><p>Expected output:</p><pre tabindex="0"><code>PolicyRule:
+  Resources                        Non-Resource URLs  Resource Names  Verbs
+  ---------                        -----------------  --------------  -----
+  endpoints                        []                 []              [list watch]
+  namespaces                       []                 []              [list watch]
+  pods                             []                 []              [list watch]
+  services                         []                 []              [list watch]
+  endpointslices.discovery.k8s.io  []                 []              [list watch]
+</code></pre><p>If any permissions are missing, edit the ClusterRole to add them:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl edit clusterrole system:coredns -n kube-system
+</span></span></code></pre></div><p>Example insertion of EndpointSlices permissions:</p><pre tabindex="0"><code>...
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - list
+  - watch
+...
+</code></pre><h3 id="are-you-in-the-right-namespace-for-the-service">Are you in the right namespace for the service?</h3><p>DNS queries that don't specify a namespace are limited to the pod's
+namespace.</p><p>If the namespace of the pod and service differ, the DNS query must include
+the namespace of the service.</p><p>This query is limited to the pod's namespace:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -i -t dnsutils -- nslookup &lt;service-name&gt;
+</span></span></code></pre></div><p>This query specifies the namespace:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -i -t dnsutils -- nslookup &lt;service-name&gt;.&lt;namespace&gt;
+</span></span></code></pre></div><p>To learn more about name resolution, see
+<a href="/docs/concepts/services-networking/dns-pod-service/#what-things-get-dns-names">DNS for Services and Pods</a>.</p><h2 id="known-issues">Known issues</h2><p>Some Linux distributions (e.g. Ubuntu) use a local DNS resolver by default (systemd-resolved).
+Systemd-resolved moves and replaces <code>/etc/resolv.conf</code> with a stub file that can cause a fatal forwarding
+loop when resolving names in upstream servers. This can be fixed manually by using kubelet's <code>--resolv-conf</code> flag
+to point to the correct <code>resolv.conf</code> (With <code>systemd-resolved</code>, this is <code>/run/systemd/resolve/resolv.conf</code>).
+kubeadm automatically detects <code>systemd-resolved</code>, and adjusts the kubelet flags accordingly.</p><p>Kubernetes installs do not configure the nodes' <code>resolv.conf</code> files to use the
+cluster DNS by default, because that process is inherently distribution-specific.
+This should probably be implemented eventually.</p><p>Linux's libc (a.k.a. glibc) has a limit for the DNS <code>nameserver</code> records to 3 by
+default and Kubernetes needs to consume 1 <code>nameserver</code> record. This means that
+if a local installation already uses 3 <code>nameserver</code>s, some of those entries will
+be lost. To work around this limit, the node can run <code>dnsmasq</code>, which will
+provide more <code>nameserver</code> entries. You can also use kubelet's <code>--resolv-conf</code>
+flag.</p><p>If you are using Alpine version 3.17 or earlier as your base image, DNS may not
+work properly due to a design issue with Alpine.
+Until musl version 1.24 didn't include TCP fallback to the DNS stub resolver meaning any DNS call above 512 bytes would fail.
+Please upgrade your images to Alpine version 3.18 or above.</p><h2 id="what-s-next">What's next</h2><ul><li>See <a href="/docs/tasks/administer-cluster/dns-horizontal-autoscaling/">Autoscaling the DNS Service in a Cluster</a>.</li><li>Read <a href="/docs/concepts/services-networking/dns-pod-service/">DNS for Services and Pods</a></li></ul></div>

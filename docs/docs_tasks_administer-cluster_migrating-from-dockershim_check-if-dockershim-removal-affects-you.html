@@ -1,0 +1,60 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Check whether dockershim removal affects you</h1><p>The <code>dockershim</code> component of Kubernetes allows the use of Docker as a Kubernetes's
+<a class="glossary-tooltip" title="The container runtime is the software that is responsible for running containers." data-toggle="tooltip" data-placement="top" href="/docs/setup/production-environment/container-runtimes" target="_blank" aria-label="container runtime">container runtime</a>.
+Kubernetes' built-in <code>dockershim</code> component was removed in release v1.24.</p><p>This page explains how your cluster could be using Docker as a container runtime,
+provides details on the role that <code>dockershim</code> plays when in use, and shows steps
+you can take to check whether any workloads could be affected by <code>dockershim</code> removal.</p><h2 id="find-docker-dependencies">Finding if your app has a dependencies on Docker</h2><p>If you are using Docker for building your application containers, you can still
+run these containers on any container runtime. This use of Docker does not count
+as a dependency on Docker as a container runtime.</p><p>When alternative container runtime is used, executing Docker commands may either
+not work or yield unexpected output. This is how you can find whether you have a
+dependency on Docker:</p><ol><li>Make sure no privileged Pods execute Docker commands (like <code>docker ps</code>),
+restart the Docker service (commands such as <code>systemctl restart docker.service</code>),
+or modify Docker-specific files such as <code>/etc/docker/daemon.json</code>.</li><li>Check for any private registries or image mirror settings in the Docker
+configuration file (like <code>/etc/docker/daemon.json</code>). Those typically need to
+be reconfigured for another container runtime.</li><li>Check that scripts and apps running on nodes outside of your Kubernetes
+infrastructure do not execute Docker commands. It might be:<ul><li>SSH to nodes to troubleshoot;</li><li>Node startup scripts;</li><li>Monitoring and security agents installed on nodes directly.</li></ul></li><li>Third-party tools that perform above mentioned privileged operations. See
+<a href="/docs/tasks/administer-cluster/migrating-from-dockershim/migrating-telemetry-and-security-agents/">Migrating telemetry and security agents from dockershim</a>
+for more information.</li><li>Make sure there are no indirect dependencies on dockershim behavior.
+This is an edge case and unlikely to affect your application. Some tooling may be configured
+to react to Docker-specific behaviors, for example, raise alert on specific metrics or search for
+a specific log message as part of troubleshooting instructions.
+If you have such tooling configured, test the behavior on a test
+cluster before migration.</li></ol><h2 id="role-of-dockershim">Dependency on Docker explained</h2><p>A <a href="/docs/concepts/containers/#container-runtimes">container runtime</a> is software that can
+execute the containers that make up a Kubernetes pod. Kubernetes is responsible for orchestration
+and scheduling of Pods; on each node, the <a class="glossary-tooltip" title="An agent that runs on each node in the cluster. It makes sure that containers are running in a pod." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kubelet" target="_blank" aria-label="kubelet">kubelet</a>
+uses the container runtime interface as an abstraction so that you can use any compatible
+container runtime.</p><p>In its earliest releases, Kubernetes offered compatibility with one container runtime: Docker.
+Later in the Kubernetes project's history, cluster operators wanted to adopt additional container runtimes.
+The CRI was designed to allow this kind of flexibility - and the kubelet began supporting CRI. However,
+because Docker existed before the CRI specification was invented, the Kubernetes project created an
+adapter component, <code>dockershim</code>. The dockershim adapter allows the kubelet to interact with Docker as
+if Docker were a CRI compatible runtime.</p><p>You can read about it in <a href="/blog/2018/05/24/kubernetes-containerd-integration-goes-ga/">Kubernetes Containerd integration goes GA</a> blog post.</p><p><img alt="Dockershim vs. CRI with Containerd" src="/images/blog/2018-05-24-kubernetes-containerd-integration-goes-ga/cri-containerd.png"/></p><p>Switching to Containerd as a container runtime eliminates the middleman. All the
+same containers can be run by container runtimes like Containerd as before. But
+now, since containers schedule directly with the container runtime, they are not visible to Docker.
+So any Docker tooling or fancy UI you might have used
+before to check on these containers is no longer available.</p><p>You cannot get container information using <code>docker ps</code> or <code>docker inspect</code>
+commands. As you cannot list containers, you cannot get logs, stop containers,
+or execute something inside a container using <code>docker exec</code>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If you're running workloads via Kubernetes, the best way to stop a container is through
+the Kubernetes API rather than directly through the container runtime (this advice applies
+for all container runtimes, not only Docker).</div><p>You can still pull images or build them using <code>docker build</code> command. But images
+built or pulled by Docker would not be visible to container runtime and
+Kubernetes. They needed to be pushed to some registry to allow them to be used
+by Kubernetes.</p><h2 id="known-issues">Known issues</h2><h3 id="some-filesystem-metrics-are-missing-and-the-metrics-format-is-different">Some filesystem metrics are missing and the metrics format is different</h3><p>The Kubelet <code>/metrics/cadvisor</code> endpoint provides Prometheus metrics,
+as documented in <a href="/docs/concepts/cluster-administration/system-metrics/">Metrics for Kubernetes system components</a>.
+If you install a metrics collector that depends on that endpoint, you might see the following issues:</p><ul><li>The metrics format on the Docker node is <code>k8s_&lt;container-name&gt;_&lt;pod-name&gt;_&lt;namespace&gt;_&lt;pod-uid&gt;_&lt;restart-count&gt;</code>
+but the format on other runtime is different. For example, on containerd node it is <code>&lt;container-id&gt;</code>.</li><li>Some filesystem metrics are missing, as follows:<pre tabindex="0"><code>container_fs_inodes_free
+container_fs_inodes_total
+container_fs_io_current
+container_fs_io_time_seconds_total
+container_fs_io_time_weighted_seconds_total
+container_fs_limit_bytes
+container_fs_read_seconds_total
+container_fs_reads_merged_total
+container_fs_sector_reads_total
+container_fs_sector_writes_total
+container_fs_usage_bytes
+container_fs_write_seconds_total
+container_fs_writes_merged_total
+</code></pre></li></ul><h4 id="workaround">Workaround</h4><p>You can mitigate this issue by using <a href="https://github.com/google/cadvisor">cAdvisor</a> as a standalone daemonset.</p><ol><li>Find the latest <a href="https://github.com/google/cadvisor/releases">cAdvisor release</a>
+with the name pattern <code>vX.Y.Z-containerd-cri</code> (for example, <code>v0.42.0-containerd-cri</code>).</li><li>Follow the steps in <a href="https://github.com/google/cadvisor/tree/master/deploy/kubernetes">cAdvisor Kubernetes Daemonset</a> to create the daemonset.</li><li>Point the installed metrics collector to use the cAdvisor <code>/metrics</code> endpoint
+which provides the full set of
+<a href="https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md">Prometheus container metrics</a>.</li></ol><p>Alternatives:</p><ul><li>Use alternative third party metrics collection solution.</li><li>Collect metrics from the Kubelet summary API that is served at <code>/stats/summary</code>.</li></ul><h2 id="what-s-next">What's next</h2><ul><li>Read <a href="/docs/tasks/administer-cluster/migrating-from-dockershim/">Migrating from dockershim</a> to understand your next steps</li><li>Read the <a href="/blog/2020/12/02/dockershim-faq/">dockershim deprecation FAQ</a> article for more information.</li></ul></div>

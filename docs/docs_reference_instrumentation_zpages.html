@@ -1,0 +1,30 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Kubernetes z-pages</h1><div class="lead">Provides runtime diagnostics for Kubernetes components, offering insights into component runtime status and configuration flags.</div><div class="feature-state-notice feature-alpha"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.32 [alpha]</code></div><p>Kubernetes core components can expose a suite of <em>z-endpoints</em> to make it easier for users
+to debug their cluster and its components. These endpoints are strictly to be used for human
+inspection to gain real time debugging information of a component binary.
+Avoid automated scraping of data returned by these endpoints; in Kubernetes 1.34
+these are an <strong>alpha</strong> feature and the response format may change in future releases.</p><h2 id="z-pages">z-pages</h2><p>Kubernetes v1.34 allows you to enable <em>z-pages</em> to help you troubleshoot
+problems with its core control plane components. These special debugging endpoints provide internal
+information about running components. For Kubernetes 1.34, components
+serve the following endpoints (when enabled):</p><ul><li><a href="#z-pages">z-pages</a><ul><li><a href="#statusz">statusz</a></li><li><a href="#flagz">flagz</a></li></ul></li></ul><h3 id="statusz">statusz</h3><p>Enabled using the <code>ComponentStatusz</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>,
+the <code>/statusz</code> endpoint displays high level information about the component such as its Kubernetes version, emulation version, start time and more.</p><p>The <code>/statusz</code> response from the API server is similar to:</p><pre tabindex="0"><code>kube-apiserver statusz
+Warning: This endpoint is not meant to be machine parseable, has no formatting compatibility guarantees and is for debugging purposes only.
+
+Started: Wed Oct 16 21:03:43 UTC 2024
+Up: 0 hr 00 min 16 sec
+Go version: go1.23.2
+Binary version: 1.32.0-alpha.0.1484&amp;#43;5eeac4f21a491b-dirty
+Emulation version: 1.32.0-alpha.0.1484
+</code></pre><h3 id="flagz">flagz</h3><p>Enabled using the <code>ComponentFlagz</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>, the <code>/flagz</code> endpoint shows you the command line arguments that were used to start a component.</p><p>The <code>/flagz</code> data for the API server looks something like:</p><pre tabindex="0"><code>kube-apiserver flags
+Warning: This endpoint is not meant to be machine parseable, has no formatting compatibility guarantees and is for debugging purposes only.
+
+advertise-address=192.168.8.2
+contention-profiling=false
+enable-priority-and-fairness=true
+profiling=true
+authorization-mode=[Node,RBAC]
+authorization-webhook-cache-authorized-ttl=5m0s
+authorization-webhook-cache-unauthorized-ttl=30s
+authorization-webhook-version=v1beta1
+default-watch-cache-size=100
+</code></pre></div>

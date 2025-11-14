@@ -1,0 +1,48 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Imperative Management of Kubernetes Objects Using Configuration Files</h1><p>Kubernetes objects can be created, updated, and deleted by using the <code>kubectl</code>
+command-line tool along with an object configuration file written in YAML or JSON.
+This document explains how to define and manage objects using configuration files.</p><h2 id="before-you-begin">Before you begin</h2><p>Install <a href="/docs/tasks/tools/"><code>kubectl</code></a>.</p><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="trade-offs">Trade-offs</h2><p>The <code>kubectl</code> tool supports three kinds of object management:</p><ul><li>Imperative commands</li><li>Imperative object configuration</li><li>Declarative object configuration</li></ul><p>See <a href="/docs/concepts/overview/working-with-objects/object-management/">Kubernetes Object Management</a>
+for a discussion of the advantages and disadvantage of each kind of object management.</p><h2 id="how-to-create-objects">How to create objects</h2><p>You can use <code>kubectl create -f</code> to create an object from a configuration file.
+Refer to the <a href="/docs/reference/generated/kubernetes-api/v1.34/">kubernetes API reference</a>
+for details.</p><ul><li><code>kubectl create -f &lt;filename|url&gt;</code></li></ul><h2 id="how-to-update-objects">How to update objects</h2><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>Updating objects with the <code>replace</code> command drops all
+parts of the spec not specified in the configuration file. This
+should not be used with objects whose specs are partially managed
+by the cluster, such as Services of type <code>LoadBalancer</code>, where
+the <code>externalIPs</code> field is managed independently from the configuration
+file. Independently managed fields must be copied to the configuration
+file to prevent <code>replace</code> from dropping them.</div><p>You can use <code>kubectl replace -f</code> to update a live object according to a
+configuration file.</p><ul><li><code>kubectl replace -f &lt;filename|url&gt;</code></li></ul><h2 id="how-to-delete-objects">How to delete objects</h2><p>You can use <code>kubectl delete -f</code> to delete an object that is described in a
+configuration file.</p><ul><li><code>kubectl delete -f &lt;filename|url&gt;</code></li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4><p>If configuration file has specified the <code>generateName</code> field in the <code>metadata</code>
+section instead of the <code>name</code> field, you cannot delete the object using
+<code>kubectl delete -f &lt;filename|url&gt;</code>.
+You will have to use other flags for deleting the object. For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete &lt;type&gt; &lt;name&gt;
+</span></span><span style="display:flex"><span>kubectl delete &lt;type&gt; -l &lt;label&gt;
+</span></span></code></pre></div></div><h2 id="how-to-view-an-object">How to view an object</h2><p>You can use <code>kubectl get -f</code> to view information about an object that is
+described in a configuration file.</p><ul><li><code>kubectl get -f &lt;filename|url&gt; -o yaml</code></li></ul><p>The <code>-o yaml</code> flag specifies that the full object configuration is printed.
+Use <code>kubectl get -h</code> to see a list of options.</p><h2 id="limitations">Limitations</h2><p>The <code>create</code>, <code>replace</code>, and <code>delete</code> commands work well when each object's
+configuration is fully defined and recorded in its configuration
+file. However when a live object is updated, and the updates are not merged
+into its configuration file, the updates will be lost the next time a <code>replace</code>
+is executed. This can happen if a controller, such as
+a HorizontalPodAutoscaler, makes updates directly to a live object. Here's
+an example:</p><ol><li>You create an object from a configuration file.</li><li>Another source updates the object by changing some field.</li><li>You replace the object from the configuration file. Changes made by
+the other source in step 2 are lost.</li></ol><p>If you need to support multiple writers to the same object, you can use
+<code>kubectl apply</code> to manage the object.</p><h2 id="creating-and-editing-an-object-from-a-url-without-saving-the-configuration">Creating and editing an object from a URL without saving the configuration</h2><p>Suppose you have the URL of an object configuration file. You can use
+<code>kubectl create --edit</code> to make changes to the configuration before the
+object is created. This is particularly useful for tutorials and tasks
+that point to a configuration file that could be modified by the reader.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl create -f &lt;url&gt; --edit
+</span></span></code></pre></div><h2 id="migrating-from-imperative-commands-to-imperative-object-configuration">Migrating from imperative commands to imperative object configuration</h2><p>Migrating from imperative commands to imperative object configuration involves
+several manual steps.</p><ol><li><p>Export the live object to a local object configuration file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get &lt;kind&gt;/&lt;name&gt; -o yaml &gt; &lt;kind&gt;_&lt;name&gt;.yaml
+</span></span></code></pre></div></li><li><p>Manually remove the status field from the object configuration file.</p></li><li><p>For subsequent object management, use <code>replace</code> exclusively.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl replace -f &lt;kind&gt;_&lt;name&gt;.yaml
+</span></span></code></pre></div></li></ol><h2 id="defining-controller-selectors-and-podtemplate-labels">Defining controller selectors and PodTemplate labels</h2><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4>Updating selectors on controllers is strongly discouraged.</div><p>The recommended approach is to define a single, immutable PodTemplate label
+used only by the controller selector with no other semantic meaning.</p><p>Example label:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">controller-selector</span>:<span style="color:#bbb"> </span><span style="color:#b44">"apps/v1/deployment/nginx"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">controller-selector</span>:<span style="color:#bbb"> </span><span style="color:#b44">"apps/v1/deployment/nginx"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li><a href="/docs/tasks/manage-kubernetes-objects/imperative-command/">Managing Kubernetes Objects Using Imperative Commands</a></li><li><a href="/docs/tasks/manage-kubernetes-objects/declarative-config/">Declarative Management of Kubernetes Objects Using Configuration Files</a></li><li><a href="/docs/reference/generated/kubectl/kubectl-commands/">Kubectl Command Reference</a></li><li><a href="/docs/reference/generated/kubernetes-api/v1.34/">Kubernetes API Reference</a></li></ul></div>

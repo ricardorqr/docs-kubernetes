@@ -1,0 +1,97 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Reviewing for approvers and reviewers</h1><p>SIG Docs <a href="/docs/contribute/participate/#reviewers">Reviewers</a> and
+<a href="/docs/contribute/participate/#approvers">Approvers</a> do a few extra things
+when reviewing a change.</p><p>Every week a specific docs approver volunteers to triage and review pull requests.
+This person is the "PR Wrangler" for the week. See the
+<a href="https://github.com/kubernetes/website/wiki/PR-Wranglers">PR Wrangler scheduler</a>
+for more information. To become a PR Wrangler, attend the weekly SIG Docs meeting
+and volunteer. Even if you are not on the schedule for the current week, you can
+still review pull requests (PRs) that are not already under active review.</p><p>In addition to the rotation, a bot assigns reviewers and approvers
+for the PR based on the owners for the affected files.</p><h2 id="reviewing-a-pr">Reviewing a PR</h2><p>Kubernetes documentation follows the
+<a href="https://github.com/kubernetes/community/blob/master/contributors/guide/owners.md#the-code-review-process">Kubernetes code review process</a>.</p><p>Everything described in <a href="/docs/contribute/review/reviewing-prs/">Reviewing a pull request</a>
+applies, but Reviewers and Approvers should also do the following:</p><ul><li><p>Using the <code>/assign</code> Prow command to assign a specific reviewer to a PR as needed.
+This is extra important when it comes to requesting technical review from code contributors.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Look at the <code>reviewers</code> field in the front-matter at the top of a Markdown file to see who can
+provide technical review.</div></li><li><p>Making sure the PR follows the <a href="/docs/contribute/style/content-guide/">Content</a>
+and <a href="/docs/contribute/style/style-guide/">Style</a> guides; link the author to the
+relevant part of the guide(s) if it doesn't.</p></li><li><p>Using the GitHub <strong>Request Changes</strong> option when applicable to suggest changes to the PR author.</p></li><li><p>Changing your review status in GitHub using the <code>/approve</code> or <code>/lgtm</code> Prow commands,
+if your suggestions are implemented.</p></li></ul><h2 id="commit-into-another-person-s-pr">Commit into another person's PR</h2><p>Leaving PR comments is helpful, but there might be times when you need to commit
+into another person's PR instead.</p><p>Do not "take over" for another person unless they explicitly ask
+you to, or you want to resurrect a long-abandoned PR. While it may be faster
+in the short term, it deprives the person of the chance to contribute.</p><p>The process you use depends on whether you need to edit a file that is already
+in the scope of the PR, or a file that the PR has not yet touched.</p><p>You can't commit into someone else's PR if either of the following things is
+true:</p><ul><li><p>If the PR author pushed their branch directly to the
+<a href="https://github.com/kubernetes/website/">https://github.com/kubernetes/website/</a>
+repository. Only a reviewer with push access can commit to another user's PR.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Encourage the author to push their branch to their fork before
+opening the PR next time.</div></li><li><p>The PR author explicitly disallows edits from approvers.</p></li></ul><h2 id="prow-commands-for-reviewing">Prow commands for reviewing</h2><p><a href="https://github.com/kubernetes/test-infra/blob/master/prow/README.md">Prow</a> is
+the Kubernetes-based CI/CD system that runs jobs against pull requests (PRs). Prow
+enables chatbot-style commands to handle GitHub actions across the Kubernetes
+organization, like <a href="#adding-and-removing-issue-labels">adding and removing labels</a>,
+closing issues, and assigning an approver. Enter Prow commands as GitHub comments
+using the <code>/&lt;command-name&gt;</code> format.</p><p>The most common prow commands reviewers and approvers use are:</p><table><caption style="display:none">Prow commands for reviewing</caption><thead><tr><th style="text-align:left">Prow Command</th><th style="text-align:left">Role Restrictions</th><th style="text-align:left">Description</th></tr></thead><tbody><tr><td style="text-align:left"><code>/lgtm</code></td><td style="text-align:left">Organization members</td><td style="text-align:left">Signals that you've finished reviewing a PR and are satisfied with the changes.</td></tr><tr><td style="text-align:left"><code>/approve</code></td><td style="text-align:left">Approvers</td><td style="text-align:left">Approves a PR for merging.</td></tr><tr><td style="text-align:left"><code>/assign</code></td><td style="text-align:left">Anyone</td><td style="text-align:left">Assigns a person to review or approve a PR</td></tr><tr><td style="text-align:left"><code>/close</code></td><td style="text-align:left">Organization members</td><td style="text-align:left">Closes an issue or PR.</td></tr><tr><td style="text-align:left"><code>/hold</code></td><td style="text-align:left">Anyone</td><td style="text-align:left">Adds the <code>do-not-merge/hold</code> label, indicating the PR cannot be automatically merged.</td></tr><tr><td style="text-align:left"><code>/hold cancel</code></td><td style="text-align:left">Anyone</td><td style="text-align:left">Removes the <code>do-not-merge/hold</code> label.</td></tr></tbody></table><p>To view the commands that you can use in a PR, see the
+<a href="https://prow.k8s.io/command-help?repo=kubernetes%2Fwebsite">Prow Command Reference</a>.</p><h2 id="triage-and-categorize-issues">Triage and categorize issues</h2><p>In general, SIG Docs follows the
+<a href="https://github.com/kubernetes/community/blob/master/contributors/guide/issue-triage.md">Kubernetes issue triage</a>
+process and uses the same labels.</p><p>This GitHub Issue <a href="https://github.com/kubernetes/website/issues?q=is%3Aissue+is%3Aopen+-label%3Apriority%2Fbacklog+-label%3Apriority%2Fimportant-longterm+-label%3Apriority%2Fimportant-soon+-label%3Atriage%2Fneeds-information+-label%3Atriage%2Fsupport+sort%3Acreated-asc">filter</a>
+finds issues that might need triage.</p><h3 id="triaging-an-issue">Triaging an issue</h3><ol><li><p>Validate the issue</p><ul><li>Make sure the issue is about website documentation. Some issues can be closed quickly by
+answering a question or pointing the reporter to a resource. See the
+<a href="#support-requests-or-code-bug-reports">Support requests or code bug reports</a> section for details.</li><li>Assess whether the issue has merit.</li><li>Add the <code>triage/needs-information</code> label if the issue doesn't have enough
+detail to be actionable or the template is not filled out adequately.</li><li>Close the issue if it has both the <code>lifecycle/stale</code> and <code>triage/needs-information</code> labels.</li></ul></li><li><p>Add a priority label (the
+<a href="https://github.com/kubernetes/community/blob/master/contributors/guide/issue-triage.md#define-priority">Issue Triage Guidelines</a>
+define priority labels in detail)</p></li></ol><table><caption style="display:none">Issue labels</caption><thead><tr><th style="text-align:left">Label</th><th style="text-align:left">Description</th></tr></thead><tbody><tr><td style="text-align:left"><code>priority/critical-urgent</code></td><td style="text-align:left">Do this right now.</td></tr><tr><td style="text-align:left"><code>priority/important-soon</code></td><td style="text-align:left">Do this within 3 months.</td></tr><tr><td style="text-align:left"><code>priority/important-longterm</code></td><td style="text-align:left">Do this within 6 months.</td></tr><tr><td style="text-align:left"><code>priority/backlog</code></td><td style="text-align:left">Deferrable indefinitely. Do when resources are available.</td></tr><tr><td style="text-align:left"><code>priority/awaiting-more-evidence</code></td><td style="text-align:left">Placeholder for a potentially good issue so it doesn't get lost.</td></tr><tr><td style="text-align:left"><code>help</code> or <code>good first issue</code></td><td style="text-align:left">Suitable for someone with very little Kubernetes or SIG Docs experience. See <a href="https://kubernetes.dev/docs/guide/help-wanted/">Help Wanted and Good First Issue Labels</a> for more information.</td></tr></tbody></table><p>At your discretion, take ownership of an issue and submit a PR for it
+(especially if it's quick or relates to work you're already doing).</p><p>If you have questions about triaging an issue, ask in <code>#sig-docs</code> on Slack or
+the <a href="https://groups.google.com/forum/#!forum/kubernetes-sig-docs">kubernetes-sig-docs mailing list</a>.</p><h2 id="adding-and-removing-issue-labels">Adding and removing issue labels</h2><p>To add a label, leave a comment in one of the following formats:</p><ul><li><code>/&lt;label-to-add&gt;</code> (for example, <code>/good-first-issue</code>)</li><li><code>/&lt;label-category&gt; &lt;label-to-add&gt;</code> (for example, <code>/triage needs-information</code> or <code>/language ja</code>)</li></ul><p>To remove a label, leave a comment in one of the following formats:</p><ul><li><code>/remove-&lt;label-to-remove&gt;</code> (for example, <code>/remove-help</code>)</li><li><code>/remove-&lt;label-category&gt; &lt;label-to-remove&gt;</code> (for example, <code>/remove-triage needs-information</code>)</li></ul><p>In both cases, the label must already exist. If you try to add a label that does not exist, the command is
+silently ignored.</p><p>For a list of all labels, see the <a href="https://github.com/kubernetes/website/labels">website repository's Labels section</a>.
+Not all labels are used by SIG Docs.</p><h3 id="issue-lifecycle-labels">Issue lifecycle labels</h3><p>Issues are generally opened and closed quickly.
+However, sometimes an issue is inactive after its opened.
+Other times, an issue may need to remain open for longer than 90 days.</p><table><caption style="display:none">Issue lifecycle labels</caption><thead><tr><th style="text-align:left">Label</th><th style="text-align:left">Description</th></tr></thead><tbody><tr><td style="text-align:left"><code>lifecycle/stale</code></td><td style="text-align:left">After 90 days with no activity, an issue is automatically labeled as stale. The issue will be automatically closed if the lifecycle is not manually reverted using the <code>/remove-lifecycle stale</code> command.</td></tr><tr><td style="text-align:left"><code>lifecycle/frozen</code></td><td style="text-align:left">An issue with this label will not become stale after 90 days of inactivity. A user manually adds this label to issues that need to remain open for much longer than 90 days, such as those with a <code>priority/important-longterm</code> label.</td></tr></tbody></table><h2 id="handling-special-issue-types">Handling special issue types</h2><p>SIG Docs encounters the following types of issues often enough to document how
+to handle them.</p><h3 id="duplicate-issues">Duplicate issues</h3><p>If a single problem has one or more issues open for it, combine them into a single issue.
+You should decide which issue to keep open (or
+open a new issue), then move over all relevant information and link related issues.
+Finally, label all other issues that describe the same problem with
+<code>triage/duplicate</code> and close them. Only having a single issue to work on reduces confusion
+and avoids duplicate work on the same problem.</p><h3 id="dead-link-issues">Dead link issues</h3><p>If the dead link issue is in the API or <code>kubectl</code> documentation, assign them
+<code>/priority critical-urgent</code> until the problem is fully understood. Assign all
+other dead link issues <code>/priority important-longterm</code>, as they must be manually fixed.</p><h3 id="blog-issues">Blog issues</h3><p>We expect <a href="/blog/">Kubernetes Blog</a> entries to become
+outdated over time. Therefore, we only maintain blog entries less than a year old.
+If an issue is related to a blog entry that is more than one year old,
+you should typically close the issue without fixing.</p><p>You can send a link to <a href="/docs/contribute/blog/#maintenance">article updates and maintenance</a>
+as part of the message you send when you close the PR.</p><p>It is OK to make an exception where a relevant justification applies.</p><h3 id="support-requests-or-code-bug-reports">Support requests or code bug reports</h3><p>Some docs issues are actually issues with the underlying code, or requests for
+assistance when something, for example a tutorial, doesn't work.
+For issues unrelated to docs, close the issue with the <code>kind/support</code> label and a comment
+directing the requester to support venues (Slack, Stack Overflow) and, if
+relevant, the repository to file an issue for bugs with features (<code>kubernetes/kubernetes</code>
+is a great place to start).</p><p>Sample response to a request for support:</p><pre tabindex="0"><code class="language-none" data-lang="none">This issue sounds more like a request for support and less
+like an issue specifically for docs. I encourage you to bring
+your question to the `#kubernetes-users` channel in
+[Kubernetes slack](https://slack.k8s.io/). You can also search
+resources like
+[Stack Overflow](https://stackoverflow.com/questions/tagged/kubernetes)
+for answers to similar questions.
+
+You can also open issues for Kubernetes functionality in
+https://github.com/kubernetes/kubernetes.
+
+If this is a documentation issue, please re-open this issue.
+</code></pre><p>Sample code bug report response:</p><pre tabindex="0"><code class="language-none" data-lang="none">This sounds more like an issue with the code than an issue with
+the documentation. Please open an issue at
+https://github.com/kubernetes/kubernetes/issues.
+
+If this is a documentation issue, please re-open this issue.
+</code></pre><h3 id="squashing">Squashing</h3><p>As an approver, when you review pull requests (PRs), there are various cases
+where you might do the following:</p><ul><li>Advise the contributor to squash their commits.</li><li>Squash the commits for the contributor.</li><li>Advise the contributor not to squash yet.</li><li>Prevent squashing.</li></ul><p><strong>Advising contributors to squash</strong>: A new contributor might not know that they
+should squash commits in their pull requests (PRs). If this is the case, advise
+them to do so, provide links to useful information, and offer to arrange help if
+they need it. Some useful links:</p><ul><li><a href="/docs/contribute/new-content/open-a-pr/#squashing-commits">Opening pull requests and squashing your commits</a>
+for documentation contributors.</li><li><a href="https://www.k8s.dev/docs/guide/github-workflow/">GitHub Workflow</a>, including diagrams, for developers.</li></ul><p><strong>Squashing commits for contributors</strong>: If a contributor might have difficulty
+squashing commits or there is time pressure to merge a PR, you can perform the
+squash for them:</p><ul><li>The kubernetes/website repo is
+<a href="https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/configuring-commit-squashing-for-pull-requests">configured to allow squashing for pull request merges</a>.
+Simply select the <em>Squash commits</em> button.</li><li>In the PR, if the contributor enables maintainers to manage the PR, you can
+squash their commits and update their fork with the result. Before you squash,
+advise them to save and push their latest changes to the PR. After you squash,
+advise them to pull the squashed commit to their local clone.</li><li>You can get GitHub to squash the commits by using a label so that Tide / GitHub
+performs the squash or by clicking the <em>Squash commits</em> button when you merge the PR.</li></ul><p><strong>Advise contributors to avoid squashing</strong></p><ul><li>If one commit does something broken or unwise, and the last commit reverts this
+error, don't squash the commits. Even though the "Files changed" tab in the PR
+on GitHub and the Netlify preview will both look OK, merging this PR might create
+rebase or merge conflicts for other folks. Intervene as you see fit to avoid that
+risk to other contributors.</li></ul><p><strong>Never squash</strong></p><ul><li>If you're launching a localization or releasing the docs for a new version,
+you are merging in a branch that's not from a user's fork, <em>never squash the commits</em>.
+Not squashing is essential because you must maintain the commit history for those files.</li></ul></div>

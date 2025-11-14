@@ -1,0 +1,57 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Kubernetes API health endpoints</h1><p>The Kubernetes <a class="glossary-tooltip" title="Control plane component that serves the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/#kube-apiserver" target="_blank" aria-label="API server">API server</a> provides API endpoints to indicate the current status of the API server.
+This page describes these API endpoints and explains how you can use them.</p><h2 id="api-endpoints-for-health">API endpoints for health</h2><p>The Kubernetes API server provides 3 API endpoints (<code>healthz</code>, <code>livez</code> and <code>readyz</code>) to indicate the current status of the API server.
+The <code>healthz</code> endpoint is deprecated (since Kubernetes v1.16), and you should use the more specific <code>livez</code> and <code>readyz</code> endpoints instead.
+The <code>livez</code> endpoint can be used with the <code>--livez-grace-period</code> <a href="/docs/reference/command-line-tools-reference/kube-apiserver/">flag</a> to specify the startup duration.
+For a graceful shutdown you can specify the <code>--shutdown-delay-duration</code> <a href="/docs/reference/command-line-tools-reference/kube-apiserver/">flag</a> with the <code>/readyz</code> endpoint.
+Machines that check the <code>healthz</code>/<code>livez</code>/<code>readyz</code> of the API server should rely on the HTTP status code.
+A status code <code>200</code> indicates the API server is <code>healthy</code>/<code>live</code>/<code>ready</code>, depending on the called endpoint.
+The more verbose options shown below are intended to be used by human operators to debug their cluster or understand the state of the API server.</p><p>The following examples will show how you can interact with the health API endpoints.</p><p>For all endpoints, you can use the <code>verbose</code> parameter to print out the checks and their status.
+This can be useful for a human operator to debug the current status of the API server, it is not intended to be consumed by a machine:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -k https://localhost:6443/livez?verbose
+</span></span></code></pre></div><p>or from a remote host with authentication:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get --raw<span style="color:#666">=</span><span style="color:#b44">'/readyz?verbose'</span>
+</span></span></code></pre></div><p>The output will look like this:</p><pre><code>[+]ping ok
+[+]log ok
+[+]etcd ok
+[+]poststarthook/start-kube-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-status-available-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+healthz check passed
+</code></pre><p>The Kubernetes API server also supports to exclude specific checks.
+The query parameters can also be combined like in this example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -k <span style="color:#b44">'https://localhost:6443/readyz?verbose&amp;exclude=etcd'</span>
+</span></span></code></pre></div><p>The output show that the <code>etcd</code> check is excluded:</p><pre><code>[+]ping ok
+[+]log ok
+[+]etcd excluded: ok
+[+]poststarthook/start-kube-apiserver-admission-initializer ok
+[+]poststarthook/generic-apiserver-start-informers ok
+[+]poststarthook/start-apiextensions-informers ok
+[+]poststarthook/start-apiextensions-controllers ok
+[+]poststarthook/crd-informer-synced ok
+[+]poststarthook/bootstrap-controller ok
+[+]poststarthook/rbac/bootstrap-roles ok
+[+]poststarthook/scheduling/bootstrap-system-priority-classes ok
+[+]poststarthook/start-cluster-authentication-info-controller ok
+[+]poststarthook/start-kube-aggregator-informers ok
+[+]poststarthook/apiservice-registration-controller ok
+[+]poststarthook/apiservice-status-available-controller ok
+[+]poststarthook/kube-apiserver-autoregistration ok
+[+]autoregister-completion ok
+[+]poststarthook/apiservice-openapi-controller ok
+[+]shutdown ok
+healthz check passed
+</code></pre><h2 id="individual-health-checks">Individual health checks</h2><div class="feature-state-notice feature-alpha"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [alpha]</code></div><p>Each individual health check exposes an HTTP endpoint and can be checked individually.
+The schema for the individual health checks is <code>/livez/&lt;healthcheck-name&gt;</code> or <code>/readyz/&lt;healthcheck-name&gt;</code>, where <code>livez</code> and <code>readyz</code> can be used to indicate if you want to check the liveness or the readiness of the API server, respectively.
+The <code>&lt;healthcheck-name&gt;</code> path can be discovered using the <code>verbose</code> flag from above and take the path between <code>[+]</code> and <code>ok</code>.
+These individual health checks should not be consumed by machines but can be helpful for a human operator to debug a system:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>curl -k https://localhost:6443/livez/etcd
+</span></span></code></pre></div></div>

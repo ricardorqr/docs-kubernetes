@@ -1,0 +1,71 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Adding entries to Pod /etc/hosts with HostAliases</h1><p>Adding entries to a Pod's <code>/etc/hosts</code> file provides Pod-level override of hostname resolution when DNS and other options are not applicable. You can add these custom entries with the HostAliases field in PodSpec.</p><p>The Kubernetes project recommends modifying DNS configuration using the <code>hostAliases</code> field
+(part of the <code>.spec</code> for a Pod), and not by using an init container or other means to edit <code>/etc/hosts</code>
+directly.
+Change made in other ways may be overwritten by the kubelet during Pod creation or restart.</p><h2 id="default-hosts-file-content">Default hosts file content</h2><p>Start an Nginx Pod which is assigned a Pod IP:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl run nginx --image nginx
+</span></span></code></pre></div><pre tabindex="0"><code>pod/nginx created
+</code></pre><p>Examine a Pod IP:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods --output<span style="color:#666">=</span>wide
+</span></span></code></pre></div><pre tabindex="0"><code>NAME     READY     STATUS    RESTARTS   AGE    IP           NODE
+nginx    1/1       Running   0          13s    10.200.0.4   worker0
+</code></pre><p>The hosts file content would look like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> nginx -- cat /etc/hosts
+</span></span></code></pre></div><pre tabindex="0"><code># Kubernetes-managed hosts file.
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+fe00::0	ip6-localnet
+fe00::0	ip6-mcastprefix
+fe00::1	ip6-allnodes
+fe00::2	ip6-allrouters
+10.200.0.4	nginx
+</code></pre><p>By default, the <code>hosts</code> file only includes IPv4 and IPv6 boilerplates like
+<code>localhost</code> and its own hostname.</p><h2 id="adding-additional-entries-with-hostaliases">Adding additional entries with hostAliases</h2><p>In addition to the default boilerplate, you can add additional entries to the
+<code>hosts</code> file.
+For example: to resolve <code>foo.local</code>, <code>bar.local</code> to <code>127.0.0.1</code> and <code>foo.remote</code>,
+<code>bar.remote</code> to <code>10.1.2.3</code>, you can configure HostAliases for a Pod under
+<code>.spec.hostAliases</code>:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/networking/hostaliases-pod.yaml" download="service/networking/hostaliases-pod.yaml"><code>service/networking/hostaliases-pod.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-networking-hostaliases-pod-yaml&quot;)" title="Copy service/networking/hostaliases-pod.yaml to clipboard"/></div><div class="includecode" id="service-networking-hostaliases-pod-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>hostaliases-pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>Never<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">hostAliases</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">ip</span>:<span style="color:#bbb"> </span><span style="color:#b44">"127.0.0.1"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">hostnames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"foo.local"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"bar.local"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">ip</span>:<span style="color:#bbb"> </span><span style="color:#b44">"10.1.2.3"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">hostnames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"foo.remote"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"bar.remote"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>cat-hosts<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- cat<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:#b44">"/etc/hosts"</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>You can start a Pod with that configuration by running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/service/networking/hostaliases-pod.yaml
+</span></span></code></pre></div><pre tabindex="0"><code>pod/hostaliases-pod created
+</code></pre><p>Examine a Pod's details to see its IPv4 address and its status:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pod --output<span style="color:#666">=</span>wide
+</span></span></code></pre></div><pre tabindex="0"><code>NAME                           READY     STATUS      RESTARTS   AGE       IP              NODE
+hostaliases-pod                0/1       Completed   0          6s        10.200.0.5      worker0
+</code></pre><p>The <code>hosts</code> file content looks like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs hostaliases-pod
+</span></span></code></pre></div><pre tabindex="0"><code># Kubernetes-managed hosts file.
+127.0.0.1	localhost
+::1	localhost ip6-localhost ip6-loopback
+fe00::0	ip6-localnet
+fe00::0	ip6-mcastprefix
+fe00::1	ip6-allnodes
+fe00::2	ip6-allrouters
+10.200.0.5	hostaliases-pod
+
+# Entries added by HostAliases.
+127.0.0.1	foo.local	bar.local
+10.1.2.3	foo.remote	bar.remote
+</code></pre><p>with the additional entries specified at the bottom.</p><h2 id="why-does-kubelet-manage-the-hosts-file">Why does the kubelet manage the hosts file?</h2><p>The kubelet manages the
+<code>hosts</code> file for each container of the Pod to prevent the container runtime from
+modifying the file after the containers have already been started.
+Historically, Kubernetes always used Docker Engine as its container runtime, and Docker Engine would
+then modify the <code>/etc/hosts</code> file after each container had started.</p><p>Current Kubernetes can use a variety of container runtimes; even so, the kubelet manages the
+hosts file within each container so that the outcome is as intended regardless of which
+container runtime you use.</p><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4><p>Avoid making manual changes to the hosts file inside a container.</p><p>If you make manual changes to the hosts file,
+those changes are lost when the container exits.</p></div></div>

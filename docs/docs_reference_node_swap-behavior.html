@@ -1,0 +1,6 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Linux Node Swap Behaviors</h1><p>To allow Kubernetes workloads to use swap, on a Linux node,
+you must disable the kubelet's default behavior of failing when swap is detected,
+and specify memory-swap behavior as <code>LimitedSwap</code>:</p><p>The available choices for swap behavior are:</p><dl><dt><code>NoSwap</code></dt><dd>(default) Workloads running as Pods on this node do not and cannot use swap. However, processes
+outside of Kubernetes' scope, such as system daemons (including the kubelet itself!) <strong>can</strong> utilize swap.
+This behavior is beneficial for protecting the node from system-level memory spikes,
+but it does not safeguard the workloads themselves from such spikes.</dd><dt><code>LimitedSwap</code></dt><dd>Kubernetes workloads can utilize swap memory. The amount of swap available to a Pod is determined automatically.</dd></dl><p>To learn more, read <a href="/docs/concepts/cluster-administration/swap-memory-management/">swap memory management</a>.</p></div>

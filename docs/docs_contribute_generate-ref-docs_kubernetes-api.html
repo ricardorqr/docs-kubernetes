@@ -1,0 +1,67 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Generating Reference Documentation for the Kubernetes API</h1><p>This page shows how to update the Kubernetes API reference documentation.</p><p>The Kubernetes API reference documentation is built from the
+<a href="https://github.com/kubernetes/kubernetes/blob/master/api/openapi-spec/swagger.json">Kubernetes OpenAPI spec</a>
+using the <a href="https://github.com/kubernetes-sigs/reference-docs">kubernetes-sigs/reference-docs</a> generation code.</p><p>If you find bugs in the generated documentation, you need to
+<a href="/docs/contribute/generate-ref-docs/contribute-upstream/">fix them upstream</a>.</p><p>If you need only to regenerate the reference documentation from the
+<a href="https://github.com/OAI/OpenAPI-Specification">OpenAPI</a>
+spec, continue reading this page.</p><h2 id="before-you-begin">Before you begin</h2><h3 id="requirements">Requirements:</h3><ul><li><p>You need a machine that is running Linux or macOS.</p></li><li><p>You need to have these tools installed:</p><ul><li><a href="https://www.python.org/downloads/">Python</a> v3.7.x+</li><li><a href="https://git-scm.com/book/en/v2/Getting-Started-Installing-Git">Git</a></li><li><a href="https://go.dev/dl/">Golang</a> version 1.13+</li><li><a href="https://pypi.org/project/pip/">Pip</a> used to install PyYAML</li><li><a href="https://pyyaml.org/">PyYAML</a> v5.1.2</li><li><a href="https://www.gnu.org/software/make/">make</a></li><li><a href="https://gcc.gnu.org/">gcc compiler/linker</a></li><li><a href="https://docs.docker.com/engine/installation/">Docker</a> (Required only for <code>kubectl</code> command reference)</li></ul></li><li><p>Your <code>PATH</code> environment variable must include the required build tools, such as the <code>Go</code> binary and <code>python</code>.</p></li><li><p>You need to know how to create a pull request to a GitHub repository.
+This involves creating your own fork of the repository. For more
+information, see <a href="/docs/contribute/new-content/open-a-pr/#fork-the-repo">Work from a local clone</a>.</p></li></ul><h2 id="set-up-the-local-repositories">Set up the local repositories</h2><p>Create a local workspace and set your <code>GOPATH</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>mkdir -p <span style="color:#b8860b">$HOME</span>/&lt;workspace&gt;
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">GOPATH</span><span style="color:#666">=</span><span style="color:#b8860b">$HOME</span>/&lt;workspace&gt;
+</span></span></code></pre></div><p>Get a local clone of the following repositories:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>git clone github.com/kubernetes-sigs/reference-docs
+</span></span></code></pre></div><p>Move into the <code>gen-apidocs</code> directory of the <code>reference-docs</code> repository and install the required Go packages:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>go get -u github.com/go-openapi/loads
+</span></span><span style="display:flex"><span>go get -u github.com/go-openapi/spec
+</span></span></code></pre></div><p>If you don't already have the kubernetes/website repository, get it now:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>git clone https://github.com/&lt;your-username&gt;/website 
+</span></span></code></pre></div><p>Get a clone of the kubernetes/kubernetes repository:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>git clone https://github.com/kubernetes/kubernetes 
+</span></span></code></pre></div><ul><li><p>The base directory of your clone of the
+<a href="https://github.com/kubernetes/kubernetes">kubernetes/kubernetes</a> repository is
+<code>&lt;your-path-to&gt;/kubernetes/kubernetes.</code>
+The remaining steps refer to your base directory as <code>&lt;k8s-base&gt;</code>.</p></li><li><p>The base directory of your clone of the
+<a href="https://github.com/kubernetes/website">kubernetes/website</a> repository is
+<code>&lt;your-path-to&gt;/website</code>.
+The remaining steps refer to your base directory as <code>&lt;web-base&gt;</code>.</p></li><li><p>The base directory of your clone of the
+<a href="https://github.com/kubernetes-sigs/reference-docs">kubernetes-sigs/reference-docs</a>
+repository is <code>&lt;your-path-to&gt;/reference-docs</code>.
+The remaining steps refer to your base directory as <code>&lt;rdocs-base&gt;</code>.</p></li></ul><h2 id="generate-the-api-reference-docs">Generate the API reference docs</h2><p>This section shows how to generate the
+<a href="/docs/reference/generated/kubernetes-api/v1.34/">published Kubernetes API reference documentation</a>.</p><h3 id="set-build-variables">Set build variables</h3><ul><li>Set <code>K8S_ROOT</code> to <code>&lt;k8s-base&gt;</code>.</li><li>Set <code>K8S_WEBROOT</code> to <code>&lt;web-base&gt;</code>.</li><li>Set <code>K8S_RELEASE</code> to the version of the docs you want to build.
+For example, if you want to build docs for Kubernetes 1.17.0, set <code>K8S_RELEASE</code> to 1.17.0.</li></ul><p>For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">K8S_WEBROOT</span><span style="color:#666">=</span>&lt;your-path-to&gt;/website
+</span></span><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">K8S_ROOT</span><span style="color:#666">=</span>&lt;your-path-to&gt;/kubernetes
+</span></span><span style="display:flex"><span><span style="color:#a2f">export</span> <span style="color:#b8860b">K8S_RELEASE</span><span style="color:#666">=</span>1.17.0
+</span></span></code></pre></div><h3 id="create-versioned-directory-and-fetch-open-api-spec">Create versioned directory and fetch Open API spec</h3><p>The <code>updateapispec</code> build target creates the versioned build directory.
+After the directory is created, the Open API spec is fetched from the
+<code>&lt;k8s-base&gt;</code> repository. These steps ensure that the version
+of the configuration files and Kubernetes Open API spec match the release version.
+The versioned directory name follows the pattern of <code>v&lt;major&gt;_&lt;minor&gt;</code>.</p><p>In the <code>&lt;rdocs-base&gt;</code> directory, run the following build target:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;rdocs-base&gt;
+</span></span><span style="display:flex"><span>make updateapispec
+</span></span></code></pre></div><h3 id="build-the-api-reference-docs">Build the API reference docs</h3><p>The <code>copyapi</code> target builds the API reference and
+copies the generated files to directories in <code>&lt;web-base&gt;</code>.
+Run the following command in <code>&lt;rdocs-base&gt;</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;rdocs-base&gt;
+</span></span><span style="display:flex"><span>make copyapi
+</span></span></code></pre></div><p>Verify that these two files have been generated:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#666">[</span> -e <span style="color:#b44">"&lt;rdocs-base&gt;/gen-apidocs/build/index.html"</span> <span style="color:#666">]</span> <span style="color:#666">&amp;&amp;</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"index.html built"</span> <span style="color:#666">||</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"no index.html"</span>
+</span></span><span style="display:flex"><span><span style="color:#666">[</span> -e <span style="color:#b44">"&lt;rdocs-base&gt;/gen-apidocs/build/navData.js"</span> <span style="color:#666">]</span> <span style="color:#666">&amp;&amp;</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"navData.js built"</span> <span style="color:#666">||</span> <span style="color:#a2f">echo</span> <span style="color:#b44">"no navData.js"</span>
+</span></span></code></pre></div><p>Go to the base of your local <code>&lt;web-base&gt;</code>, and
+view which files have been modified:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;web-base&gt;
+</span></span><span style="display:flex"><span>git status
+</span></span></code></pre></div><p>The output is similar to:</p><pre tabindex="0"><code>static/docs/reference/generated/kubernetes-api/v1.34/css/bootstrap.min.css
+static/docs/reference/generated/kubernetes-api/v1.34/css/font-awesome.min.css
+static/docs/reference/generated/kubernetes-api/v1.34/css/stylesheet.css
+static/docs/reference/generated/kubernetes-api/v1.34/fonts/FontAwesome.otf
+static/docs/reference/generated/kubernetes-api/v1.34/fonts/fontawesome-webfont.eot
+static/docs/reference/generated/kubernetes-api/v1.34/fonts/fontawesome-webfont.svg
+static/docs/reference/generated/kubernetes-api/v1.34/fonts/fontawesome-webfont.ttf
+static/docs/reference/generated/kubernetes-api/v1.34/fonts/fontawesome-webfont.woff
+static/docs/reference/generated/kubernetes-api/v1.34/fonts/fontawesome-webfont.woff2
+static/docs/reference/generated/kubernetes-api/v1.34/index.html
+static/docs/reference/generated/kubernetes-api/v1.34/js/jquery.scrollTo.min.js
+static/docs/reference/generated/kubernetes-api/v1.34/js/navData.js
+static/docs/reference/generated/kubernetes-api/v1.34/js/scroll.js
+</code></pre><h2 id="api-reference-location-and-versioning">API reference location and versioning</h2><p>The generated API reference files (HTML version) are copied to <code>&lt;web-base&gt;/static/docs/reference/generated/kubernetes-api/v1.34/</code>. This directory contains the standalone HTML API documentation.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The Markdown version of the API reference located at <code>&lt;web-base&gt;/content/en/docs/reference/kubernetes-api/</code>
+is generated separately using the <a href="https://github.com/kubernetes-sigs/reference-docs/tree/master/gen-resourcesdocs">gen-resourcesdocs</a> generator.</div><h2 id="locally-test-the-api-reference">Locally test the API reference</h2><p>Publish a local version of the API reference.
+Verify the <a href="http://localhost:1313/docs/reference/generated/kubernetes-api/v1.34/">local preview</a>.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#a2f">cd</span> &lt;web-base&gt;
+</span></span><span style="display:flex"><span>git submodule update --init --recursive --depth <span style="color:#666">1</span> <span style="color:#080;font-style:italic"># if not already done</span>
+</span></span><span style="display:flex"><span>make container-serve
+</span></span></code></pre></div><h2 id="commit-the-changes">Commit the changes</h2><p>In <code>&lt;web-base&gt;</code>, run <code>git add</code> and <code>git commit</code> to commit the change.</p><p>Submit your changes as a
+<a href="/docs/contribute/new-content/open-a-pr/">pull request</a> to the
+<a href="https://github.com/kubernetes/website">kubernetes/website</a> repository.
+Monitor your pull request, and respond to reviewer comments as needed. Continue
+to monitor your pull request until it has been merged.</p><h2 id="what-s-next">What's next</h2><ul><li><a href="/docs/contribute/generate-ref-docs/quickstart/">Generating Reference Documentation Quickstart</a></li><li><a href="/docs/contribute/generate-ref-docs/kubernetes-components/">Generating Reference Docs for Kubernetes Components and Tools</a></li><li><a href="/docs/contribute/generate-ref-docs/kubectl/">Generating Reference Documentation for kubectl Commands</a></li></ul></div>

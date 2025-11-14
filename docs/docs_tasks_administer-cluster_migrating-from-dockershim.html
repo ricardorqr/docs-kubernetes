@@ -1,0 +1,19 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Migrating from dockershim</h1><p>This section presents information you need to know when migrating from
+dockershim to other container runtimes.</p><p>Since the announcement of <a href="/blog/2020/12/08/kubernetes-1-20-release-announcement/#dockershim-deprecation">dockershim deprecation</a>
+in Kubernetes 1.20, there were questions on how this will affect various workloads and Kubernetes
+installations. Our <a href="/blog/2022/02/17/dockershim-faq/">Dockershim Removal FAQ</a> is there to help you
+to understand the problem better.</p><p>Dockershim was removed from Kubernetes with the release of v1.24.
+If you use Docker Engine via dockershim as your container runtime and wish to upgrade to v1.24,
+it is recommended that you either migrate to another runtime or find an alternative means to obtain Docker Engine support.
+Check out the <a href="/docs/setup/production-environment/container-runtimes/">container runtimes</a>
+section to know your options.</p><p>The version of Kubernetes with dockershim (1.23) is out of support and the v1.24
+will run out of support <a href="/releases/#release-v1-24">soon</a>. Make sure to
+<a href="https://github.com/kubernetes/kubernetes/issues">report issues</a> you encountered
+with the migration so the issues can be fixed in a timely manner and your cluster would be
+ready for dockershim removal. After v1.24 running out of support, you will need
+to contact your Kubernetes provider for support or upgrade multiple versions at a time
+if there are critical issues affecting your cluster.</p><p>Your cluster might have more than one kind of node, although this is not a common
+configuration.</p><p>These tasks will help you to migrate:</p><ul><li><a href="/docs/tasks/administer-cluster/migrating-from-dockershim/check-if-dockershim-removal-affects-you/">Check whether Dockershim removal affects you</a></li><li><a href="/docs/tasks/administer-cluster/migrating-from-dockershim/migrating-telemetry-and-security-agents/">Migrating telemetry and security agents from dockershim</a></li></ul><h2 id="what-s-next">What's next</h2><ul><li>Check out <a href="/docs/setup/production-environment/container-runtimes/">container runtimes</a>
+to understand your options for an alternative.</li><li>If you find a defect or other technical concern relating to migrating away from dockershim,
+you can <a href="https://github.com/kubernetes/kubernetes/issues/new/choose">report an issue</a>
+to the Kubernetes project.</li></ul><div class="section-index"/></div>

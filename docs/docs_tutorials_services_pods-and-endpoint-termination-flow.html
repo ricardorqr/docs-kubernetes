@@ -1,0 +1,127 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Explore Termination Behavior for Pods And Their Endpoints</h1><p>Once you connected your Application with Service following steps
+like those outlined in <a href="/docs/tutorials/services/connect-applications-service/">Connecting Applications with Services</a>,
+you have a continuously running, replicated application, that is exposed on a network.
+This tutorial helps you look at the termination flow for Pods and to explore ways to implement
+graceful connection draining.</p><h2 id="termination-process-for-pods-and-their-endpoints">Termination process for Pods and their endpoints</h2><p>There are often cases when you need to terminate a Pod - be it to upgrade or scale down.
+In order to improve application availability, it may be important to implement
+a proper active connections draining.</p><p>This tutorial explains the flow of Pod termination in connection with the
+corresponding endpoint state and removal by using
+a simple nginx web server to demonstrate the concept.</p><h2 id="example-flow-with-endpoint-termination">Example flow with endpoint termination</h2><p>The following is the example flow described in the
+<a href="/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination">Termination of Pods</a>
+document.</p><p>Let's say you have a Deployment containing a single <code>nginx</code> replica
+(say just for the sake of demonstration purposes) and a Service:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/pod-with-graceful-termination.yaml" download="service/pod-with-graceful-termination.yaml"><code>service/pod-with-graceful-termination.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-pod-with-graceful-termination-yaml&quot;)" title="Copy service/pod-with-graceful-termination.yaml to clipboard"/></div><div class="includecode" id="service-pod-with-graceful-termination-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>apps/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx-deployment<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">replicas</span>:<span style="color:#bbb"> </span><span style="color:#666">1</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">matchLabels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">template</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">terminationGracePeriodSeconds</span>:<span style="color:#bbb"> </span><span style="color:#666">120</span><span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># extra long grace period</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx:latest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- <span style="color:green;font-weight:700">containerPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">lifecycle</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">          </span><span style="color:green;font-weight:700">preStop</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">            </span><span style="color:green;font-weight:700">exec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:#080;font-style:italic"># Real life termination may take any time up to terminationGracePeriodSeconds.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:#080;font-style:italic"># In this example - just hang around for at least the duration of terminationGracePeriodSeconds,</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:#080;font-style:italic"># at 120 seconds container will be forcibly terminated.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:#080;font-style:italic"># Note, all this time nginx will keep processing requests.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">                </span><span style="color:#b44">"/bin/sh"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"-c"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"sleep 180"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">              </span>]<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/service/explore-graceful-termination-nginx.yaml" download="service/explore-graceful-termination-nginx.yaml"><code>service/explore-graceful-termination-nginx.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;service-explore-graceful-termination-nginx-yaml&quot;)" title="Copy service/explore-graceful-termination-nginx.yaml to clipboard"/></div><div class="includecode" id="service-explore-graceful-termination-nginx-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx-service<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">selector</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">app</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">ports</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span>- <span style="color:green;font-weight:700">protocol</span>:<span style="color:#bbb"> </span>TCP<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">port</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">targetPort</span>:<span style="color:#bbb"> </span><span style="color:#666">80</span></span></span></code></pre></div></div></div><p>Now create the Deployment Pod and Service using the above files:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f pod-with-graceful-termination.yaml
+</span></span><span style="display:flex"><span>kubectl apply -f explore-graceful-termination-nginx.yaml
+</span></span></code></pre></div><p>Once the Pod and Service are running, you can get the name of any associated EndpointSlices:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get endpointslice
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">NAME                  ADDRESSTYPE   PORTS   ENDPOINTS                 AGE
+nginx-service-6tjbr   IPv4          80      10.12.1.199,10.12.1.201   22m
+</code></pre><p>You can see its status, and validate that there is one endpoint registered:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get endpointslices -o json -l kubernetes.io/service-name<span style="color:#666">=</span>nginx-service
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">{
+    "addressType": "IPv4",
+    "apiVersion": "discovery.k8s.io/v1",
+    "endpoints": [
+        {
+            "addresses": [
+                "10.12.1.201"
+            ],
+            "conditions": {
+                "ready": true,
+                "serving": true,
+                "terminating": false
+</code></pre><p>Now let's terminate the Pod and validate that the Pod is being terminated
+respecting the graceful termination period configuration:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl delete pod nginx-deployment-7768647bf9-b4b9s
+</span></span></code></pre></div><p>All pods:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">NAME                                READY   STATUS        RESTARTS      AGE
+nginx-deployment-7768647bf9-b4b9s   1/1     Terminating   0             4m1s
+nginx-deployment-7768647bf9-rkxlw   1/1     Running       0             8s
+</code></pre><p>You can see that the new pod got scheduled.</p><p>While the new endpoint is being created for the new Pod, the old endpoint is
+still around in the terminating state:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get endpointslice -o json nginx-service-6tjbr
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">{
+    "addressType": "IPv4",
+    "apiVersion": "discovery.k8s.io/v1",
+    "endpoints": [
+        {
+            "addresses": [
+                "10.12.1.201"
+            ],
+            "conditions": {
+                "ready": false,
+                "serving": true,
+                "terminating": true
+            },
+            "nodeName": "gke-main-default-pool-dca1511c-d17b",
+            "targetRef": {
+                "kind": "Pod",
+                "name": "nginx-deployment-7768647bf9-b4b9s",
+                "namespace": "default",
+                "uid": "66fa831c-7eb2-407f-bd2c-f96dfe841478"
+            },
+            "zone": "us-central1-c"
+        },
+        {
+            "addresses": [
+                "10.12.1.202"
+            ],
+            "conditions": {
+                "ready": true,
+                "serving": true,
+                "terminating": false
+            },
+            "nodeName": "gke-main-default-pool-dca1511c-d17b",
+            "targetRef": {
+                "kind": "Pod",
+                "name": "nginx-deployment-7768647bf9-rkxlw",
+                "namespace": "default",
+                "uid": "722b1cbe-dcd7-4ed4-8928-4a4d0e2bbe35"
+            },
+            "zone": "us-central1-c"
+</code></pre><p>This allows applications to communicate their state during termination
+and clients (such as load balancers) to implement connection draining functionality.
+These clients may detect terminating endpoints and implement a special logic for them.</p><p>In Kubernetes, endpoints that are terminating always have their <code>ready</code> status set as <code>false</code>.
+This needs to happen for backward
+compatibility, so existing load balancers will not use it for regular traffic.
+If traffic draining on terminating pod is needed, the actual readiness can be
+checked as a condition <code>serving</code>.</p><p>When Pod is deleted, the old endpoint will also be deleted.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn how to <a href="/docs/tutorials/services/connect-applications-service/">Connect Applications with Services</a></li><li>Learn more about <a href="/docs/tasks/access-application-cluster/service-access-application-cluster/">Using a Service to Access an Application in a Cluster</a></li><li>Learn more about <a href="/docs/tasks/access-application-cluster/connecting-frontend-backend/">Connecting a Front End to a Back End Using a Service</a></li><li>Learn more about <a href="/docs/tasks/access-application-cluster/create-external-load-balancer/">Creating an External Load Balancer</a></li></ul></div>

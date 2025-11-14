@@ -1,0 +1,245 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Localizing Kubernetes documentation</h1><p>This page shows you how to
+<a href="https://blog.mozilla.org/l10n/2011/12/14/i18n-vs-l10n-whats-the-diff/">localize</a>
+the docs for a different language.</p><h2 id="contribute-to-an-existing-localization">Contribute to an existing localization</h2><p>You can help add or improve the content of an existing localization. In
+<a href="https://slack.k8s.io/">Kubernetes Slack</a>, you can find a channel for each
+localization. There is also a general
+<a href="https://kubernetes.slack.com/messages/sig-docs-localizations">SIG Docs Localizations Slack channel</a>
+where you can say hello.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>For extra details on how to contribute to a specific localization,
+look for a localized version of this page.</div><h3 id="find-your-two-letter-language-code">Find your two-letter language code</h3><p>First, consult the
+<a href="https://www.loc.gov/standards/iso639-2/php/code_list.php">ISO 639-1 standard</a>
+to find your localization's two-letter language code. For example, the two-letter code for
+Korean is <code>ko</code>.</p><p>Some languages use a lowercase version of the country code as defined by the
+ISO-3166 along with their language codes. For example, the Brazilian Portuguese
+language code is <code>pt-br</code>.</p><h3 id="fork-and-clone-the-repo">Fork and clone the repo</h3><p>First, <a href="/docs/contribute/new-content/open-a-pr/#fork-the-repo">create your own fork</a> of the
+<a href="https://github.com/kubernetes/website">kubernetes/website</a> repository.</p><p>Then, clone your fork and <code>cd</code> into it:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>git clone https://github.com/&lt;username&gt;/website
+</span></span><span style="display:flex"><span><span style="color:#a2f">cd</span> website
+</span></span></code></pre></div><p>The website content directory includes subdirectories for each language. The
+localization you want to help out with is inside <code>content/&lt;two-letter-code&gt;</code>.</p><h3 id="suggest-changes">Suggest changes</h3><p>Create or update your chosen localized page based on the English original. See
+<a href="#localize-content">localize content</a> for more details.</p><p>If you notice a technical inaccuracy or other problem with the upstream
+(English) documentation, you should fix the upstream documentation first and
+then repeat the equivalent fix by updating the localization you're working on.</p><p>Limit changes in a pull requests to a single localization. Reviewing pull
+requests that change content in multiple localizations is problematic.</p><p>Follow <a href="/docs/contribute/suggesting-improvements/">Suggesting Content Improvements</a>
+to propose changes to that localization. The process is similar to proposing
+changes to the upstream (English) content.</p><h2 id="start-a-new-localization">Start a new localization</h2><p>If you want the Kubernetes documentation localized into a new language, here's
+what you need to do.</p><p>Because contributors can't approve their own pull requests, you need <em>at least
+two contributors</em> to begin a localization.</p><p>All localization teams must be self-sufficient. The Kubernetes website is happy
+to host your work, but it's up to you to translate it and keep existing
+localized content current.</p><p>You'll need to know the two-letter language code for your language. Consult the
+<a href="https://www.loc.gov/standards/iso639-2/php/code_list.php">ISO 639-1 standard</a>
+to find your localization's two-letter language code. For example, the
+two-letter code for Korean is <code>ko</code>.</p><p>If the language you are starting a localization for is spoken in various places
+with significant differences between the variants, it might make sense to
+combine the lowercased ISO-3166 country code with the language two-letter code.
+For example, Brazilian Portuguese is localized as <code>pt-br</code>.</p><p>When you start a new localization, you must localize all the
+<a href="#minimum-required-content">minimum required content</a> before
+the Kubernetes project can publish your changes to the live
+website.</p><p>SIG Docs can help you work on a separate branch so that you
+can incrementally work towards that goal.</p><h3 id="find-community">Find community</h3><p>Let Kubernetes SIG Docs know you're interested in creating a localization! Join
+the <a href="https://kubernetes.slack.com/messages/sig-docs">SIG Docs Slack channel</a> and
+the <a href="https://kubernetes.slack.com/messages/sig-docs-localizations">SIG Docs Localizations Slack channel</a>.
+Other localization teams are happy to help you get started and answer your
+questions.</p><p>Please also consider participating in the
+<a href="https://github.com/kubernetes/community/tree/master/sig-docs">SIG Docs Localization Subgroup meeting</a>.
+The mission of the SIG Docs localization subgroup is to work across the SIG Docs
+localization teams to collaborate on defining and documenting the processes for
+creating localized contribution guides. In addition, the SIG Docs localization
+subgroup looks for opportunities to create and share common tools across
+localization teams and identify new requirements for the SIG Docs Leadership
+team. If you have questions about this meeting, please inquire on the
+<a href="https://kubernetes.slack.com/messages/sig-docs-localizations">SIG Docs Localizations Slack channel</a>.</p><p>You can also create a Slack channel for your localization in the
+<code>kubernetes/community</code> repository. For an example of adding a Slack channel, see
+the PR for <a href="https://github.com/kubernetes/community/pull/4980">adding a channel for Persian</a>.</p><h3 id="join-the-kubernetes-github-organization">Join the Kubernetes GitHub organization</h3><p>When you've opened a localization PR, you can become members of the Kubernetes
+GitHub organization. Each person on the team needs to create their own
+<a href="https://github.com/kubernetes/org/issues/new/choose">Organization Membership Request</a>
+in the <code>kubernetes/org</code> repository.</p><h3 id="add-your-localization-team-in-github">Add your localization team in GitHub</h3><p>Next, add your Kubernetes localization team to
+<a href="https://github.com/kubernetes/org/blob/main/config/kubernetes/sig-docs/teams.yaml"><code>sig-docs/teams.yaml</code></a>.
+For an example of adding a localization team, see the PR to add the
+<a href="https://github.com/kubernetes/org/pull/685">Spanish localization team</a>.</p><p>Members of <code>@kubernetes/sig-docs-**-owners</code> can approve PRs that change content
+within (and only within) your localization directory: <code>/content/**/</code>. For each
+localization, The <code>@kubernetes/sig-docs-**-reviews</code> team automates review
+assignments for new PRs. Members of <code>@kubernetes/website-maintainers</code> can create
+new localization branches to coordinate translation efforts. Members of
+<code>@kubernetes/website-milestone-maintainers</code> can use the <code>/milestone</code>
+<a href="https://prow.k8s.io/command-help">Prow command</a> to assign a milestone to issues or PRs.</p><h3 id="configure-the-workflow">Configure the workflow</h3><p>Next, add a GitHub label for your localization in the <code>kubernetes/test-infra</code>
+repository. A label lets you filter issues and pull requests for your specific
+language.</p><p>For an example of adding a label, see the PR for adding the
+<a href="https://github.com/kubernetes/test-infra/pull/11316">Italian language label</a>.</p><h3 id="modify-the-site-configuration">Modify the site configuration</h3><p>The Kubernetes website uses Hugo as its web framework. The website's Hugo
+configuration resides in the
+<a href="https://github.com/kubernetes/website/tree/main/hugo.toml"><code>hugo.toml</code></a>
+file. You'll need to modify <code>hugo.toml</code> to support a new localization.</p><p>Add a configuration block for the new language to <code>hugo.toml</code> under the
+existing <code>[languages]</code> block. The German block, for example, looks like:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml"><span style="display:flex"><span>[languages.de]
+</span></span><span style="display:flex"><span>title = <span style="color:#b44">"Kubernetes"</span>
+</span></span><span style="display:flex"><span>languageName = <span style="color:#b44">"Deutsch (German)"</span>
+</span></span><span style="display:flex"><span>weight = <span style="color:#666">5</span>
+</span></span><span style="display:flex"><span>contentDir = <span style="color:#b44">"content/de"</span>
+</span></span><span style="display:flex"><span>languagedirection = <span style="color:#b44">"ltr"</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span>[languages.de.params]
+</span></span><span style="display:flex"><span>time_format_blog = <span style="color:#b44">"02.01.2006"</span>
+</span></span><span style="display:flex"><span>language_alternatives = [<span style="color:#b44">"en"</span>]
+</span></span><span style="display:flex"><span>description = <span style="color:#b44">"Produktionsreife Container-Orchestrierung"</span>
+</span></span><span style="display:flex"><span>languageNameLatinScript = <span style="color:#b44">"Deutsch"</span>
+</span></span></code></pre></div><p>The language selection bar lists the value for <code>languageName</code>. Assign "language
+name in native script and language (English language name in Latin script)" to
+<code>languageName</code>. For example, <code>languageName = "한국어 (Korean)"</code> or <code>languageName = "Deutsch (German)"</code>.</p><p><code>languageNameLatinScript</code> can be used to access the language name in Latin
+script and use it in the theme. Assign "language name in latin script" to
+<code>languageNameLatinScript</code>. For example, <code>languageNameLatinScript ="Korean"</code> or
+<code>languageNameLatinScript = "Deutsch"</code>.</p><p>The <code>weight</code> parameter determines the order of languages in the language selection bar.
+A lower weight takes precedence, resulting in the language appearing first.
+When assigning the <code>weight</code> parameter, it is important to examine the existing languages
+block and adjust their weights to ensure they are in a sorted order relative to all languages,
+including any newly added language.</p><p>For more information about Hugo's multilingual support, see
+"<a href="https://gohugo.io/content-management/multilingual/">Multilingual Mode</a>".</p><h3 id="add-a-new-localization-directory">Add a new localization directory</h3><p>Add a language-specific subdirectory to the
+<a href="https://github.com/kubernetes/website/tree/main/content"><code>content</code></a> folder in
+the repository. For example, the two-letter code for German is <code>de</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>mkdir content/de
+</span></span></code></pre></div><p>You also need to create a directory inside <code>i18n</code> for
+<a href="#site-strings-in-i18n">localized strings</a>; look at existing localizations
+for an example.</p><p>For example, for German the strings live in <code>i18n/de/de.toml</code>.</p><h3 id="localize-the-community-code-of-conduct">Localize the community code of conduct</h3><p>Open a PR against the
+<a href="https://github.com/cncf/foundation/tree/main/code-of-conduct-languages"><code>cncf/foundation</code></a>
+repository to add the code of conduct in your language.</p><h3 id="set-up-the-owners-files">Set up the OWNERS files</h3><p>To set the roles of each user contributing to the localization, create an
+<code>OWNERS</code> file inside the language-specific subdirectory with:</p><ul><li><strong>reviewers</strong>: A list of kubernetes teams with reviewer roles, in this case,</li><li>the <code>sig-docs-**-reviews</code> team created in <a href="#add-your-localization-team-in-github">Add your localization team in GitHub</a>.</li><li><strong>approvers</strong>: A list of kubernetes teams with approvers roles, in this case,</li><li>the <code>sig-docs-**-owners</code> team created in <a href="#add-your-localization-team-in-github">Add your localization team in GitHub</a>.</li><li><strong>labels</strong>: A list of GitHub labels to automatically apply to a PR, in this
+case, the language label created in <a href="#configure-the-workflow">Configure the workflow</a>.</li></ul><p>More information about the <code>OWNERS</code> file can be found at
+<a href="https://go.k8s.io/owners">go.k8s.io/owners</a>.</p><p>The <a href="https://git.k8s.io/website/content/es/OWNERS">Spanish OWNERS file</a>, with
+language code <code>es</code>, looks like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#080;font-style:italic"># See the OWNERS docs at https://go.k8s.io/owners</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># This is the localization project for Spanish.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#080;font-style:italic"># Teams and members are visible at https://github.com/orgs/kubernetes/teams.</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">reviewers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- sig-docs-es-reviews<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">approvers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- sig-docs-es-owners<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- area/localization<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- language/es<span style="color:#bbb">
+</span></span></span></code></pre></div><p>After adding the language-specific <code>OWNERS</code> file, update the <a href="https://git.k8s.io/website/OWNERS_ALIASES">root
+<code>OWNERS_ALIASES</code></a> file with the new
+Kubernetes teams for the localization, <code>sig-docs-**-owners</code> and
+<code>sig-docs-**-reviews</code>.</p><p>For each team, add the list of GitHub users requested in
+<a href="#add-your-localization-team-in-github">Add your localization team in GitHub</a>,
+in alphabetical order.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-diff" data-lang="diff"><span style="display:flex"><span><span style="color:#a00000">--- a/OWNERS_ALIASES
+</span></span></span><span style="display:flex"><span><span style="color:#a00000"/><span style="color:#00a000">+++ b/OWNERS_ALIASES
+</span></span></span><span style="display:flex"><span><span style="color:#00a000"/><span style="color:purple;font-weight:700">@@ -48,6 +48,14 @@ aliases:
+</span></span></span><span style="display:flex"><span><span style="color:purple;font-weight:700"/>     - stewart-yu
+</span></span><span style="display:flex"><span>     - xiangpengzhao
+</span></span><span style="display:flex"><span>     - zhangxiaoyu-zidif
+</span></span><span style="display:flex"><span><span style="color:#00a000">+  sig-docs-es-owners: # Admins for Spanish content
+</span></span></span><span style="display:flex"><span><span style="color:#00a000">+    - alexbrand
+</span></span></span><span style="display:flex"><span><span style="color:#00a000">+    - raelga
+</span></span></span><span style="display:flex"><span><span style="color:#00a000">+  sig-docs-es-reviews: # PR reviews for Spanish content
+</span></span></span><span style="display:flex"><span><span style="color:#00a000">+    - alexbrand
+</span></span></span><span style="display:flex"><span><span style="color:#00a000">+    - electrocucaracha
+</span></span></span><span style="display:flex"><span><span style="color:#00a000">+    - glo-pena
+</span></span></span><span style="display:flex"><span><span style="color:#00a000">+    - raelga
+</span></span></span><span style="display:flex"><span><span style="color:#00a000"/>   sig-docs-fr-owners: # Admins for French content
+</span></span><span style="display:flex"><span>     - perriea
+</span></span><span style="display:flex"><span>     - remyleone
+</span></span></code></pre></div><h3 id="open-a-pull-request">Open a pull request</h3><p>Next, <a href="/docs/contribute/new-content/open-a-pr/#open-a-pr">open a pull request</a>
+(PR) to add a localization to the <code>kubernetes/website</code> repository. The PR must
+include all the <a href="#minimum-required-content">minimum required content</a> before it
+can be approved.</p><p>For an example of adding a new localization, see the PR to enable
+<a href="https://github.com/kubernetes/website/pull/12548">docs in French</a>.</p><h3 id="add-a-localized-readme-file">Add a localized README file</h3><p>To guide other localization contributors, add a new
+<a href="https://help.github.com/articles/about-readmes/"><code>README-**.md</code></a> to the top
+level of <a href="https://github.com/kubernetes/website/">kubernetes/website</a>, where
+<code>**</code> is the two-letter language code. For example, a German README file would be
+<code>README-de.md</code>.</p><p>Guide localization contributors in the localized <code>README-**.md</code> file.
+Include the same information contained in <code>README.md</code> as well as:</p><ul><li>A point of contact for the localization project</li><li>Any information specific to the localization</li></ul><p>After you create the localized README, add a link to the file from the main
+English <code>README.md</code>, and include contact information in English. You can provide
+a GitHub ID, email address, <a href="https://slack.com/">Slack channel</a>, or another
+method of contact. You must also provide a link to your localized Community Code
+of Conduct.</p><h3 id="launch-your-new-localization">Launch your new localization</h3><p>When a localization meets the requirements for workflow and minimum output, SIG
+Docs does the following:</p><ul><li>Enables language selection on the website.</li><li>Publicizes the localization's availability through
+<a href="https://www.cncf.io/about/">Cloud Native Computing Foundation</a>(CNCF)
+channels, including the <a href="/blog/">Kubernetes blog</a>.</li></ul><h2 id="localize-content">Localize content</h2><p>Localizing <em>all</em> the Kubernetes documentation is an enormous task. It's okay to
+start small and expand over time.</p><h3 id="minimum-required-content">Minimum required content</h3><p>At a minimum, all localizations must include:</p><table><thead><tr><th>Description</th><th>URLs</th></tr></thead><tbody><tr><td>Home</td><td><a href="/docs/home/">All heading and subheading URLs</a></td></tr><tr><td>Setup</td><td><a href="/docs/setup/">All heading and subheading URLs</a></td></tr><tr><td>Tutorials</td><td><a href="/docs/tutorials/kubernetes-basics/">Kubernetes Basics</a>, <a href="/docs/tutorials/hello-minikube/">Hello Minikube</a></td></tr><tr><td>Site strings</td><td><a href="#site-strings-in-i18n">All site strings</a> in a new localized TOML file</td></tr><tr><td>Releases</td><td><a href="/releases/">All heading and subheading URLs</a></td></tr></tbody></table><p>Translated documents must reside in their own <code>content/**/</code> subdirectory, but otherwise, follow the
+same URL path as the English source. For example, to prepare the
+<a href="/docs/tutorials/kubernetes-basics/">Kubernetes Basics</a> tutorial for translation into German,
+create a subdirectory under the <code>content/de/</code> directory and copy the English source or directory:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>mkdir -p content/de/docs/tutorials
+</span></span><span style="display:flex"><span>cp -ra content/en/docs/tutorials/kubernetes-basics/ content/de/docs/tutorials/
+</span></span></code></pre></div><p>Translation tools can speed up the translation process. For example, some
+editors offer plugins to quickly translate text.</p><div class="alert alert-caution" role="alert"><h4 class="alert-heading">Caution:</h4>Machine-generated translation is insufficient on its own. Localization requires
+extensive human review to meet minimum standards of quality.</div><p>To ensure accuracy in grammar and meaning, members of your localization team
+should carefully review all machine-generated translations before publishing.</p><h3 id="localize-svg-images">Localize SVG images</h3><p>The Kubernetes project recommends using vector (SVG) images where possible, as
+these are much easier for a localization team to edit. If you find a raster
+image that needs localizing, consider first redrawing the English version as
+a vector image, and then localize that.</p><p>When translating text within SVG (Scalable Vector Graphics) images, it's
+essential to follow certain guidelines to ensure accuracy and maintain
+consistency across different language versions. SVG images are commonly
+used in the Kubernetes documentation to illustrate concepts, workflows,
+and diagrams.</p><ol><li><p><strong>Identifying translatable text</strong>: Start by identifying the text elements
+within the SVG image that need to be translated. These elements typically
+include labels, captions, annotations, or any text that conveys information.</p></li><li><p><strong>Editing SVG files</strong>: SVG files are XML-based, which means they can be
+edited using a text editor. However, it's important to note that most of the
+documentation images in Kubernetes already convert text to curves to avoid font
+compatibility issues. In such cases, it is recommended to use specialized SVG
+editing software, such as Inkscape, for editing, open the SVG file and locate
+the text elements that require translation.</p></li><li><p><strong>Translating the text</strong>: Replace the original text with the translated
+version in the desired language. Ensure the translated text accurately conveys
+the intended meaning and fits within the available space in the image. The Open
+Sans font family should be used when working with languages that use the Latin
+alphabet. You can download the Open Sans typeface from here:
+<a href="https://fonts.google.com/specimen/Open+Sans">Open Sans Typeface</a>.</p></li><li><p><strong>Converting text to curves</strong>: As already mentioned, to address font
+compatibility issues, it is recommended to convert the translated text to
+curves or paths. Converting text to curves ensures that the final image
+displays the translated text correctly, even if the user's system does not
+have the exact font used in the original SVG.</p></li><li><p><strong>Reviewing and testing</strong>: After making the necessary translations and
+converting text to curves, save and review the updated SVG image to ensure
+the text is properly displayed and aligned. Check
+<a href="/docs/contribute/new-content/open-a-pr/#preview-locally">Preview your changes locally</a>.</p></li></ol><h3 id="source-files">Source files</h3><p>Localizations must be based on the English files from a specific release
+targeted by the localization team. Each localization team can decide which
+release to target, referred to as the <em>target version</em> below.</p><p>To find source files for your target version:</p><ol><li><p>Navigate to the Kubernetes website repository at
+<a href="https://github.com/kubernetes/website">https://github.com/kubernetes/website</a>.</p></li><li><p>Select a branch for your target version from the following table:</p></li></ol><table><thead><tr><th>Target version</th><th>Branch</th></tr></thead><tbody><tr><td>Latest version</td><td><a href="https://github.com/kubernetes/website/tree/main"><code>main</code></a></td></tr><tr><td>Previous version</td><td><a href="https://github.com/kubernetes/website/tree/release-1.33"><code>release-1.33</code></a></td></tr><tr><td>Next version</td><td><a href="https://github.com/kubernetes/website/tree/dev-1.35"><code>dev-1.35</code></a></td></tr></tbody></table><p>The <code>main</code> branch holds content for the current release <code>v1.34</code>.
+The release team creates a <code>release-1.34</code> branch before the next
+release: v1.35.</p><h3 id="site-strings-in-i18n">Site strings in i18n</h3><p>Localizations must include the contents of
+<a href="https://github.com/kubernetes/website/blob/main/i18n/en/en.toml"><code>i18n/en/en.toml</code></a>
+in a new language-specific file. Using German as an example:
+<code>i18n/de/de.toml</code>.</p><p>Add a new localization directory and file to <code>i18n/</code>. For example, with
+German (<code>de</code>):</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>mkdir -p i18n/de
+</span></span><span style="display:flex"><span>cp i18n/en/en.toml i18n/de/de.toml
+</span></span></code></pre></div><p>Revise the comments at the top of the file to suit your localization, then
+translate the value of each string. For example, this is the German-language
+placeholder text for the search form:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-toml" data-lang="toml"><span style="display:flex"><span>[ui_search]
+</span></span><span style="display:flex"><span>other = <span style="color:#b44">"Suchen"</span>
+</span></span></code></pre></div><p>Localizing site strings lets you customize site-wide text and features: for
+example, the legal copyright text in the footer on each page.</p><h3 id="language-specific-localization-guide">Language-specific localization guide</h3><p>As a localization team, you can formalize the best practices your team follows
+by creating a language-specific localization guide.</p><p>For example, see the
+<a href="/ko/docs/contribute/localization_ko/">Korean Localization Guide</a>, which
+includes content on the following subjects:</p><ul><li>Sprint cadence and releases</li><li>Branch strategy</li><li>Pull request workflow</li><li>Style guide</li><li>Glossary of localized and non-localized terms</li><li>Markdown conventions</li><li>Kubernetes API object terminology</li></ul><h3 id="language-specific-zoom-meetings">Language-specific Zoom meetings</h3><p>If the localization project needs a separate meeting time, contact a SIG Docs
+Co-Chair or Tech Lead to create a new reoccurring Zoom meeting and calendar
+invite. This is only needed when the team is large enough to sustain and require
+a separate meeting.</p><p>Per CNCF policy, the localization teams must upload their meetings to the SIG
+Docs YouTube playlist. A SIG Docs Co-Chair or Tech Lead can help with the
+process until SIG Docs automates it.</p><h2 id="branch-strategy">Branch strategy</h2><p>Because localization projects are highly collaborative efforts, we
+encourage teams to work in shared localization branches - especially
+when starting out and the localization is not yet live.</p><p>To collaborate on a localization branch:</p><ol><li><p>A team member of
+<a href="https://github.com/orgs/kubernetes/teams/website-maintainers">@kubernetes/website-maintainers</a>
+opens a localization branch from a source branch on
+<a href="https://github.com/kubernetes/website">https://github.com/kubernetes/website</a>.</p><p>Your team approvers joined the <code>@kubernetes/website-maintainers</code> team when
+you <a href="#add-your-localization-team-in-github">added your localization team</a> to
+the <a href="https://github.com/kubernetes/org"><code>kubernetes/org</code></a> repository.</p><p>We recommend the following branch naming scheme:</p><p><code>dev-&lt;source version&gt;-&lt;language code&gt;.&lt;team milestone&gt;</code></p><p>For example, an approver on a German localization team opens the localization
+branch <code>dev-1.12-de.1</code> directly against the <code>kubernetes/website</code> repository,
+based on the source branch for Kubernetes v1.12.</p></li><li><p>Individual contributors open feature branches based on the localization
+branch.</p><p>For example, a German contributor opens a pull request with changes to
+<code>kubernetes:dev-1.12-de.1</code> from <code>username:local-branch-name</code>.</p></li><li><p>Approvers review and merge feature branches into the localization branch.</p></li><li><p>Periodically, an approver merges the localization branch with its source
+branch by opening and approving a new pull request. Be sure to squash the
+commits before approving the pull request.</p></li></ol><p>Repeat steps 1-4 as needed until the localization is complete. For example,
+subsequent German localization branches would be: <code>dev-1.12-de.2</code>,
+<code>dev-1.12-de.3</code>, etc.</p><p>Teams must merge localized content into the same branch from which the content
+was sourced. For example:</p><ul><li>A localization branch sourced from <code>main</code> must be merged into <code>main</code>.</li><li>A localization branch sourced from <code>release-1.33</code>
+must be merged into <code>release-1.33</code>.</li></ul><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>If your localization branch was created from <code>main</code> branch, but it is not merged
+into <code>main</code> before the new release branch <code>release-1.34</code> created,
+merge it into both <code>main</code> and new release branch <code>release-1.34</code>. To
+merge your localization branch into the new release branch
+<code>release-1.34</code>, you need to switch the upstream branch of your
+localization branch to <code>release-1.34</code>.</div><p>At the beginning of every team milestone, it's helpful to open an issue
+comparing upstream changes between the previous localization branch and the
+current localization branch. There are two scripts for comparing upstream
+changes.</p><ul><li><a href="https://github.com/kubernetes/website/tree/main/scripts#upstream_changespy"><code>upstream_changes.py</code></a>
+is useful for checking the changes made to a specific file. And</li><li><a href="https://github.com/kubernetes/website/tree/main/scripts#diff_l10n_branchespy"><code>diff_l10n_branches.py</code></a>
+is useful for creating a list of outdated files for a specific localization
+branch.</li></ul><p>While only approvers can open a new localization branch and merge pull requests,
+anyone can open a pull request for a new localization branch. No special
+permissions are required.</p><p>For more information about working from forks or directly from the repository,
+see <a href="#fork-and-clone-the-repo">"fork and clone the repo"</a>.</p><h2 id="upstream-contributions">Upstream contributions</h2><p>SIG Docs welcomes upstream contributions and corrections to the English source.</p></div>

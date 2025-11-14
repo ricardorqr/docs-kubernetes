@@ -1,0 +1,52 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Define a Command and Arguments for a Container</h1><p>This page shows how to define commands and arguments when you run a container
+in a <a class="glossary-tooltip" title="A Pod represents a set of running containers in your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/workloads/pods/" target="_blank" aria-label="Pod">Pod</a>.</p><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><p>To check the version, enter <code>kubectl version</code>.</p></p><h2 id="define-a-command-and-arguments-when-you-create-a-pod">Define a command and arguments when you create a Pod</h2><p>When you create a Pod, you can define a command and arguments for the
+containers that run in the Pod. To define a command, include the <code>command</code>
+field in the configuration file. To define arguments for the command, include
+the <code>args</code> field in the configuration file. The command and arguments that
+you define cannot be changed after the Pod is created.</p><p>The command and arguments that you define in the configuration file
+override the default command and arguments provided by the container image.
+If you define args, but do not define a command, the default command is used
+with your new arguments.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>command</code> field corresponds to <code>ENTRYPOINT</code>, and the <code>args</code> field corresponds to <code>CMD</code> in some container runtimes.</div><p>In this exercise, you create a Pod that runs one container. The configuration
+file for the Pod defines a command and two arguments:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/commands.yaml" download="pods/commands.yaml"><code>pods/commands.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-commands-yaml&quot;)" title="Copy pods/commands.yaml to clipboard"/></div><div class="includecode" id="pods-commands-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>command-demo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">labels</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">purpose</span>:<span style="color:#bbb"> </span>demonstrate-command<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>command-demo-container<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>debian<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"printenv"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"HOSTNAME"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"KUBERNETES_PORT"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">restartPolicy</span>:<span style="color:#bbb"> </span>OnFailure<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><ol><li><p>Create a Pod based on the YAML configuration file:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/commands.yaml
+</span></span></code></pre></div></li><li><p>List the running Pods:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods
+</span></span></code></pre></div><p>The output shows that the container that ran in the command-demo Pod has
+completed.</p></li><li><p>To see the output of the command that ran in the container, view the logs
+from the Pod:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl logs command-demo
+</span></span></code></pre></div><p>The output shows the values of the HOSTNAME and KUBERNETES_PORT environment
+variables:</p><pre tabindex="0"><code>command-demo
+tcp://10.3.240.1:443
+</code></pre></li></ol><h2 id="use-environment-variables-to-define-arguments">Use environment variables to define arguments</h2><p>In the preceding example, you defined the arguments directly by
+providing strings. As an alternative to providing strings directly,
+you can define arguments by using environment variables:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">env</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>MESSAGE<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">value</span>:<span style="color:#bbb"> </span><span style="color:#b44">"hello world"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"/bin/echo"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">args</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"$(MESSAGE)"</span>]<span style="color:#bbb">
+</span></span></span></code></pre></div><p>This means you can define an argument for a Pod using any of
+the techniques available for defining environment variables, including
+<a href="/docs/tasks/configure-pod-container/configure-pod-configmap/">ConfigMaps</a>
+and
+<a href="/docs/concepts/configuration/secret/">Secrets</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The environment variable appears in parentheses, <code>"$(VAR)"</code>. This is
+required for the variable to be expanded in the <code>command</code> or <code>args</code> field.</div><h2 id="run-a-command-in-a-shell">Run a command in a shell</h2><p>In some cases, you need your command to run in a shell. For example, your
+command might consist of several commands piped together, or it might be a shell
+script. To run your command in a shell, wrap it like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>command: <span style="color:#666">[</span><span style="color:#b44">"/bin/sh"</span><span style="color:#666">]</span>
+</span></span><span style="display:flex"><span>args: <span style="color:#666">[</span><span style="color:#b44">"-c"</span>, <span style="color:#b44">"while true; do echo hello; sleep 10;done"</span><span style="color:#666">]</span>
+</span></span></code></pre></div><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/tasks/">configuring pods and containers</a>.</li><li>Learn more about <a href="/docs/tasks/debug/debug-application/get-shell-running-container/">running commands in a container</a>.</li><li>See <a href="/docs/reference/generated/kubernetes-api/v1.34/#container-v1-core">Container</a>.</li></ul></div>

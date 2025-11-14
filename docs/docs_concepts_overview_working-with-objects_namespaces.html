@@ -1,0 +1,50 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Namespaces</h1><p>In Kubernetes, <em>namespaces</em> provide a mechanism for isolating groups of resources within a single cluster. Names of resources need to be unique within a namespace, but not across namespaces. Namespace-based scoping is applicable only for namespaced <a class="glossary-tooltip" title="An entity in the Kubernetes system, representing part of the state of your cluster." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/#kubernetes-objects" target="_blank" aria-label="objects">objects</a> <em>(e.g. Deployments, Services, etc.)</em> and not for cluster-wide objects <em>(e.g. StorageClass, Nodes, PersistentVolumes, etc.)</em>.</p><h2 id="when-to-use-multiple-namespaces">When to Use Multiple Namespaces</h2><p>Namespaces are intended for use in environments with many users spread across multiple
+teams, or projects. For clusters with a few to tens of users, you should not
+need to create or think about namespaces at all. Start using namespaces when you
+need the features they provide.</p><p>Namespaces provide a scope for names. Names of resources need to be unique within a namespace,
+but not across namespaces. Namespaces cannot be nested inside one another and each Kubernetes
+resource can only be in one namespace.</p><p>Namespaces are a way to divide cluster resources between multiple users (via <a href="/docs/concepts/policy/resource-quotas/">resource quota</a>).</p><p>It is not necessary to use multiple namespaces to separate slightly different
+resources, such as different versions of the same software: use
+<a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="labels">labels</a> to distinguish
+resources within the same namespace.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>For a production cluster, consider <em>not</em> using the <code>default</code> namespace. Instead, make other namespaces and use those.</div><h2 id="initial-namespaces">Initial namespaces</h2><p>Kubernetes starts with four initial namespaces:</p><dl><dt><code>default</code></dt><dd>Kubernetes includes this namespace so that you can start using your new cluster without first creating a namespace.</dd><dt><code>kube-node-lease</code></dt><dd>This namespace holds <a href="/docs/concepts/architecture/leases/">Lease</a> objects associated with each node. Node leases allow the kubelet to send <a href="/docs/concepts/architecture/nodes/#node-heartbeats">heartbeats</a> so that the control plane can detect node failure.</dd><dt><code>kube-public</code></dt><dd>This namespace is readable by <em>all</em> clients (including those not authenticated). This namespace is mostly reserved for cluster usage, in case that some resources should be visible and readable publicly throughout the whole cluster. The public aspect of this namespace is only a convention, not a requirement.</dd><dt><code>kube-system</code></dt><dd>The namespace for objects created by the Kubernetes system.</dd></dl><h2 id="working-with-namespaces">Working with Namespaces</h2><p>Creation and deletion of namespaces are described in the
+<a href="/docs/tasks/administer-cluster/namespaces/">Admin Guide documentation for namespaces</a>.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Avoid creating namespaces with the prefix <code>kube-</code>, since it is reserved for Kubernetes system namespaces.</div><h3 id="viewing-namespaces">Viewing namespaces</h3><p>You can list the current namespaces in a cluster using:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get namespace
+</span></span></code></pre></div><pre tabindex="0"><code>NAME              STATUS   AGE
+default           Active   1d
+kube-node-lease   Active   1d
+kube-public       Active   1d
+kube-system       Active   1d
+</code></pre><h3 id="setting-the-namespace-for-a-request">Setting the namespace for a request</h3><p>To set the namespace for a current request, use the <code>--namespace</code> flag.</p><p>For example:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl run nginx --image<span style="color:#666">=</span>nginx --namespace<span style="color:#666">=</span>&lt;insert-namespace-name-here&gt;
+</span></span><span style="display:flex"><span>kubectl get pods --namespace<span style="color:#666">=</span>&lt;insert-namespace-name-here&gt;
+</span></span></code></pre></div><h3 id="setting-the-namespace-preference">Setting the namespace preference</h3><p>You can permanently save the namespace for all subsequent kubectl commands in that
+context.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl config set-context --current --namespace<span style="color:#666">=</span>&lt;insert-namespace-name-here&gt;
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Validate it</span>
+</span></span><span style="display:flex"><span>kubectl config view --minify | grep namespace:
+</span></span></code></pre></div><h2 id="namespaces-and-dns">Namespaces and DNS</h2><p>When you create a <a href="/docs/concepts/services-networking/service/">Service</a>,
+it creates a corresponding <a href="/docs/concepts/services-networking/dns-pod-service/">DNS entry</a>.
+This entry is of the form <code>&lt;service-name&gt;.&lt;namespace-name&gt;.svc.cluster.local</code>, which means
+that if a container only uses <code>&lt;service-name&gt;</code>, it will resolve to the service which
+is local to a namespace. This is useful for using the same configuration across
+multiple namespaces such as Development, Staging and Production. If you want to reach
+across namespaces, you need to use the fully qualified domain name (FQDN).</p><p>As a result, all namespace names must be valid
+<a href="/docs/concepts/overview/working-with-objects/names/#dns-label-names">RFC 1123 DNS labels</a>.</p><div class="alert alert-danger" role="alert"><h4 class="alert-heading">Warning:</h4><p>By creating namespaces with the same name as <a href="https://data.iana.org/TLD/tlds-alpha-by-domain.txt">public top-level
+domains</a>, Services in these
+namespaces can have short DNS names that overlap with public DNS records.
+Workloads from any namespace performing a DNS lookup without a <a href="https://datatracker.ietf.org/doc/html/rfc1034#page-8">trailing dot</a> will
+be redirected to those services, taking precedence over public DNS.</p><p>To mitigate this, limit privileges for creating namespaces to trusted users. If
+required, you could additionally configure third-party security controls, such
+as <a href="/docs/reference/access-authn-authz/extensible-admission-controllers/">admission
+webhooks</a>,
+to block creating any namespace with the name of <a href="https://data.iana.org/TLD/tlds-alpha-by-domain.txt">public
+TLDs</a>.</p></div><h2 id="not-all-objects-are-in-a-namespace">Not all objects are in a namespace</h2><p>Most Kubernetes resources (e.g. pods, services, replication controllers, and others) are
+in some namespaces. However namespace resources are not themselves in a namespace.
+And low-level resources, such as
+<a href="/docs/concepts/architecture/nodes/">nodes</a> and
+<a href="/docs/concepts/storage/persistent-volumes/">persistentVolumes</a>, are not in any namespace.</p><p>To see which Kubernetes resources are and aren't in a namespace:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># In a namespace</span>
+</span></span><span style="display:flex"><span>kubectl api-resources --namespaced<span style="color:#666">=</span><span style="color:#a2f">true</span>
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Not in a namespace</span>
+</span></span><span style="display:flex"><span>kubectl api-resources --namespaced<span style="color:#666">=</span><span style="color:#a2f">false</span>
+</span></span></code></pre></div><h2 id="automatic-labelling">Automatic labelling</h2><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes 1.22 [stable]</code></div><p>The Kubernetes control plane sets an immutable <a class="glossary-tooltip" title="Tags objects with identifying attributes that are meaningful and relevant to users." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/working-with-objects/labels" target="_blank" aria-label="label">label</a>
+<code>kubernetes.io/metadata.name</code> on all namespaces.
+The value of the label is the namespace name.</p><h2 id="what-s-next">What's next</h2><ul><li>Learn more about <a href="/docs/tasks/administer-cluster/namespaces/#creating-a-new-namespace">creating a new namespace</a>.</li><li>Learn more about <a href="/docs/tasks/administer-cluster/namespaces/#deleting-a-namespace">deleting a namespace</a>.</li></ul></div>

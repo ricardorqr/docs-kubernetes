@@ -1,0 +1,50 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Configuring swap memory on Kubernetes nodes</h1><p>This page provides an example of how to provision and configure swap memory on a Kubernetes node using kubeadm.</p><h2 id="objectives">Objectives</h2><ul><li>Provision swap memory on a Kubernetes node using kubeadm.</li><li>Learn to configure both encrypted and unencrypted swap.</li><li>Learn to enable swap on boot.</li></ul><h2 id="before-you-begin">Before you begin</h2><p><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul>Your Kubernetes server must be at or later than version 1.33.<p>To check the version, enter <code>kubectl version</code>.</p></p><p>You need at least one worker node in your cluster which needs to run a Linux operating system.
+It is required for this demo that the kubeadm tool be installed, following the steps outlined in the
+<a href="/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/">kubeadm installation guide</a>.</p><p>On each worker node where you will configure swap use, you need:</p><ul><li><p><code>fallocate</code></p></li><li><p><code>mkswap</code></p></li><li><p><code>swapon</code></p></li><li><p>For encrypted swap space (recommended), you also need:</p></li><li><p><code>cryptsetup</code></p></li></ul><h2 id="install-a-swap-enabled-cluster-with-kubeadm">Install a swap-enabled cluster with kubeadm</h2><h3 id="create-a-swap-file-and-turn-swap-on">Create a swap file and turn swap on</h3><p>If swap is not enabled, there's a need to provision swap on the node.
+The following sections demonstrate creating 4GiB of swap, both in the encrypted and unencrypted case.</p><ul class="nav nav-tabs" id="create-a-swap-file-and-turn-swap-on" role="tablist"><li class="nav-item"><a data-toggle="tab" class="nav-link active" href="#create-a-swap-file-and-turn-swap-on-0" role="tab" aria-controls="create-a-swap-file-and-turn-swap-on-0" aria-selected="true">Setting up encrypted swap</a></li><li class="nav-item"><a data-toggle="tab" class="nav-link" href="#create-a-swap-file-and-turn-swap-on-1" role="tab" aria-controls="create-a-swap-file-and-turn-swap-on-1">Setting up unencrypted swap</a></li></ul><div class="tab-content" id="create-a-swap-file-and-turn-swap-on"><div id="create-a-swap-file-and-turn-swap-on-0" class="tab-pane show active" role="tabpanel" aria-labelledby="create-a-swap-file-and-turn-swap-on-0"><p><p>An encrypted swap file can be set up as follows.
+Bear in mind that this example uses the <code>cryptsetup</code> binary (which is available
+on most Linux distributions).</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Allocate storage and restrict access</span>
+</span></span><span style="display:flex"><span>fallocate --length 4GiB /swapfile
+</span></span><span style="display:flex"><span>chmod <span style="color:#666">600</span> /swapfile
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Create an encrypted device backed by the allocated storage</span>
+</span></span><span style="display:flex"><span>cryptsetup --type plain --cipher aes-xts-plain64 --key-size <span style="color:#666">256</span> -d /dev/urandom open /swapfile cryptswap
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Format the swap space</span>
+</span></span><span style="display:flex"><span>mkswap /dev/mapper/cryptswap
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Activate the swap space for paging</span>
+</span></span><span style="display:flex"><span>swapon /dev/mapper/cryptswap
+</span></span></code></pre></div></p></div><div id="create-a-swap-file-and-turn-swap-on-1" class="tab-pane" role="tabpanel" aria-labelledby="create-a-swap-file-and-turn-swap-on-1"><p><p>An unencrypted swap file can be set up as follows.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span><span style="color:#080;font-style:italic"># Allocate storage and restrict access</span>
+</span></span><span style="display:flex"><span>fallocate --length 4GiB /swapfile
+</span></span><span style="display:flex"><span>chmod <span style="color:#666">600</span> /swapfile
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Format the swap space</span>
+</span></span><span style="display:flex"><span>mkswap /swapfile
+</span></span><span style="display:flex"><span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># Activate the swap space for paging</span>
+</span></span><span style="display:flex"><span>swapon /swapfile
+</span></span></code></pre></div></p></div></div><h4 id="verify-that-swap-is-enabled">Verify that swap is enabled</h4><p>Swap can be verified to be enabled with both <code>swapon -s</code> command or the <code>free</code> command.</p><p>Using <code>swapon -s</code>:</p><pre tabindex="0"><code>Filename       Type		Size		Used		Priority
+/dev/dm-0      partition 	4194300		0		-2
+</code></pre><p>Using <code>free -h</code>:</p><pre tabindex="0"><code>               total        used        free      shared  buff/cache   available
+Mem:           3.8Gi       1.3Gi       249Mi        25Mi       2.5Gi       2.5Gi
+Swap:          4.0Gi          0B       4.0Gi
+</code></pre><h4 id="enable-swap-on-boot">Enable swap on boot</h4><p>After setting up swap, to start the swap file at boot time,
+you typically either set up a systemd unit to activate (encrypted) swap, or you
+add a line similar to <code>/swapfile swap swap defaults 0 0</code> into <code>/etc/fstab</code>.</p><p>Using systemd for swap activation allows the system to delay kubelet start until swap is available,
+if that is something you want to ensure.
+In a similar way, using systemd allows your server to leave swap active until kubelet
+(and, typically, your container runtime) have shut down.</p><h3 id="set-up-kubelet-configuration">Set up kubelet configuration</h3><p>After enabling swap on the node, kubelet needs to be configured to use it.
+You need to select a <a href="/docs/reference/node/swap-behavior/">swap behavior</a>
+for this node. You'll configure <em>LimitedSwap</em> behavior for this tutorial.</p><p>Find and edit the kubelet configuration file, and:</p><ul><li>set <code>failSwapOn</code> to false</li><li>set <code>memorySwap.swapBehavior</code> to LimitedSwap</li></ul><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># this fragment goes into the kubelet's configuration file</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"> </span><span style="color:green;font-weight:700">failSwapOn</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">false</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"> </span><span style="color:green;font-weight:700">memorySwap</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">     </span><span style="color:green;font-weight:700">swapBehavior</span>:<span style="color:#bbb"> </span>LimitedSwap<span style="color:#bbb">
+</span></span></span></code></pre></div><p>In order for these configurations to take effect, kubelet needs to be restarted.
+Typically you do that by running:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>systemctl restart kubelet.service
+</span></span></code></pre></div><p>You should find that the kubelet is now healthy, and that you can run Pods
+that use swap memory as needed.</p></div>

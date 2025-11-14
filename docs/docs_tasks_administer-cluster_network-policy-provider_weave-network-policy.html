@@ -1,0 +1,14 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Weave Net for NetworkPolicy</h1><p>This page shows how to use Weave Net for NetworkPolicy.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster. Follow the
+<a href="/docs/reference/setup-tools/kubeadm/">kubeadm getting started guide</a> to bootstrap one.</p><h2 id="install-the-weave-net-addon">Install the Weave Net addon</h2><p>Follow the <a href="https://github.com/weaveworks/weave/blob/master/site/kubernetes/kube-addon.md#-installation">Integrating Kubernetes via the Addon</a> guide.</p><p>The Weave Net addon for Kubernetes comes with a
+<a href="https://github.com/weaveworks/weave/blob/master/site/kubernetes/kube-addon.md#network-policy">Network Policy Controller</a>
+that automatically monitors Kubernetes for any NetworkPolicy annotations on all
+namespaces and configures <code>iptables</code> rules to allow or block traffic as directed by the policies.</p><h2 id="test-the-installation">Test the installation</h2><p>Verify that the weave works.</p><p>Enter the following command:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl get pods -n kube-system -o wide
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code>NAME                                    READY     STATUS    RESTARTS   AGE       IP              NODE
+weave-net-1t1qg                         2/2       Running   0          9d        192.168.2.10    worknode3
+weave-net-231d7                         2/2       Running   1          7d        10.2.0.17       worknodegpu
+weave-net-7nmwt                         2/2       Running   3          9d        192.168.2.131   masternode
+weave-net-pmw8w                         2/2       Running   0          9d        192.168.2.216   worknode2
+</code></pre><p>Each Node has a weave Pod, and all Pods are <code>Running</code> and <code>2/2 READY</code>. (<code>2/2</code> means that each Pod has <code>weave</code> and <code>weave-npc</code>.)</p><h2 id="what-s-next">What's next</h2><p>Once you have installed the Weave Net addon, you can follow the
+<a href="/docs/tasks/administer-cluster/declare-network-policy/">Declare Network Policy</a>
+to try out Kubernetes NetworkPolicy. If you have any question, contact us at
+<a href="https://github.com/weaveworks/weave#getting-help">#weave-community on Slack or Weave User Group</a>.</p></div>

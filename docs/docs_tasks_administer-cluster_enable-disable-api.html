@@ -1,0 +1,7 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Enable Or Disable A Kubernetes API</h1><p>This page shows how to enable or disable an API version from your cluster's
+<a class="glossary-tooltip" title="The container orchestration layer that exposes the API and interfaces to define, deploy, and manage the lifecycle of containers." data-toggle="tooltip" data-placement="top" href="/docs/reference/glossary/?all=true#term-control-plane" target="_blank" aria-label="control plane">control plane</a>.</p><p>Specific API versions can be turned on or off by passing <code>--runtime-config=api/&lt;version&gt;</code> as a
+command line argument to the API server. The values for this argument are a comma-separated
+list of API versions. Later values override earlier values.</p><p>The <code>runtime-config</code> command line argument also supports 2 special keys:</p><ul><li><code>api/all</code>, representing all known APIs</li><li><code>api/legacy</code>, representing only legacy APIs. Legacy APIs are any APIs that have been
+explicitly <a href="/docs/reference/using-api/deprecation-policy/">deprecated</a>.</li></ul><p>For example, to turn off all API versions except v1, pass <code>--runtime-config=api/all=false,api/v1=true</code>
+to the <code>kube-apiserver</code>.</p><h2 id="what-s-next">What's next</h2><p>Read the <a href="/docs/reference/command-line-tools-reference/kube-apiserver/">full documentation</a>
+for the <code>kube-apiserver</code> component.</p></div>

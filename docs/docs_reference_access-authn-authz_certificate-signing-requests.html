@@ -1,0 +1,324 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Certificates and Certificate Signing Requests</h1><p>Kubernetes certificate and trust bundle APIs enable automation of
+<a href="https://www.itu.int/rec/T-REC-X.509">X.509</a> credential provisioning by providing
+a programmatic interface for clients of the Kubernetes API to request and obtain
+X.509 <a class="glossary-tooltip" title="A cryptographically secure file used to validate access to the Kubernetes cluster." data-toggle="tooltip" data-placement="top" href="/docs/tasks/tls/managing-tls-in-a-cluster/" target="_blank" aria-label="certificates">certificates</a> from a Certificate Authority (CA).</p><p>There is also experimental (alpha) support for distributing <a href="#cluster-trust-bundles">trust bundles</a>.</p><h2 id="certificate-signing-requests">Certificate signing requests</h2><div class="feature-state-notice feature-stable"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.19 [stable]</code></div><p>A <a href="/docs/reference/kubernetes-api/authentication-resources/certificate-signing-request-v1/">CertificateSigningRequest</a>
+(CSR) resource is used to request that a certificate be signed
+by a denoted signer, after which the request may be approved or denied before
+finally being signed.</p><h3 id="request-signing-process">Request signing process</h3><p>The CertificateSigningRequest resource type allows a client to ask for an X.509 certificate
+be issued, based on a signing request.
+The CertificateSigningRequest object includes a PEM-encoded PKCS#10 signing request in
+the <code>spec.request</code> field. The CertificateSigningRequest denotes the signer (the
+recipient that the request is being made to) using the <code>spec.signerName</code> field.
+Note that <code>spec.signerName</code> is a required key after API version <code>certificates.k8s.io/v1</code>.
+In Kubernetes v1.22 and later, clients may optionally set the <code>spec.expirationSeconds</code>
+field to request a particular lifetime for the issued certificate. The minimum valid
+value for this field is <code>600</code>, i.e. ten minutes.</p><p>Once created, a CertificateSigningRequest must be approved before it can be signed.
+Depending on the signer selected, a CertificateSigningRequest may be automatically approved
+by a <a class="glossary-tooltip" title="A control loop that watches the shared state of the cluster through the apiserver and makes changes attempting to move the current state towards the desired state." data-toggle="tooltip" data-placement="top" href="/docs/concepts/architecture/controller/" target="_blank" aria-label="controller">controller</a>.
+Otherwise, a CertificateSigningRequest must be manually approved either via the REST API (or client-go)
+or by running <code>kubectl certificate approve</code>. Likewise, a CertificateSigningRequest may also be denied,
+which tells the configured signer that it must not sign the request.</p><p>For certificates that have been approved, the next step is signing. The relevant signing controller
+first validates that the signing conditions are met and then creates a certificate.
+The signing controller then updates the CertificateSigningRequest, storing the new certificate into
+the <code>status.certificate</code> field of the existing CertificateSigningRequest object. The
+<code>status.certificate</code> field is either empty or contains a X.509 certificate, encoded in PEM format.
+The CertificateSigningRequest <code>status.certificate</code> field is empty until the signer does this.</p><p>Once the <code>status.certificate</code> field has been populated, the request has been completed and clients can now
+fetch the signed certificate PEM data from the CertificateSigningRequest resource.
+The signers can instead deny certificate signing if the approval conditions are not met.</p><p>In order to reduce the number of old CertificateSigningRequest resources left in a cluster, a garbage collection
+controller runs periodically. The garbage collection removes CertificateSigningRequests that have not changed
+state for some duration:</p><ul><li>Approved requests: automatically deleted after 1 hour</li><li>Denied requests: automatically deleted after 1 hour</li><li>Failed requests: automatically deleted after 1 hour</li><li>Pending requests: automatically deleted after 24 hours</li><li>All requests: automatically deleted after the issued certificate has expired</li></ul><h3 id="authorization">Certificate signing authorization</h3><p>To allow creating a CertificateSigningRequest and retrieving any CertificateSigningRequest:</p><ul><li>Verbs: <code>create</code>, <code>get</code>, <code>list</code>, <code>watch</code>, group: <code>certificates.k8s.io</code>, resource: <code>certificatesigningrequests</code></li></ul><p>For example:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/access/certificate-signing-request/clusterrole-create.yaml" download="access/certificate-signing-request/clusterrole-create.yaml"><code>access/certificate-signing-request/clusterrole-create.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;access-certificate-signing-request-clusterrole-create-yaml&quot;)" title="Copy access/certificate-signing-request/clusterrole-create.yaml to clipboard"/></div><div class="includecode" id="access-certificate-signing-request-clusterrole-create-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>rbac.authorization.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterRole<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>csr-creator<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">rules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificates.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificatesigningrequests<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- create<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- get<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- list<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- watch<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>To allow approving a CertificateSigningRequest:</p><ul><li>Verbs: <code>get</code>, <code>list</code>, <code>watch</code>, group: <code>certificates.k8s.io</code>, resource: <code>certificatesigningrequests</code></li><li>Verbs: <code>update</code>, group: <code>certificates.k8s.io</code>, resource: <code>certificatesigningrequests/approval</code></li><li>Verbs: <code>approve</code>, group: <code>certificates.k8s.io</code>, resource: <code>signers</code>, resourceName: <code>&lt;signerNameDomain&gt;/&lt;signerNamePath&gt;</code> or <code>&lt;signerNameDomain&gt;/*</code></li></ul><p>For example:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/access/certificate-signing-request/clusterrole-approve.yaml" download="access/certificate-signing-request/clusterrole-approve.yaml"><code>access/certificate-signing-request/clusterrole-approve.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;access-certificate-signing-request-clusterrole-approve-yaml&quot;)" title="Copy access/certificate-signing-request/clusterrole-approve.yaml to clipboard"/></div><div class="includecode" id="access-certificate-signing-request-clusterrole-approve-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>rbac.authorization.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterRole<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>csr-approver<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">rules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificates.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificatesigningrequests<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- get<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- list<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- watch<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificates.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificatesigningrequests/approval<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- update<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificates.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- signers<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resourceNames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- example.com/my-signer-name<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># example.com/* can be used to authorize for all signers in the 'example.com' domain</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- approve<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><p>To allow signing a CertificateSigningRequest:</p><ul><li>Verbs: <code>get</code>, <code>list</code>, <code>watch</code>, group: <code>certificates.k8s.io</code>, resource: <code>certificatesigningrequests</code></li><li>Verbs: <code>update</code>, group: <code>certificates.k8s.io</code>, resource: <code>certificatesigningrequests/status</code></li><li>Verbs: <code>sign</code>, group: <code>certificates.k8s.io</code>, resource: <code>signers</code>, resourceName: <code>&lt;signerNameDomain&gt;/&lt;signerNamePath&gt;</code> or <code>&lt;signerNameDomain&gt;/*</code></li></ul><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/access/certificate-signing-request/clusterrole-sign.yaml" download="access/certificate-signing-request/clusterrole-sign.yaml"><code>access/certificate-signing-request/clusterrole-sign.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;access-certificate-signing-request-clusterrole-sign-yaml&quot;)" title="Copy access/certificate-signing-request/clusterrole-sign.yaml to clipboard"/></div><div class="includecode" id="access-certificate-signing-request-clusterrole-sign-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>rbac.authorization.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterRole<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>csr-signer<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">rules</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificates.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificatesigningrequests<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- get<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- list<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- watch<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificates.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificatesigningrequests/status<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- update<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/>- <span style="color:green;font-weight:700">apiGroups</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- certificates.k8s.io<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resources</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- signers<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">resourceNames</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- example.com/my-signer-name<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># example.com/* can be used to authorize for all signers in the 'example.com' domain</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">verbs</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- sign<span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><h2 id="signers">Signers</h2><p>Signers abstractly represent the entity or entities that might sign, or have
+signed, a security certificate.</p><p>Any signer that is made available for outside a particular cluster should provide information
+about how the signer works, so that consumers can understand what that means for CertificateSigningRequests
+and (if enabled) <a href="#cluster-trust-bundles">ClusterTrustBundles</a>.
+This includes:</p><ol><li><strong>Trust distribution</strong>: how trust anchors (CA certificates or certificate bundles) are distributed.</li><li><strong>Permitted subjects</strong>: any restrictions on and behavior when a disallowed subject is requested.</li><li><strong>Permitted x509 extensions</strong>: including IP subjectAltNames, DNS subjectAltNames,
+Email subjectAltNames, URI subjectAltNames etc, and behavior when a disallowed extension is requested.</li><li><strong>Permitted key usages / extended key usages</strong>: any restrictions on and behavior
+when usages different than the signer-determined usages are specified in the CSR.</li><li><strong>Expiration/certificate lifetime</strong>: whether it is fixed by the signer, configurable by the admin, determined by the CSR <code>spec.expirationSeconds</code> field, etc
+and the behavior when the signer-determined expiration is different from the CSR <code>spec.expirationSeconds</code> field.</li><li><strong>CA bit allowed/disallowed</strong>: and behavior if a CSR contains a request for a CA certificate when the signer does not permit it.</li></ol><p>Commonly, the <code>status.certificate</code> field of a CertificateSigningRequest contains a
+single PEM-encoded X.509 certificate once the CSR is approved and the certificate is issued.
+Some signers store multiple certificates into the <code>status.certificate</code> field. In
+that case, the documentation for the signer should specify the meaning of
+additional certificates; for example, this might be the certificate plus
+intermediates to be presented during TLS handshakes.</p><p>If you want to make the <em>trust anchor</em> (root certificate) available, this should be done
+separately from a CertificateSigningRequest and its <code>status.certificate</code> field. For example,
+you could use a ClusterTrustBundle.</p><p>The PKCS#10 signing request format does not have a standard mechanism to specify a
+certificate expiration or lifetime. The expiration or lifetime therefore has to be set
+through the <code>spec.expirationSeconds</code> field of the CSR object. The built-in signers
+use the <code>ClusterSigningDuration</code> configuration option, which defaults to 1 year,
+(the <code>--cluster-signing-duration</code> command-line flag of the kube-controller-manager)
+as the default when no <code>spec.expirationSeconds</code> is specified. When <code>spec.expirationSeconds</code>
+is specified, the minimum of <code>spec.expirationSeconds</code> and <code>ClusterSigningDuration</code> is
+used.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>spec.expirationSeconds</code> field was added in Kubernetes v1.22. Earlier versions of Kubernetes do not honor this field.
+Kubernetes API servers prior to v1.22 will silently drop this field when the object is created.</div><h3 id="kubernetes-signers">Kubernetes signers</h3><p>Kubernetes provides built-in signers that each have a well-known <code>signerName</code>:</p><ol><li><p><code>kubernetes.io/kube-apiserver-client</code>: signs certificates that will be honored as client certificates by the API server.
+Never auto-approved by <a class="glossary-tooltip" title="Control Plane component that runs controller processes." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-controller-manager/" target="_blank" aria-label="kube-controller-manager">kube-controller-manager</a>.</p><ol><li>Trust distribution: signed certificates must be honored as client certificates by the API server. The CA bundle is not distributed by any other means.</li><li>Permitted subjects - no subject restrictions, but approvers and signers may choose not to approve or sign.
+Certain subjects like cluster-admin level users or groups vary between distributions and installations,
+but deserve additional scrutiny before approval and signing.
+The <code>CertificateSubjectRestriction</code> admission plugin is enabled by default to restrict <code>system:masters</code>,
+but it is often not the only cluster-admin subject in a cluster.</li><li>Permitted x509 extensions - honors subjectAltName and key usage extensions and discards other extensions.</li><li>Permitted key usages - must include <code>["client auth"]</code>. Must not include key usages beyond <code>["digital signature", "key encipherment", "client auth"]</code>.</li><li>Expiration/certificate lifetime - for the kube-controller-manager implementation of this signer, set to the minimum
+of the <code>--cluster-signing-duration</code> option or, if specified, the <code>spec.expirationSeconds</code> field of the CSR object.</li><li>CA bit allowed/disallowed - not allowed.</li></ol></li><li><p><code>kubernetes.io/kube-apiserver-client-kubelet</code>: signs client certificates that will be honored as client certificates by the
+API server.
+May be auto-approved by <a class="glossary-tooltip" title="Control Plane component that runs controller processes." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-controller-manager/" target="_blank" aria-label="kube-controller-manager">kube-controller-manager</a>.</p><ol><li>Trust distribution: signed certificates must be honored as client certificates by the API server. The CA bundle
+is not distributed by any other means.</li><li>Permitted subjects - organizations are exactly <code>["system:nodes"]</code>, common name is "<code>system:node:${NODE_NAME}</code>".</li><li>Permitted x509 extensions - honors key usage extensions, forbids subjectAltName extensions and drops other extensions.</li><li>Permitted key usages - <code>["key encipherment", "digital signature", "client auth"]</code> or <code>["digital signature", "client auth"]</code>.</li><li>Expiration/certificate lifetime - for the kube-controller-manager implementation of this signer, set to the minimum
+of the <code>--cluster-signing-duration</code> option or, if specified, the <code>spec.expirationSeconds</code> field of the CSR object.</li><li>CA bit allowed/disallowed - not allowed.</li></ol></li><li><p><code>kubernetes.io/kubelet-serving</code>: signs serving certificates that are honored as a valid kubelet serving certificate
+by the API server, but has no other guarantees.
+Never auto-approved by <a class="glossary-tooltip" title="Control Plane component that runs controller processes." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-controller-manager/" target="_blank" aria-label="kube-controller-manager">kube-controller-manager</a>.</p><ol><li>Trust distribution: signed certificates must be honored by the API server as valid to terminate connections to a kubelet.
+The CA bundle is not distributed by any other means.</li><li>Permitted subjects - organizations are exactly <code>["system:nodes"]</code>, common name is "<code>system:node:${NODE_NAME}</code>".</li><li>Permitted x509 extensions - honors key usage and DNSName/IPAddress subjectAltName extensions, forbids EmailAddress and
+URI subjectAltName extensions, drops other extensions. At least one DNS or IP subjectAltName must be present.</li><li>Permitted key usages - <code>["key encipherment", "digital signature", "server auth"]</code> or <code>["digital signature", "server auth"]</code>.</li><li>Expiration/certificate lifetime - for the kube-controller-manager implementation of this signer, set to the minimum
+of the <code>--cluster-signing-duration</code> option or, if specified, the <code>spec.expirationSeconds</code> field of the CSR object.</li><li>CA bit allowed/disallowed - not allowed.</li></ol></li><li><p><code>kubernetes.io/legacy-unknown</code>: has no guarantees for trust at all. Some third-party distributions of Kubernetes
+may honor client certificates signed by it. The stable CertificateSigningRequest API (version <code>certificates.k8s.io/v1</code> and later)
+does not allow to set the <code>signerName</code> as <code>kubernetes.io/legacy-unknown</code>.
+Never auto-approved by <a class="glossary-tooltip" title="Control Plane component that runs controller processes." data-toggle="tooltip" data-placement="top" href="/docs/reference/command-line-tools-reference/kube-controller-manager/" target="_blank" aria-label="kube-controller-manager">kube-controller-manager</a>.</p><ol><li>Trust distribution: None. There is no standard trust or distribution for this signer in a Kubernetes cluster.</li><li>Permitted subjects - any</li><li>Permitted x509 extensions - honors subjectAltName and key usage extensions and discards other extensions.</li><li>Permitted key usages - any</li><li>Expiration/certificate lifetime - for the kube-controller-manager implementation of this signer, set to the minimum
+of the <code>--cluster-signing-duration</code> option or, if specified, the <code>spec.expirationSeconds</code> field of the CSR object.</li><li>CA bit allowed/disallowed - not allowed.</li></ol></li></ol><p>The kube-controller-manager implements <a href="#signer-control-plane">control plane signing</a> for each of the built in
+signers. Failures for all of these are only reported in kube-controller-manager logs.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>spec.expirationSeconds</code> field was added in Kubernetes v1.22. Earlier versions of Kubernetes do not honor this field.
+Kubernetes API servers prior to v1.22 will silently drop this field when the object is created.</div><p>Distribution of trust happens out of band for these signers. Any trust outside of those described above are strictly
+coincidental. For instance, some distributions may honor <code>kubernetes.io/legacy-unknown</code> as client certificates for the
+kube-apiserver, but this is not a standard.
+None of these usages are related to ServiceAccount token secrets <code>.data[ca.crt]</code> in any way. That CA bundle is only
+guaranteed to verify a connection to the API server using the default service (<code>kubernetes.default.svc</code>).</p><h3 id="custom-signers">Custom signers</h3><p>You can also introduce your own custom signer, which should have a similar prefixed name but using your
+own domain name. For example, if you represent an open source project that uses the domain <code>open-fictional.example</code>
+then you might use <code>issuer.open-fictional.example/service-mesh</code> as a signer name.</p><p>A custom signer uses the Kubernetes API to issue a certificate. See <a href="#signer-api">API-based signers</a>.</p><h2 id="signing">Signing</h2><h3 id="signer-control-plane">Control plane signer</h3><p>The Kubernetes control plane implements each of the
+<a href="/docs/reference/access-authn-authz/certificate-signing-requests/#kubernetes-signers">Kubernetes signers</a>,
+as part of the kube-controller-manager.</p><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>Prior to Kubernetes v1.18, the kube-controller-manager would sign any CSRs that
+were marked as approved.</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>The <code>spec.expirationSeconds</code> field was added in Kubernetes v1.22.
+Earlier versions of Kubernetes do not honor this field.
+Kubernetes API servers prior to v1.22 will silently drop this field when the object is created.</div><h3 id="signer-api">API-based signers</h3><p>Users of the REST API can sign CSRs by submitting an UPDATE request to the <code>status</code>
+subresource of the CSR to be signed.</p><p>As part of this request, the <code>status.certificate</code> field should be set to contain the
+signed certificate. This field contains one or more PEM-encoded certificates.</p><p>All PEM blocks must have the "CERTIFICATE" label, contain no headers,
+and the encoded data must be a BER-encoded ASN.1 Certificate structure
+as described in <a href="https://tools.ietf.org/html/rfc5280#section-4.1">section 4 of RFC5280</a>.</p><p>Example certificate content:</p><pre tabindex="0"><code>-----BEGIN CERTIFICATE-----
+MIIDgjCCAmqgAwIBAgIUC1N1EJ4Qnsd322BhDPRwmg3b/oAwDQYJKoZIhvcNAQEL
+BQAwXDELMAkGA1UEBhMCeHgxCjAIBgNVBAgMAXgxCjAIBgNVBAcMAXgxCjAIBgNV
+BAoMAXgxCjAIBgNVBAsMAXgxCzAJBgNVBAMMAmNhMRAwDgYJKoZIhvcNAQkBFgF4
+MB4XDTIwMDcwNjIyMDcwMFoXDTI1MDcwNTIyMDcwMFowNzEVMBMGA1UEChMMc3lz
+dGVtOm5vZGVzMR4wHAYDVQQDExVzeXN0ZW06bm9kZToxMjcuMC4wLjEwggEiMA0G
+CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDne5X2eQ1JcLZkKvhzCR4Hxl9+ZmU3
++e1zfOywLdoQxrPi+o4hVsUH3q0y52BMa7u1yehHDRSaq9u62cmi5ekgXhXHzGmm
+kmW5n0itRECv3SFsSm2DSghRKf0mm6iTYHWDHzUXKdm9lPPWoSOxoR5oqOsm3JEh
+Q7Et13wrvTJqBMJo1GTwQuF+HYOku0NF/DLqbZIcpI08yQKyrBgYz2uO51/oNp8a
+sTCsV4OUfyHhx2BBLUo4g4SptHFySTBwlpRWBnSjZPOhmN74JcpTLB4J5f4iEeA7
+2QytZfADckG4wVkhH3C2EJUmRtFIBVirwDn39GXkSGlnvnMgF3uLZ6zNAgMBAAGj
+YTBfMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDAjAMBgNVHRMB
+Af8EAjAAMB0GA1UdDgQWBBTREl2hW54lkQBDeVCcd2f2VSlB1DALBgNVHREEBDAC
+ggAwDQYJKoZIhvcNAQELBQADggEBABpZjuIKTq8pCaX8dMEGPWtAykgLsTcD2jYr
+L0/TCrqmuaaliUa42jQTt2OVsVP/L8ofFunj/KjpQU0bvKJPLMRKtmxbhXuQCQi1
+qCRkp8o93mHvEz3mTUN+D1cfQ2fpsBENLnpS0F4G/JyY2Vrh19/X8+mImMEK5eOy
+o0BMby7byUj98WmcUvNCiXbC6F45QTmkwEhMqWns0JZQY+/XeDhEcg+lJvz9Eyo2
+aGgPsye1o3DpyXnyfJWAWMhOz7cikS5X2adesbgI86PhEHBXPIJ1v13ZdfCExmdd
+M1fLPhLyR54fGaY+7/X8P9AZzPefAkwizeXwe9ii6/a08vWoiE4=
+-----END CERTIFICATE-----
+</code></pre><p>Non-PEM content may appear before or after the CERTIFICATE PEM blocks and is unvalidated,
+to allow for explanatory text as described in <a href="https://www.rfc-editor.org/rfc/rfc7468#section-5.2">section 5.2 of RFC7468</a>.</p><p>When encoded in JSON or YAML, this field is base-64 encoded.
+A CertificateSigningRequest containing the example certificate above would look like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>certificates.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>CertificateSigningRequest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">certificate</span>:<span style="color:#bbb"> </span><span style="color:#b44">"LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JS..."</span><span style="color:#bbb">
+</span></span></span></code></pre></div><h2 id="approval-rejection">Approval or rejection</h2><p>Before a <a href="#signers">signer</a> issues a certificate based on a CertificateSigningRequest,
+the signer typically checks that the issuance for that CSR has been <em>approved</em>.</p><h3 id="approval-rejection-control-plane">Control plane automated approval</h3><p>The kube-controller-manager ships with a built-in approver for certificates with
+a signerName of <code>kubernetes.io/kube-apiserver-client-kubelet</code> that delegates various
+permissions on CSRs for node credentials to authorization.
+The kube-controller-manager POSTs SubjectAccessReview resources to the API server
+in order to check authorization for certificate approval.</p><h3 id="approval-rejection-kubectl">Approval or rejection using <code>kubectl</code></h3><p>A Kubernetes administrator (with appropriate permissions) can manually approve
+(or deny) CertificateSigningRequests by using the <code>kubectl certificate approve</code> and <code>kubectl certificate deny</code> commands.</p><p>To approve a CSR with kubectl:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl certificate approve &lt;certificate-signing-request-name&gt;
+</span></span></code></pre></div><p>Likewise, to deny a CSR:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl certificate deny &lt;certificate-signing-request-name&gt;
+</span></span></code></pre></div><h3 id="approval-rejection-api-client">Approval or rejection using the Kubernetes API</h3><p>Users of the REST API can approve CSRs by submitting an UPDATE request to the <code>approval</code>
+subresource of the CSR to be approved. For example, you could write an
+<a class="glossary-tooltip" title="A specialized controller used to manage a custom resource" data-toggle="tooltip" data-placement="top" href="/docs/concepts/extend-kubernetes/operator/" target="_blank" aria-label="operator">operator</a> that watches for a particular
+kind of CSR and then sends an UPDATE to approve them.</p><p>When you make an approval or rejection request, set either the <code>Approved</code> or <code>Denied</code>
+status condition based on the state you determine:</p><p>For <code>Approved</code> CSRs:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>certificates.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>CertificateSigningRequest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">conditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">lastUpdateTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2020-02-08T11:37:35Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">lastTransitionTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2020-02-08T11:37:35Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">message</span>:<span style="color:#bbb"> </span>Approved by my custom approver controller<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">reason</span>:<span style="color:#bbb"> </span>ApprovedByMyPolicy<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># You can set this to any string</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Approved<span style="color:#bbb">
+</span></span></span></code></pre></div><p>For <code>Denied</code> CSRs:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>certificates.k8s.io/v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>CertificateSigningRequest<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:#00f;font-weight:700">...</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">status</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">conditions</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">lastUpdateTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2020-02-08T11:37:35Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">lastTransitionTime</span>:<span style="color:#bbb"> </span><span style="color:#b44">"2020-02-08T11:37:35Z"</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">message</span>:<span style="color:#bbb"> </span>Denied by my custom approver controller<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">reason</span>:<span style="color:#bbb"> </span>DeniedByMyPolicy<span style="color:#bbb"> </span><span style="color:#080;font-style:italic"># You can set this to any string</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">type</span>:<span style="color:#bbb"> </span>Denied<span style="color:#bbb">
+</span></span></span></code></pre></div><p>It's usual to set <code>status.conditions.reason</code> to a machine-friendly reason
+code using TitleCase; this is a convention but you can set it to anything
+you like. If you want to add a note for human consumption, use the
+<code>status.conditions.message</code> field.</p><h2 id="pod-certificate-requests">PodCertificateRequests</h2><div class="feature-state-notice feature-alpha" title="Feature Gate: PodCertificateRequest"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.34 [alpha]</code> (enabled by default: false)</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>In Kubernetes 1.34, you must enable support for Pod
+Certificates using the <code>PodCertificateRequest</code> <a href="/docs/reference/command-line-tools-reference/feature-gates/">feature
+gate</a> and the
+<code>--runtime-config=certificates.k8s.io/v1alpha1/podcertificaterequests=true</code>
+kube-apiserver flag.</div><p>PodCertificateRequests are API objects tailored to provisioning certificates to
+workloads running as Pods within a cluster. The user typically does not
+interact with PodCertificateRequests directly, but uses <a href="/docs/concepts/storage/projected-volumes/#podcertificate">podCertificate
+projected volume sources</a>, which are a <code>kubelet</code>
+feature that handles secure key provisioning and automatic certificate refresh.
+The application inside the pod only needs to know how to read the certificates
+from the filesystem.</p><p>PodCertificateRequests are similar to CertificateSigningRequests, but have a
+simpler format enabled by their narrower use case.</p><p>A PodCertificateRequest has the following spec fields:</p><ul><li><code>signerName</code>: The signer to which this request is addressed.</li><li><code>podName</code> and <code>podUID</code>: The Pod that Kubelet is requesting a certificate for.</li><li><code>serviceAccountName</code> and <code>serviceAccountUID</code>: The ServiceAccount corresponding to the Pod.</li><li><code>nodeName</code> and <code>nodeUID</code>: The Node corresponding to the Pod.</li><li><code>maxExpirationSeconds</code>: The maximum lifetime that the workload author will
+accept for this certificate. Defaults to 24 hours if not specified.</li><li><code>pkixPublicKey</code>: The public key for which the certificate should be issued.</li><li><code>proofOfPossession</code>: A signature demonstrating that the requester controls the
+private key corresponding to <code>pkixPublicKey</code>.</li></ul><p>Nodes automatically receive permissions to create PodCertificateRequests and
+read PodCertificateRequests related to them (as determined by the
+<code>spec.nodeName</code> field). The <code>NodeRestriction</code> admission plugin, if enabled,
+ensures that nodes can only create PodCertificateRequests that correspond to a
+real pod that is currently running on the node.</p><p>After creation, the <code>spec</code> of a PodCertificateRequest is immutable.</p><p>Unlike CSRs, PodCertificateRequests do not have an
+approval phase. Once the PodCertificateRequest is created, the signer's
+controller directly decides to issue or deny the request. It also has the
+option to mark the request as failed, if it encountered a permanent error when
+attempting to issue the request.</p><p>To take any of these actions, the signing controller needs to have the
+appropriate permissions on both the PodCertificateRequest type, as well as on
+the signer name:</p><ul><li>Verbs: <strong>update</strong>, group: <code>certificates.k8s.io</code>, resource:
+<code>podcertificaterequests/status</code></li><li>Verbs: <strong>sign</strong>, group: <code>certificates.k8s.io</code>, resource: <code>signers</code>,
+resourceName: <code>&lt;signerNameDomain&gt;/&lt;signerNamePath&gt;</code> or <code>&lt;signerNameDomain&gt;/*</code></li></ul><p>The signing controller is free to consider other information beyond what's
+contained in the request, but it can rely on the information in the request to
+be accurate. For example, the signing controller might load the Pod and read
+annotations set on it, or perform a SubjectAccessReview on the ServiceAccount.</p><p>To issue a certificate in response to a request, the signing controller:</p><ul><li>Adds an <code>Issued</code> condition to <code>status.conditions</code>.</li><li>Puts the issued certificate in <code>status.certificateChain</code></li><li>Puts the <code>NotBefore</code> and <code>NotAfter</code> fields of the certificate in the
+<code>status.notBefore</code> and <code>status.notAfter</code> fields — these fields are
+denormalized into the Kubernetes API in order to aid debugging</li><li>Suggests a time to begin attempting to refresh the certificate using
+<code>status.beginRefreshAt</code>.</li></ul><p>To deny a request, the signing controller adds a "Denied" condition to
+<code>status.conditions[]</code>.</p><p>To mark a request failed, the signing controller adds a "Failed" condition to
+<code>status.conditions[]</code>.</p><p>All of these conditions are mutually-exclusive, and must have status "True". No
+other condition types are permitted on PodCertificateRequests. In addition,
+once any of these conditions are set, the <code>status</code> field becomes immutable.</p><p>Like all conditions, the <code>status.conditions[].reason</code> field is meant to contain
+a machine-readable code describing the condition in TitleCase. The
+<code>status.conditions[].message</code> field is meant for a free-form explanation for
+human consumption.</p><p>To ensure that terminal PodCertificateRequests do not build up in the cluster, a
+<code>kube-controller-manager</code> controller deletes all PodCertificateRequests older
+than 15 minutes. All certificate issuance flows are expected to complete within
+this 15-minute limit.</p><h2 id="cluster-trust-bundles">Cluster trust bundles</h2><div class="feature-state-notice feature-beta" title="Feature Gate: ClusterTrustBundle"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [beta]</code> (enabled by default: false)</div><div class="alert alert-info" role="alert"><h4 class="alert-heading">Note:</h4>In Kubernetes 1.34, you must enable the <code>ClusterTrustBundle</code>
+<a href="/docs/reference/command-line-tools-reference/feature-gates/">feature gate</a>
+<em>and</em> the <code>certificates.k8s.io/v1alpha1</code>
+<a class="glossary-tooltip" title="A set of related paths in the Kubernetes API." data-toggle="tooltip" data-placement="top" href="/docs/concepts/overview/kubernetes-api/#api-groups-and-versioning" target="_blank" aria-label="API group">API group</a> in order to use
+this API.</div><p>A ClusterTrustBundles is a cluster-scoped object for distributing X.509 trust
+anchors (root certificates) to workloads within the cluster. They're designed
+to work well with the <a href="#signers">signer</a> concept from CertificateSigningRequests.</p><p>ClusterTrustBundles can be used in two modes:
+<a href="#ctb-signer-linked">signer-linked</a> and <a href="#ctb-signer-unlinked">signer-unlinked</a>.</p><h3 id="ctb-common">Common properties and validation</h3><p>All ClusterTrustBundle objects have strong validation on the contents of their
+<code>trustBundle</code> field. That field must contain one or more X.509 certificates,
+DER-serialized, each wrapped in a PEM <code>CERTIFICATE</code> block. The certificates
+must parse as valid X.509 certificates.</p><p>Esoteric PEM features like inter-block data and intra-block headers are either
+rejected during object validation, or can be ignored by consumers of the object.
+Additionally, consumers are allowed to reorder the certificates in
+the bundle with their own arbitrary but stable ordering.</p><p>ClusterTrustBundle objects should be considered world-readable within the
+cluster. If your cluster uses <a href="/docs/reference/access-authn-authz/rbac/">RBAC</a>
+authorization, all ServiceAccounts have a default grant that allows them to
+<strong>get</strong>, <strong>list</strong>, and <strong>watch</strong> all ClusterTrustBundle objects.
+If you use your own authorization mechanism and you have enabled
+ClusterTrustBundles in your cluster, you should set up an equivalent rule to
+make these objects public within the cluster, so that they work as intended.</p><p>If you do not have permission to list cluster trust bundles by default in your
+cluster, you can impersonate a service account you have access to in order to
+see available ClusterTrustBundles:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash"><span style="display:flex"><span>kubectl get clustertrustbundles --as<span style="color:#666">=</span><span style="color:#b44">'system:serviceaccount:mynamespace:default'</span>
+</span></span></code></pre></div><h3 id="ctb-signer-linked">Signer-linked ClusterTrustBundles</h3><p>Signer-linked ClusterTrustBundles are associated with a <em>signer name</em>, like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>certificates.k8s.io/v1alpha1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterTrustBundle<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>example.com:mysigner:foo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">signerName</span>:<span style="color:#bbb"> </span>example.com/mysigner<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">trustBundle</span>:<span style="color:#bbb"> </span><span style="color:#b44">"&lt;... PEM data ...&gt;"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>These ClusterTrustBundles are intended to be maintained by a signer-specific
+controller in the cluster, so they have several security features:</p><ul><li>To create or update a signer-linked ClusterTrustBundle, you must be permitted
+to <strong>attest</strong> on the signer (custom authorization verb <code>attest</code>,
+API group <code>certificates.k8s.io</code>; resource path <code>signers</code>). You can configure
+authorization for the specific resource name
+<code>&lt;signerNameDomain&gt;/&lt;signerNamePath&gt;</code> or match a pattern such as
+<code>&lt;signerNameDomain&gt;/*</code>.</li><li>Signer-linked ClusterTrustBundles <strong>must</strong> be named with a prefix derived from
+their <code>spec.signerName</code> field. Slashes (<code>/</code>) are replaced with colons (<code>:</code>),
+and a final colon is appended. This is followed by an arbitrary name. For
+example, the signer <code>example.com/mysigner</code> can be linked to a
+ClusterTrustBundle <code>example.com:mysigner:&lt;arbitrary-name&gt;</code>.</li></ul><p>Signer-linked ClusterTrustBundles will typically be consumed in workloads
+by a combination of a
+<a href="/docs/concepts/overview/working-with-objects/field-selectors/">field selector</a> on the signer name, and a separate
+<a href="/docs/concepts/overview/working-with-objects/labels/#label-selectors">label selector</a>.</p><h3 id="ctb-signer-unlinked">Signer-unlinked ClusterTrustBundles</h3><p>Signer-unlinked ClusterTrustBundles have an empty <code>spec.signerName</code> field, like this:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>certificates.k8s.io/v1alpha1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>ClusterTrustBundle<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>foo<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:#080;font-style:italic"># no signerName specified, so the field is blank</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">trustBundle</span>:<span style="color:#bbb"> </span><span style="color:#b44">"&lt;... PEM data ...&gt;"</span><span style="color:#bbb">
+</span></span></span></code></pre></div><p>They are primarily intended for cluster configuration use cases.
+Each signer-unlinked ClusterTrustBundle is an independent object, in contrast to the
+customary grouping behavior of signer-linked ClusterTrustBundles.</p><p>Signer-unlinked ClusterTrustBundles have no <code>attest</code> verb requirement.
+Instead, you control access to them directly using the usual mechanisms,
+such as role-based access control.</p><p>To distinguish them from signer-linked ClusterTrustBundles, the names of
+signer-unlinked ClusterTrustBundles <strong>must not</strong> contain a colon (<code>:</code>).</p><h3 id="ctb-projection">Accessing ClusterTrustBundles from pods</h3><div class="feature-state-notice feature-beta" title="Feature Gate: ClusterTrustBundleProjection"><span class="feature-state-name">FEATURE STATE:</span>
+<code>Kubernetes v1.33 [beta]</code> (enabled by default: false)</div><p>The contents of ClusterTrustBundles can be injected into the container filesystem, similar to ConfigMaps and Secrets.
+See the <a href="/docs/concepts/storage/projected-volumes/#clustertrustbundle">clusterTrustBundle projected volume source</a> for more details.</p><h2 id="what-s-next">What's next</h2><ul><li>Read <a href="/docs/tasks/tls/managing-tls-in-a-cluster/">Manage TLS Certificates in a Cluster</a></li><li>Read <a href="/docs/tasks/tls/certificate-issue-client-csr/">Issue a Certificate for a Kubernetes API Client Using A CertificateSigningRequest</a></li><li>View the source code for the kube-controller-manager built in
+<a href="https://github.com/kubernetes/kubernetes/blob/32ec6c212ec9415f604ffc1f4c1f29b782968ff1/pkg/controller/certificates/signer/cfssl_signer.go">signer</a></li><li>View the source code for the kube-controller-manager built in
+<a href="https://github.com/kubernetes/kubernetes/blob/32ec6c212ec9415f604ffc1f4c1f29b782968ff1/pkg/controller/certificates/approver/sarapprove.go">approver</a></li><li>For details of X.509 itself, refer to <a href="https://tools.ietf.org/html/rfc5280#section-3.1">RFC 5280</a> section 3.1</li><li>For information on the syntax of PKCS#10 certificate signing requests, refer to <a href="https://tools.ietf.org/html/rfc2986">RFC 2986</a></li><li>Read about the ClusterTrustBundle API:<ul><li>%!s(<nil>)</nil></li></ul></li></ul></div>

@@ -1,0 +1,72 @@
+<div class="td-content"><h1 data-pagefind-weight="10">Share Process Namespace between Containers in a Pod</h1><p>This page shows how to configure process namespace sharing for a pod. When
+process namespace sharing is enabled, processes in a container are visible
+to all other containers in the same pod.</p><p>You can use this feature to configure cooperating containers, such as a log
+handler sidecar container, or to troubleshoot container images that don't
+include debugging utilities like a shell.</p><h2 id="before-you-begin">Before you begin</h2><p>You need to have a Kubernetes cluster, and the kubectl command-line tool must
+be configured to communicate with your cluster. It is recommended to run this tutorial on a cluster with at least two nodes that are not acting as control plane hosts. If you do not already have a
+cluster, you can create one by using
+<a href="https://minikube.sigs.k8s.io/docs/tutorials/multi_node/">minikube</a>
+or you can use one of these Kubernetes playgrounds:</p><ul><li><a href="https://labs.iximiuz.com/playgrounds?category=kubernetes&amp;filter=all">iximiuz Labs</a></li><li><a href="https://killercoda.com/playgrounds/scenario/kubernetes">Killercoda</a></li><li><a href="https://kodekloud.com/public-playgrounds">KodeKloud</a></li><li><a href="https://labs.play-with-k8s.com/">Play with Kubernetes</a></li></ul><h2 id="configure-a-pod">Configure a Pod</h2><p>Process namespace sharing is enabled using the <code>shareProcessNamespace</code> field of
+<code>.spec</code> for a Pod. For example:</p><div class="highlight code-sample"><div class="copy-code-icon"><a href="https://raw.githubusercontent.com/kubernetes/website/main/content/en/examples/pods/share-process-namespace.yaml" download="pods/share-process-namespace.yaml"><code>pods/share-process-namespace.yaml</code>
+</a><img src="/images/copycode.svg" class="icon-copycode" onclick="copyCode(&quot;pods-share-process-namespace-yaml&quot;)" title="Copy pods/share-process-namespace.yaml to clipboard"/></div><div class="includecode" id="pods-share-process-namespace-yaml"><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-yaml" data-lang="yaml"><span style="display:flex"><span><span style="color:green;font-weight:700">apiVersion</span>:<span style="color:#bbb"> </span>v1<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">kind</span>:<span style="color:#bbb"> </span>Pod<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">metadata</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb"/><span style="color:green;font-weight:700">spec</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">shareProcessNamespace</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span><span style="color:green;font-weight:700">containers</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>nginx<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">  </span>- <span style="color:green;font-weight:700">name</span>:<span style="color:#bbb"> </span>shell<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">image</span>:<span style="color:#bbb"> </span>busybox:1.28<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">command</span>:<span style="color:#bbb"> </span>[<span style="color:#b44">"sleep"</span>,<span style="color:#bbb"> </span><span style="color:#b44">"3600"</span>]<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">securityContext</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">      </span><span style="color:green;font-weight:700">capabilities</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span><span style="color:green;font-weight:700">add</span>:<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">        </span>- SYS_PTRACE<span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">stdin</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span><span style="display:flex"><span><span style="color:#bbb">    </span><span style="color:green;font-weight:700">tty</span>:<span style="color:#bbb"> </span><span style="color:#a2f;font-weight:700">true</span><span style="color:#bbb">
+</span></span></span></code></pre></div></div></div><ol><li><p>Create the pod <code>nginx</code> on your cluster:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl apply -f https://k8s.io/examples/pods/share-process-namespace.yaml
+</span></span></code></pre></div></li><li><p>Attach to the <code>shell</code> container and run <code>ps</code>:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span>kubectl <span style="color:#a2f">exec</span> -it nginx -c shell -- /bin/sh
+</span></span></code></pre></div><p>If you don't see a command prompt, try pressing enter. In the container shell:</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># run this inside the "shell" container</span>
+</span></span><span style="display:flex"><span>ps ax
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">PID   USER     TIME  COMMAND
+    1 root      0:00 /pause
+    8 root      0:00 nginx: master process nginx -g daemon off;
+   14 101       0:00 nginx: worker process
+   15 root      0:00 sh
+   21 root      0:00 ps ax
+</code></pre></li></ol><p>You can signal processes in other containers. For example, send <code>SIGHUP</code> to
+<code>nginx</code> to restart the worker process. This requires the <code>SYS_PTRACE</code> capability.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># run this inside the "shell" container</span>
+</span></span><span style="display:flex"><span><span style="color:#a2f">kill</span> -HUP <span style="color:#666">8</span>   <span style="color:#080;font-style:italic"># change "8" to match the PID of the nginx leader process, if necessary</span>
+</span></span><span style="display:flex"><span>ps ax
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">PID   USER     TIME  COMMAND
+    1 root      0:00 /pause
+    8 root      0:00 nginx: master process nginx -g daemon off;
+   15 root      0:00 sh
+   22 101       0:00 nginx: worker process
+   23 root      0:00 ps ax
+</code></pre><p>It's even possible to access the file system of another container using the
+<code>/proc/$pid/root</code> link.</p><div class="highlight"><pre tabindex="0" style="background-color:#f8f8f8;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-shell" data-lang="shell"><span style="display:flex"><span><span style="color:#080;font-style:italic"># run this inside the "shell" container</span>
+</span></span><span style="display:flex"><span><span style="color:#080;font-style:italic"># change "8" to the PID of the Nginx process, if necessary</span>
+</span></span><span style="display:flex"><span>head /proc/8/root/etc/nginx/nginx.conf
+</span></span></code></pre></div><p>The output is similar to this:</p><pre tabindex="0"><code class="language-none" data-lang="none">user  nginx;
+worker_processes  1;
+
+error_log  /var/log/nginx/error.log warn;
+pid        /var/run/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+</code></pre><h2 id="understanding-process-namespace-sharing">Understanding process namespace sharing</h2><p>Pods share many resources so it makes sense they would also share a process
+namespace. Some containers may expect to be isolated from others, though,
+so it's important to understand the differences:</p><ol><li><p><strong>The container process no longer has PID 1.</strong> Some containers refuse
+to start without PID 1 (for example, containers using <code>systemd</code>) or run
+commands like <code>kill -HUP 1</code> to signal the container process. In pods with a
+shared process namespace, <code>kill -HUP 1</code> will signal the pod sandbox
+(<code>/pause</code> in the above example).</p></li><li><p><strong>Processes are visible to other containers in the pod.</strong> This includes all
+information visible in <code>/proc</code>, such as passwords that were passed as arguments
+or environment variables. These are protected only by regular Unix permissions.</p></li><li><p><strong>Container filesystems are visible to other containers in the pod through the
+<code>/proc/$pid/root</code> link.</strong> This makes debugging easier, but it also means
+that filesystem secrets are protected only by filesystem permissions.</p></li></ol></div>
